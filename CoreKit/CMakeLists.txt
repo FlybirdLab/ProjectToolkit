@@ -7,9 +7,10 @@ set(CMAKE_OBJCXX_STANDARD 17)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wno-deprecated-literal-operator)
 endif()
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-extensions")
 #################################################################
 set(INCS
-        "FLib/src"
+        "${CMAKE_SOURCE_DIR}/CoreKit/src"
 )
 set(LNKS
         ""
@@ -24,7 +25,11 @@ set(HEAD
 # dependencies
 #################################################################
 SetPlatformDeps(INCS LNKS)
+
+AddStb(INCS LNKS)
 AddSpdlog(INCS LNKS)
+AddRpmalloc(INCS LNKS)
+
 #################################################################
 # project configurations
 #################################################################
@@ -38,15 +43,15 @@ add_library(TkCore STATIC
         ${src}
 )
 target_include_directories(TkCore PRIVATE
-        ${includeList}
+        ${INCS}
 )
 target_link_libraries(TkCore PRIVATE
-        ${linkList}
+        ${LNKS}
 )
 target_compile_definitions(TkCore PRIVATE
         _XOPEN_SOURCE
         _LIBCPP_DRIVERKIT
 
-        TK_EXTRA_CHECKS
+        TK_DEBUG
         TK_ENABLE_SIMD
 )

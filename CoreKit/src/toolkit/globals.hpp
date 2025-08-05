@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <stdint.h>
 #include <limits>
@@ -6,11 +6,6 @@
 #include "environment.hpp"
 
 namespace toolkit::type {
-
-#ifdef MAX_PATH
-#undef MAX_PATH
-#endif
-    enum { MAX_PATH = 256 };
 
     typedef int8_t    i8;
     typedef uint8_t   u8;

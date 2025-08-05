@@ -14,7 +14,7 @@ set(DEPS
         ""
 )
 set(HEAD
-        ""
+        "TK_DEBUG"
 )
 set(SRCS
         ""
