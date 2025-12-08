@@ -8,8 +8,19 @@
 
 namespace toolkit {
 
-    ArenaAllocator::ArenaAllocator(u32 reserved, IAllocator& parent)
-        : m_parent(parent)
+	static void* ArenaAllocator_Alloc(AllocatorBase* ctx, psize size, psize align) {
+		return static_cast<ArenaAllocator*>(ctx)->alloc(size, align);
+	}
+
+	static void* ArenaAllocator_Realloc(AllocatorBase* ctx, void* ptr, psize newSize, psize oldSize, psize align) {
+		return static_cast<ArenaAllocator*>(ctx)->realloc(ptr, newSize, oldSize, align);
+	}
+
+	static void ArenaAllocator_Free(AllocatorBase* ctx, void* ptr) {
+		(void)ctx; (void)ptr;
+	}
+
+    ArenaAllocator::ArenaAllocator(u32 reserved)
     {
         m_reserved = reserved;
         m_mem = (u8*)System::reserveMemory(reserved);
@@ -33,7 +44,8 @@ namespace toolkit {
         return (val + align - 1) & ~(align - 1);
     }
 
-    void* ArenaAllocator::alloc(PtrSize size, PtrSize align) {
+    void* ArenaAllocator::alloc(psize size, psize align)
+	{
         TK_ASSERT(size < 0xffFFffFF);
         u32 start;
         for (;;) {
@@ -56,14 +68,20 @@ namespace toolkit {
     }
 
     void ArenaAllocator::free(void* ptr) {
+	    (void)ptr;
         /*everything should be "deallocated" with reset()*/
     }
 
-    void* ArenaAllocator::realloc(void* ptr, PtrSize new_size, PtrSize old_size, PtrSize align) {
-        if (!ptr) return alloc(new_size, align);
+    void* ArenaAllocator::realloc(void* ptr, psize newSize, psize, psize align) {
+        if (!ptr) return alloc(newSize, align);
         // realloc not supported
         TK_ASSERT(false);
         return nullptr;
     }
+
+	IAllocator ArenaAllocator::asInterface() const
+	{
+		return IAllocator(ArenaAllocator_Alloc, ArenaAllocator_Realloc, ArenaAllocator_Free, (AllocatorBase*)this, AllocatorType::kArena);
+	}
 
 }

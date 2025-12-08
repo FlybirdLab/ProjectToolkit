@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <toolkit/globals.hpp>
+#include <toolkit/common.hpp>
 #include <atomic>
 
 namespace toolkit {

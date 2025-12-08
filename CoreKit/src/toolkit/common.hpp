@@ -1,8 +1,12 @@
-﻿#pragma once
+﻿// Created by cubevlmu on 2025/8/4.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
+#pragma once
 
 #include <stdint.h>
 #include <limits>
 
+#include <toolkit/forward.hpp>
 #include "environment.hpp"
 
 namespace toolkit::type {
@@ -18,9 +22,10 @@ namespace toolkit::type {
     typedef float     f32;
     typedef double    f64;
 
-    typedef size_t  PtrSize;
-    typedef u8      byte;
-    typedef char    sbyte;
+    typedef size_t   psize;
+    typedef u8       byte;
+    typedef char     sbyte;
+	typedef intptr_t intptr;
 
     constexpr i8 kMaxI8 = std::numeric_limits<i8>::max();
     constexpr i8 kMinI8 = std::numeric_limits<i8>::min();
@@ -46,9 +51,9 @@ namespace toolkit::type {
     constexpr u64 kMaxU64 = std::numeric_limits<u64>::max();
     constexpr u64 kMinU64 = std::numeric_limits<u64>::min();
 
-    constexpr PtrSize kMaxPSize = std::numeric_limits<PtrSize>::max();
-    constexpr PtrSize kMinPSize = std::numeric_limits<PtrSize>::min();
-    static_assert(sizeof(PtrSize) == sizeof(void*), "PtrSize is not vailed!");
+    constexpr psize kMaxPSize = std::numeric_limits<psize>::max();
+    constexpr psize kMinPSize = std::numeric_limits<psize>::min();
+    static_assert(sizeof(psize) == sizeof(void*), "psize is not vailed!");
 
     constexpr f32 kMaxF32 = std::numeric_limits<f32>::max();
     constexpr f32 kMinF32 = -std::numeric_limits<f32>::max();
@@ -62,6 +67,14 @@ namespace toolkit::type {
     {
         return count;
     }
+
+
+	enum class BucketState : byte
+	{
+		kEmpty = 0,
+		kDeleted,
+		kOccupied,
+	};
 
 }
 

@@ -3,16 +3,20 @@
 
 #pragma once
 
-#include <toolkit/globals.hpp>
+#include <toolkit/common.hpp>
 
 namespace toolkit {
 
     class System
     {
     public:
-        static void* reserveMemory(PtrSize size);
-        static void commitMemory(void* ptr, PtrSize size);
-        static void releaseMemory(void* ptr, PtrSize size);
+        static void* reserveMemory(psize size);
+        static void commitMemory(void* ptr, psize size);
+        static void releaseMemory(void* ptr, psize size);
+
+        static void* alloc(psize size);
+        static void* allocAligned(psize size, psize align);
+        static void free(void*);
     };
 
 }

@@ -3,25 +3,26 @@
 
 #pragma once
 
-#include <toolkit/memory/IAllocator.hpp>
+#include <toolkit/memory/Memory.hpp>
 #include <toolkit/types/Atomic.hpp>
 #include <toolkit/threading/Sync.hpp>
 
 namespace toolkit {
 
-    class ArenaAllocator final : public IAllocator
+    class ArenaAllocator final : public AllocatorBase
     {
     public:
-        ArenaAllocator(u32 reserved, IAllocator& parent);
+        ArenaAllocator(u32 reserved);
         ~ArenaAllocator();
 
         void reset();
-        void* alloc(PtrSize size, PtrSize align) override;
-        void free(void* ptr) override;
-        void* realloc(void* ptr, PtrSize new_size, PtrSize old_size, PtrSize align) override;
+        void* alloc(psize size, psize align);
+        void free(void* ptr);
+        void* realloc(void* ptr, psize newSize, psize oldSize, psize align);
+
+		IAllocator asInterface() const;
 
     private:
-        IAllocator& m_parent;
         u32 m_commited_bytes = 0;
         u32 m_reserved;
         TkAtomic<i32> m_end {0};

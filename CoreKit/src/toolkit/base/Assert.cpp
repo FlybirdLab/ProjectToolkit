@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
 #include "Assert.hpp"
-#include <toolkit/globals.hpp>
+#include <toolkit/common.hpp>
 
 #include <cstdlib>
 #include <cstdio>

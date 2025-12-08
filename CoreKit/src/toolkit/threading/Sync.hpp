@@ -167,4 +167,26 @@ namespace toolkit {
     private:
         T* m_mtx;
     };
+
+
+	class TSync
+	{
+	public:
+		static void memoryBarrier();
+		static void prefetch(void const* ptr);
+
+	public:
+		static i64 interlockedExchange(i64 volatile* dst, i64 exchange);
+		static i32 interlockedCompareExchange(i32 volatile* dst, i32 exchange, i32 comperand);
+		static i64 interlockedCompareExchange(i64 volatile* dst, i64 exchange, i64 comperand);
+		static i64 interlockedIncrement(i64 volatile* dst);
+		static i64 interlockedDecrement(i64 volatile* dst);
+		static i64 interlockedAdd(i64 volatile* dst, i64 value);
+
+	public:
+		static i32 atomicRead(i32 const volatile* dst);
+		static i64 atomicRead(i64 const volatile* dst);
+		static void atomicStore(i32 volatile* dst, i32 value);
+		static void atomicStore(i64 volatile* dst, i64 value);
+	};
 }

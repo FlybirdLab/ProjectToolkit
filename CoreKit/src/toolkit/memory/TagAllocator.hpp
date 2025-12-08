@@ -3,28 +3,38 @@
 
 #pragma once
 
-#include <toolkit/memory/IAllocator.hpp>
+#include <toolkit/memory/Memory.hpp>
 
 namespace toolkit {
 
     /// Effiective allocator for group allocating and relocate allocator to control allocate logic
-    class TagAllocator final : public IAllocator
+    class TagAllocator final : public AllocatorBase
     {
     public:
-        TagAllocator(IAllocator& allocator, const char* tag_name);
-        ~TagAllocator() override;
+        TagAllocator(IAllocator allocator, const char* tag_name);
+        ~TagAllocator() = default;
 
-        void* alloc(PtrSize size, PtrSize align) override;
-        void* realloc(void* ptr, PtrSize newSize, PtrSize oldSize, PtrSize align) override;
-        void free(void* ptr) override;
+        void* alloc(psize size, psize align);
+        void* realloc(void* ptr, psize newSize, psize oldSize, psize align);
+        void free(void* ptr);
 
-        IAllocator* getParent() const override { return m_direct_parent; }
+	    IAllocator getParent() const { return m_direct_parent; }
+		IAllocator asInterface();
         static TagAllocator* getActiveAllocator();
 
+
+	    static u32 typeId()
+	    {
+		    static u32 id = reinterpret_cast<uintptr_t>(&id);
+		    return id;
+	    }
+
+
     private:
-        IAllocator* m_direct_parent;
-        IAllocator* m_effective_allocator;
-        const char* m_tag;
+	    IAllocator m_direct_parent;
+        const std::string_view m_tag;
+
+		static const AllocatorMeta meta;
     };
 
 }

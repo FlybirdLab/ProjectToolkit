@@ -164,4 +164,75 @@ namespace toolkit {
     }
 
 
+	i64 TSync::interlockedExchange(volatile i64* dst, i64 exchange)
+	{
+		return _InterlockedExchange64(dst, exchange);
+	}
+	i32 TSync::interlockedCompareExchange(volatile i32* dst, i32 exchange, i32 comperand)
+	{
+		return _InterlockedCompareExchange((long volatile*)dst, exchange, comperand);
+	}
+	i64 TSync::interlockedCompareExchange(volatile i64* dst, i64 exchange, i64 comperand)
+	{
+		return _InterlockedCompareExchange64(dst, exchange, comperand);
+	}
+	i64 TSync::interlockedIncrement(volatile i64* dst)
+	{
+		return _InterlockedExchangeAdd64(dst, 1) + 1;
+	}
+	i64 TSync::interlockedDecrement(i64 volatile* dst)
+	{
+		return _InterlockedExchangeAdd64(dst, -1) - 1;
+	}
+	i64 TSync::interlockedAdd(i64 volatile* dst, i64 value)
+	{
+		return _InterlockedExchangeAdd64(dst, value);
+	}
+	i32 TSync::atomicRead(i32 const volatile* dst)
+	{
+		return (i32)_InterlockedCompareExchange((long volatile*)dst, 0, 0);
+	}
+	i64 TSync::atomicRead(i64 const volatile* dst)
+	{
+		return _InterlockedCompareExchange64((i64 volatile*)dst, 0, 0);
+	}
+	void TSync::atomicStore(i32 volatile* dst, i32 value)
+	{
+		_InterlockedExchange((long volatile*)dst, value);
+	}
+	void TSync::atomicStore(i64 volatile* dst, i64 value)
+	{
+		_InterlockedExchange64(dst, value);
+	}
+
+	void TSync::memoryBarrier()
+	{
+		_ReadWriteBarrier();
+#if TK_PLATFORM_64BITS
+		#if defined(_AMD64_)
+    __faststorefence();
+#elif defined(_IA64_)
+	__mf();
+#elif defined(_ARM64_)
+    __dmb(_ARM64_BARRIER_ISH);
+#else
+#error "Invalid platform."
+#endif
+#else
+		LONG barrier;
+		__asm {
+			xchg barrier, eax
+		}
+#endif
+	}
+
+	void TSync::prefetch(void const* ptr)
+	{
+#if _M_ARM64
+		__prefetch((char const*)ptr);
+#else
+		_mm_prefetch((char const*)ptr, _MM_HINT_T0);
+#endif
+	}
+
 }

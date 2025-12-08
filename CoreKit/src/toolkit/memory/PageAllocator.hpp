@@ -3,28 +3,30 @@
 
 #pragma once
 
-#include <toolkit/memory/IAllocator.hpp>
+#include <toolkit/memory/Memory.hpp>
 #include <toolkit/threading/Sync.hpp>
 
 namespace toolkit {
 
     struct PoolAllocatorPage;
 
-    class PoolAllocator final : public IAllocator
+    class PageAllocator final : public AllocatorBase
     {
     public:
-        PoolAllocator();
-        ~PoolAllocator() override;
+        PageAllocator();
+        ~PageAllocator();
 
-        void* alloc(PtrSize size, PtrSize align) override;
-        void* realloc(void* ptr, PtrSize newSize, PtrSize oldSize, PtrSize align) override;
-        void free(void* ptr) override;
+        void* alloc(psize size, psize align);
+        void* realloc(void* ptr, psize newSize, psize oldSize, psize align);
+        void free(void* ptr);
+
+		IAllocator asInterface() const;
 
     private:
         void freeSmall(void* mem);
         void* allocSmall(size_t n);
         bool isSmallAlloc(void* p);
-        void* reallocSmallAligned(void* mem, PtrSize n, PtrSize align);
+        void* reallocSmallAligned(void* mem, psize n, psize align);
 
     private:
         u8* m_small_allocations = nullptr;

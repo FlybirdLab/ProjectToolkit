@@ -1,7 +1,7 @@
 // Created by cubevlmu on 2025/8/4.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
-#include <toolkit/globals.hpp>
+#include <toolkit/common.hpp>
 #include "toolkit/types/Atomic.hpp"
 
 #if TK_WINDOWS

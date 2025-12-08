@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
+
+#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
 ##########################################################
 # dependencies
 ##########################################################

@@ -5,33 +5,36 @@
 
 namespace toolkit {
 
-    TagAllocator::TagAllocator(IAllocator& allocator, const char* tag_name)
-        : m_tag(tag_name)
+    TagAllocator::TagAllocator(IAllocator allocator, const char* tag_name)
+        : m_tag {tag_name}
+		, m_direct_parent {allocator}
     {
-        m_effective_allocator = m_direct_parent = &allocator;
-        while (m_effective_allocator->getParent() && dynamic_cast<TagAllocator*>(m_effective_allocator)) {
-            m_effective_allocator = m_effective_allocator->getParent();
-        }
     }
 
     thread_local TagAllocator* active_allocator = nullptr;
 
-    void* TagAllocator::alloc(size_t size, size_t align) {
+    void* TagAllocator::alloc(psize size, psize align) {
         active_allocator = this;
-        return m_effective_allocator->alloc(size, align);
+        return TMemory::allocate(m_direct_parent, size, align);
     }
 
     void TagAllocator::free(void* ptr) {
-        m_effective_allocator->free(ptr);
+        TMemory::free(m_direct_parent, ptr);
     }
 
-    void* TagAllocator::realloc(void* ptr, size_t new_size, size_t old_size, size_t align) {
+    void* TagAllocator::realloc(void* ptr, psize new_size, psize old_size, psize align) {
         active_allocator = this;
-        return m_effective_allocator->realloc(ptr, new_size, old_size, align);
+        return TMemory::reallocate(m_direct_parent, ptr, new_size, old_size, align);
     }
 
     TagAllocator* TagAllocator::getActiveAllocator() {
         return active_allocator;
     }
+
+	IAllocator TagAllocator::asInterface()
+	{
+		// No interface for tag allocator
+		return m_direct_parent;
+	}
 
 }

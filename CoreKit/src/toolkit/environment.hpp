@@ -1,3 +1,6 @@
+// Created by cubevlmu on 2025/8/4.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #pragma once
 
 #define _TK_STR_HELPER(x) #x
@@ -124,6 +127,39 @@
 #endif
 
 
+// ================================
+// Platform detect
+// ================================
+#if defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__)
+#define TK_PLATFORM_64BITS 1
+#else
+#define TK_PLATFORM_64BITS 0
+#endif
+
+#if defined(_M_X64) || defined(__x86_64__) || defined(_AMD64_)
+#define ARCH_AMD64 1
+#endif
+
+#if defined(_M_IA64) || defined(__ia64__) || defined(_IA64_)
+#define ARCH_IA64 1
+#endif
+
+#if defined(_M_ARM64) || defined(__aarch64__) || defined(_ARM64_)
+#define ARCH_ARM64 1
+#endif
+
+#if defined(_M_IX86) || defined(__i386__)
+#define ARCH_X86 1
+#endif
+
+// ================================
+// ARM64
+// ================================
+#ifndef _ARM64_BARRIER_ISH
+#define _ARM64_BARRIER_ISH 0xB  // Inner Shareable
+#endif
+
+
 #if TK_COMPILER_GCC_COMPATIBLE
 #	define TK_RESTRICT __restrict
 #	define TK_FORCE_INLINE inline __attribute__((always_inline))
@@ -158,3 +194,5 @@
 #	define TK_CHECK_FORMAT(fmtArgIdx, firstArgIdx)
 #	define TK_PURE
 #endif
+
+#include <toolkit/definations.hpp>
