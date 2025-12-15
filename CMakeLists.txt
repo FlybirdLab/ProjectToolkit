@@ -10,5 +10,5 @@ include(${CMAKE_SOURCE_DIR}/libs/index.cmake)
 ##########################################################
 project(ToolkitProject)
 ##########################################################
-add_subdirectory(CoreKit)
-add_subdirectory(Sandbox)
+add_subdirectory(modules)
+add_subdirectory(tools)

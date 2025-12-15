@@ -1,3 +1,3 @@
 # Toolkit module index
 
-include(${CMAKE_SOURCE_DIR}/CoreKit/index.cmake)
+include(${CMAKE_SOURCE_DIR}/modules/index.cmake)
