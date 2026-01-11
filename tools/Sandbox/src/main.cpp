@@ -1,3 +1,8 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 #include <iostream>
 
 #include <toolkit/common.hpp>
@@ -8,6 +13,7 @@
 #include <toolkit/base/Format.hpp>
 
 #include <toolkit/memory/StackAllocator.hpp>
+#include <toolkit/debug/Logger.hpp>
 
 #include <toolkit/types/String.hpp>
 #include <toolkit/collection/Array.hpp>
@@ -27,6 +33,8 @@ int main(int argc, char** argv) {
 		.b = "你好"
 	};
 
+	TkLogger logger = TkLogger::getShared();
+	logger.info("Hello world");
 
 //	toolkit::PageAllocator alloc {};
 //	auto it = alloc.asInterface();
@@ -37,7 +45,7 @@ int main(int argc, char** argv) {
 
     TkString str = "";
 	auto r = TkString::format("Test %s", t);
-	printf("%s\n", r.getText());
+	logger.info("%s", r.getText());
 
     return 0;
 }

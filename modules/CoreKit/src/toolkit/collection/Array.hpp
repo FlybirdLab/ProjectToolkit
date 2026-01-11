@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include <toolkit/memory/ContainerAllocation.hpp>
+#include <toolkit/memory/ContainerMemory.hpp>
+#include <toolkit/base/Assert.hpp>
 
 namespace toolkit {
 
@@ -18,63 +19,9 @@ namespace toolkit {
 
 	// Template for dynamic array with variable capacity.
 	template<typename T>
-	class TkArray
+	class TkArray final
 	{
-		friend TkArray;
-	public:
-		using ItemType = T;
-
-	private:
-		i32 m_count;
-		i32 m_capacity;
-		T* m_data;
-		IAllocator& m_alloc;
-
-		static bool dataHasSwap(IAllocator& alloc) {
-			return alloc.getTypeId() != AllocatorType::kStack; //TODO maybe something else can't
-		}
-
-		TK_FORCE_INLINE static void moveToEmpty(IAllocator& alloc, void*& to, void*& from, const i32 fromCount, const i32 fromCapacity)
-		{
-			if (dataHasSwap(alloc))
-				toolkit::swap(to, from);
-			else
-			{
-				to = TkMemory::allocate(alloc, fromCapacity * sizeof(T), alignof(T));
-				TkMemory::moveItems(to, from, fromCount);
-				TkMemory::destructItems(from, fromCount);
-				TkMemory::free(alloc, from);
-			}
-		}
-
-		i32 calculateCapacityGrow(IAllocator& alloc, i32 capacity, const i32 minCapacity) {
-			if (alloc.getTypeId() == AllocatorType::kStack) {
-				return minCapacity;
-			} else {
-				if (capacity < minCapacity)
-					capacity = minCapacity;
-				if (capacity < 8)
-				{
-					capacity = 8;
-				}
-				else
-				{
-					// Round up to the next power of 2 and multiply by 2 (http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2)
-					capacity--;
-					capacity |= capacity >> 1;
-					capacity |= capacity >> 2;
-					capacity |= capacity >> 4;
-					capacity |= capacity >> 8;
-					capacity |= capacity >> 16;
-					u64 capacity64 = (u64)(capacity + 1) * 2;
-					if (capacity64 > kMaxI32)
-						capacity64 = kMaxI32;
-					capacity = (i32)capacity64;
-				}
-				return capacity;
-			}
-		}
-
+		friend class TkArray;
 	public:
 		TK_FORCE_INLINE TkArray(IAllocator& alloc = TkMemory::getDefault())
 			: m_count {0}
@@ -83,7 +30,6 @@ namespace toolkit {
 			, m_alloc {alloc}
 		{
 		}
-
 
 		explicit TkArray(const i32 capacity, IAllocator& alloc = TkMemory::getDefault())
 			: m_count {0}
@@ -96,7 +42,6 @@ namespace toolkit {
 				m_data = nullptr;
 		}
 
-
 		TkArray(std::initializer_list<T> initList, IAllocator& alloc = TkMemory::getDefault())
 		    : m_alloc {alloc}
 		{
@@ -107,7 +52,6 @@ namespace toolkit {
 				TkMemory::constructItems(m_data, initList.begin(), m_count);
 			}
 		}
-
 
 		TkArray(const T* data, const i32 length, IAllocator& alloc = TkMemory::getDefault())
 		    : m_alloc {alloc}
@@ -121,10 +65,10 @@ namespace toolkit {
 			}
 		}
 
-
+		// Copy constructor
 		TkArray(const TkArray& other)
+		    : m_alloc {other.m_alloc}
 		{
-			m_alloc = other.m_alloc;
 			m_count = m_capacity = other.m_count;
 			if (m_capacity > 0)
 			{
@@ -132,7 +76,6 @@ namespace toolkit {
 				TkMemory::constructItems(m_data, other.get(), other.m_count);
 			}
 		}
-
 
 		TkArray(const TkArray& other, i32 extraSize, IAllocator& alloc = TkMemory::getDefault())
 		    : m_alloc {alloc}
@@ -147,7 +90,6 @@ namespace toolkit {
 			}
 		}
 
-
 		template<typename OtherT = T>
 		explicit TkArray(const TkArray<OtherT>& other) noexcept
 		{
@@ -161,15 +103,15 @@ namespace toolkit {
 			}
 		}
 
-
+		// Move constructor
 		TkArray(TkArray&& other) noexcept
+		    : m_alloc {other.m_alloc}
 		{
 			m_count = other.m_count;
 			m_capacity = other.m_capacity;
-			m_alloc = other.m_alloc;
 			other.m_count = 0;
 			other.m_capacity = 0;
-			moveToEmpty(m_data, other.m_data, m_count, m_capacity);
+			moveToEmpty(m_alloc, m_data, other.m_data, m_count, m_capacity);
 		}
 
 		TkArray& operator=(std::initializer_list<T> initList) noexcept
@@ -183,6 +125,7 @@ namespace toolkit {
 			}
 			return *this;
 		}
+
 		TkArray& operator=(const TkArray& other) noexcept
 		{
 			if (this != &other)
@@ -199,6 +142,7 @@ namespace toolkit {
 			}
 			return *this;
 		}
+
 		TkArray& operator=(TkArray&& other) noexcept
 		{
 			if (this != &other)
@@ -309,19 +253,19 @@ namespace toolkit {
 	public:
 		TK_FORCE_INLINE T* begin()
 		{
-			return &m_data[0];
+			return m_data;
 		}
 		TK_FORCE_INLINE T* end()
 		{
-			return &m_data[m_count];
+			return m_data + m_count;
 		}
 		TK_FORCE_INLINE const T* begin() const
 		{
-			return &m_data[0];
+			return m_data;
 		}
 		TK_FORCE_INLINE const T* end() const
 		{
-			return &m_data[m_count];
+			return m_data + m_count;
 		}
 
 	public:
@@ -331,11 +275,7 @@ namespace toolkit {
 			m_count = 0;
 		}
 
-#if defined(_MSC_VER)
 		void clearDelete() requires (TIsPointer<T>::Value)
-#else
-		void clearDelete()
-#endif
 		{
 			T* data = get();
 			for (i32 i = 0; i < m_count; i++)
@@ -346,12 +286,10 @@ namespace toolkit {
 			clear();
 		}
 
-#if defined(_MSC_VER)
 		void clearDelete() requires (!TIsPointer<T>::Value)
 		{
 			clear();
 		}
-#endif
 
 		void setCapacity(const i32 capacity, const bool preserveContents = true)
 		{
@@ -371,7 +309,7 @@ namespace toolkit {
 				T* newData =
 					capacity != 0 ? static_cast<T*>(TkMemory::allocate(m_alloc, capacity * sizeof(T))) : nullptr;
 				if (!newData && capacity != 0)
-					TK_ASSERT(false && "OOM");
+					TK_ASSERT(false && "OutOfMemory Error");
 
 				if (m_count)
 				{
@@ -404,10 +342,11 @@ namespace toolkit {
 		{
 			if (m_capacity < minCapacity)
 			{
-				const i32 capacity = calculateCapacityGrow(m_alloc, m_capacity, minCapacity);
+				const i32 capacity = toolkit::calCapacityGrow(m_alloc, m_capacity, minCapacity);
 				setCapacity(capacity, preserveContents);
 			}
 		}
+
 		TK_FORCE_INLINE void reserve(u32 capacity) {
 			ensureCapacity(capacity);
 		}
@@ -433,18 +372,21 @@ namespace toolkit {
 			TkMemory::constructItems(m_data + m_count, &item, 1);
 			++m_count;
 		}
+
 		void add(T&& item)
 		{
 			ensureCapacity(m_count + 1);
 			TkMemory::moveItems(m_data + m_count, &item, 1);
 			++m_count;
 		}
+
 		void add(const T* items, const i32 count)
 		{
 			ensureCapacity(m_count + count);
 			TkMemory::constructItems(m_data + m_count, items, count);
 			m_count += count;
 		}
+
 		template<typename OtherT>
 		TK_FORCE_INLINE void add(const TkArray<OtherT>& other)
 		{
@@ -480,6 +422,7 @@ namespace toolkit {
 
 		void addZeroed(const i32 count = 1)
 		{
+			static_assert(toolkit::TIsTriviallyConstructible<T>(), "addZeroed requires trivial type");
 			ensureCapacity(m_count + count);
 			memset(m_data + m_count, 0, count * sizeof(T));
 			m_count += count;
@@ -496,6 +439,7 @@ namespace toolkit {
 			m_count++;
 			data[index] = item;
 		}
+
 		void insert(const i32 index, T&& item)
 		{
 			TK_ASSERT(index >= 0 && index <= m_count);
@@ -507,6 +451,7 @@ namespace toolkit {
 			++m_count;
 			data[index] = moveTemp(item);
 		}
+
 		void insert(const i32 index)
 		{
 			TK_ASSERT(index >= 0 && index <= m_count);
@@ -534,9 +479,9 @@ namespace toolkit {
 		{
 			const i32 index = find(item);
 			if (index == -1)
-				return true;
+				return false;
 			removeAtKeepOrder(index);
-			return false;
+			return true;
 		}
 
 		void removeAllKeepOrder(const T& item)
@@ -572,9 +517,9 @@ namespace toolkit {
 		{
 			const i32 index = find(item);
 			if (index == -1)
-				return true;
+				return false;
 			removeAt(index);
-			return false;
+			return true;
 		}
 
 		void removeAll(const T& item)
@@ -616,7 +561,10 @@ namespace toolkit {
 			}
 			else
 			{
-				toolkit::swap(other, *this);
+				// Stack allocator swap logic
+				TkArray temp(std::move(other));
+				other = std::move(*this);
+				*this = std::move(temp);
 			}
 		}
 
@@ -876,6 +824,29 @@ namespace toolkit {
 		TK_FORCE_INLINE Iterator End() const
 		{
 			return Iterator(this, m_count);
+		}
+
+	private:
+		i32 m_count;
+		i32 m_capacity;
+		T* m_data;
+		IAllocator& m_alloc;
+
+		static bool dataHasSwap(IAllocator& alloc) {
+			return alloc.getTypeId() != AllocatorType::kStack; //TODO maybe something else can't
+		}
+
+		TK_FORCE_INLINE static void moveToEmpty(IAllocator& alloc, void*& to, void*& from, const i32 fromCount, const i32 fromCapacity)
+		{
+			if (dataHasSwap(alloc))
+				toolkit::swap(to, from);
+			else
+			{
+				to = TkMemory::allocate(alloc, fromCapacity * sizeof(T), alignof(T));
+				TkMemory::moveItems(to, from, fromCount);
+				TkMemory::destructItems(from, fromCount);
+				TkMemory::free(alloc, from);
+			}
 		}
 	};
 

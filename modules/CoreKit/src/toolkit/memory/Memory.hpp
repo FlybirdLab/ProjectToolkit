@@ -232,16 +232,16 @@ namespace toolkit {
 		}
 
 		template<class T, class... Args>
-		inline T *newObject(Args&&... args) {
+		inline T* newObject(Args&&... args) {
 			T *ptr = (T *) allocate(getDefault(), sizeof(T), alignof(T));
-			new(ptr) T(forward<Args>(args)...);
+			new(ptr) T(toolkit::forward<Args>(args)...);
 			return ptr;
 		}
 
 		template<class T, class... Args>
 		inline static T* newObject(IAllocator& alloc, Args &&...args) {
 			T* ptr = (T*) allocate(alloc, sizeof(T), alignof(T));
-			new(ptr) T(forward<Args>(args)...);
+			new(ptr) T(toolkit::forward<Args>(args)...);
 			return ptr;
 		}
 

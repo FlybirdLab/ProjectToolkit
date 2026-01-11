@@ -7,6 +7,7 @@ function(SetPlatformDeps incVar lnkVar)
                 "gdi32"
                 "shell32"
         )
+        add_compile_options(/utf-8)
     ELSEIF(APPLE)
         list(APPEND ${lnkVar}
                 "-framework Foundation"
