@@ -12,14 +12,14 @@ namespace toolkit {
 
 	// The function object that supports binding static, member and lambda functions
 	template<typename ReturnType, typename... Params>
-	class TFunc<ReturnType(Params...)>
+	class TkFunc<ReturnType(Params...)>
 	{
 	public:
-		friend TAction<Params...>;
+		friend TkAction<Params...>;
 		typedef ReturnType(*Signature)(Params...);
 
 		template<typename... TParams>
-		friend u32 getHash(const TFunc<void(TParams...)>& key);
+		friend u32 getHash(const TkFunc<void(TParams...)>& key);
 
 	private:
 		typedef ReturnType(*StubSignature)(void*, Params...);
@@ -70,26 +70,26 @@ namespace toolkit {
 		}
 
 	public:
-		TFunc()
+		TkFunc()
 		{
 			m_callee = nullptr;
 			m_function = nullptr;
 			m_lambda = nullptr;
 		}
-		TFunc(Signature method)
+		TkFunc(Signature method)
 		{
 			m_callee = (void*)method;
 			m_function = &staticPointerMethodStub;
 			m_lambda = nullptr;
 		}
 		template<typename T>
-		TFunc(const T& lambda)
+		TkFunc(const T& lambda)
 		{
 			m_lambda = nullptr;
 			bind<T>(lambda);
 		}
 
-		TFunc(const TFunc& other)
+		TkFunc(const TkFunc& other)
 			: m_callee(other.m_callee)
 			, m_function(other.m_function)
 			, m_lambda(other.m_lambda)
@@ -97,7 +97,7 @@ namespace toolkit {
 			if (m_lambda)
 				lambdaCtor();
 		}
-		TFunc(TFunc&& other) noexcept
+		TkFunc(TkFunc&& other) noexcept
 			: m_callee(other.m_callee)
 			, m_function(other.m_function)
 			, m_lambda(other.m_lambda)
@@ -105,7 +105,7 @@ namespace toolkit {
 			other.m_lambda = nullptr;
 		}
 
-		~TFunc()
+		~TkFunc()
 		{
 			if (m_lambda)
 				lambdaDtor();
@@ -187,7 +187,7 @@ namespace toolkit {
 			return m_function(m_callee, forward<Params>(params)...);
 		}
 
-		TFunc& operator=(const TFunc& other)
+		TkFunc& operator=(const TkFunc& other)
 		{
 			if (this == &other)
 				return *this;
@@ -199,7 +199,7 @@ namespace toolkit {
 			return *this;
 		}
 
-		TFunc& operator=(TFunc&& other) noexcept
+		TkFunc& operator=(TkFunc&& other) noexcept
 		{
 			if (this == &other)
 				return *this;
@@ -212,12 +212,12 @@ namespace toolkit {
 			return *this;
 		}
 
-		TK_FORCE_INLINE bool operator==(const TFunc& other) const
+		TK_FORCE_INLINE bool operator==(const TkFunc& other) const
 		{
 			return m_function == other.m_function && m_callee == other.m_callee;
 		}
 
-		TK_FORCE_INLINE bool operator!=(const TFunc& other) const
+		TK_FORCE_INLINE bool operator!=(const TkFunc& other) const
 		{
 			return m_function != other.m_function || m_callee != other.m_callee;
 		}
@@ -231,15 +231,15 @@ namespace toolkit {
 	public:
 		// Signature of the function to call.
 		typedef void (*Signature)(Params...);
-		using TFuncType = TFunc<void(Params...)>;
+		using TkFuncType = TkFunc<void(Params...)>;
 
 	protected:
 		struct Data
 		{
-			THashSet<TFuncType> TFuncs;
+			THashSet<TkFuncType> TkFuncs;
 			TkMutex Locker;
 		};
-		// Holds pointer to Data with TFuncs and Locker. Thread-safe access via atomic operations.
+		// Holds pointer to Data with TkFuncs and Locker. Thread-safe access via atomic operations.
 		intptr_t volatile m_data = 0;
 
 	public:
@@ -253,7 +253,7 @@ namespace toolkit {
 			if (otherData == nullptr)
 				return;
 			TkMutexGuard lock(otherData->Locker);
-			for (auto i = otherData->TFuncs.Begin(); i.IsNotEnd(); ++i)
+			for (auto i = otherData->TkFuncs.Begin(); i.IsNotEnd(); ++i)
 				bind(i->Item);
 		}
 
@@ -284,7 +284,7 @@ namespace toolkit {
 				if (otherData != nullptr)
 				{
 					TkMutexGuard lock(otherData->Locker);
-					for (auto i = otherData->TFuncs.Begin(); i.IsNotEnd(); ++i)
+					for (auto i = otherData->TkFuncs.Begin(); i.IsNotEnd(); ++i)
 						bind(i->Item);
 				}
 			}
@@ -305,30 +305,30 @@ namespace toolkit {
 		template<void(*Method)(Params...)>
 		void bind()
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<Method>();
 			bind(f);
 		}
 		template<class T, void(T::* Method)(Params...)>
 		void bind(T* callee)
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<T, Method>(callee);
 			bind(f);
 		}
 		void bind(Signature method)
 		{
-			TFuncType f(method);
+			TkFuncType f(method);
 			bind(f);
 		}
 		template<typename T>
 		void bind(const T& lambda)
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<T>(lambda);
 			bind(f);
 		}
-		void bind(const TFuncType& f)
+		void bind(const TkFuncType& f)
 		{
 			Data* data = (Data*)TSync::atomicRead(&m_data);
 			while (!data)
@@ -343,14 +343,14 @@ namespace toolkit {
 				data = (Data*)TSync::atomicRead(&m_data);
 			}
 			TkMutexGuard lock(data->Locker);
-			data->TFuncs.add(f);
+			data->TkFuncs.add(f);
 		}
 
 		// Binds a static function (if not bound yet).
 		template<void(*Method)(Params...)>
 		void bindUnique()
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<Method>();
 			bindUnique(f);
 		}
@@ -359,7 +359,7 @@ namespace toolkit {
 		template<class T, void(T::* Method)(Params...)>
 		void bindUnique(T* callee)
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<T, Method>(callee);
 			bindUnique(f);
 		}
@@ -367,18 +367,18 @@ namespace toolkit {
 		// Binds a function (if not bound yet).
 		void bindUnique(Signature method)
 		{
-			TFuncType f(method);
+			TkFuncType f(method);
 			bindUnique(f);
 		}
 
 		// Binds a function (if not bound yet).
-		void bindUnique(const TFuncType& f)
+		void bindUnique(const TkFuncType& f)
 		{
 			Data* data = (Data*)TSync::atomicRead(&m_data);
 			if (data)
 			{
 				data->Locker.lock();
-				if (data->TFuncs.contains(f))
+				if (data->TkFuncs.contains(f))
 				{
 					data->Locker.unlock();
 					return;
@@ -393,29 +393,29 @@ namespace toolkit {
 		template<void(*Method)(Params...)>
 		void unbind()
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<Method>();
 			unbind(f);
 		}
 		template<class T, void(T::* Method)(Params...)>
 		void unbind(T* callee)
 		{
-			TFuncType f;
+			TkFuncType f;
 			f.template bind<T, Method>(callee);
 			unbind(f);
 		}
 		void unbind(Signature method)
 		{
-			TFuncType f(method);
+			TkFuncType f(method);
 			unbind(f);
 		}
-		void unbind(const TFuncType& f)
+		void unbind(const TkFuncType& f)
 		{
 			Data* data = (Data*)TSync::atomicRead(&m_data);
 			if (!data)
 				return;
 			TkMutexGuard lock(data->Locker);
-			data->TFuncs.remove(f);
+			data->TkFuncs.remove(f);
 		}
 
 		// Unbinds all the functions.
@@ -425,7 +425,7 @@ namespace toolkit {
 			if (!data)
 				return;
 			TkMutexGuard lock(data->Locker);
-			data->TFuncs.clear();
+			data->TkFuncs.clear();
 		}
 
 		// Counts the amount of bound functions.
@@ -436,7 +436,7 @@ namespace toolkit {
 			if (data)
 			{
 				TkMutexGuard lock(data->Locker);
-				result = data->TFuncs.count();
+				result = data->TkFuncs.count();
 			}
 			return result;
 		}
@@ -449,7 +449,7 @@ namespace toolkit {
 			if (data)
 			{
 				TkMutexGuard lock(data->Locker);
-				result = data->TFuncs.capacity();
+				result = data->TkFuncs.capacity();
 			}
 			return result;
 		}
@@ -462,22 +462,22 @@ namespace toolkit {
 			if (data)
 			{
 				TkMutexGuard lock(data->Locker);
-				result = data->TFuncs.count() != 0;
+				result = data->TkFuncs.count() != 0;
 			}
 			return result;
 		}
 
 		// Gets all the bound functions.
-		i32 getBindings(TFuncType* buffer, i32 bufferSize) const
+		i32 getBindings(TkFuncType* buffer, i32 bufferSize) const
 		{
 			i32 count = 0;
 			Data* data = (Data*)TSync::atomicRead((intptr volatile*)&m_data);
 			if (data)
 			{
 				TkMutexGuard lock(data->Locker);
-				for (auto i = data->TFuncs.Begin(); i.isNotEnd(); ++i)
+				for (auto i = data->TkFuncs.Begin(); i.isNotEnd(); ++i)
 				{
-					new(buffer + count) TFuncType((const TFuncType&)i->Item);
+					new(buffer + count) TkFuncType((const TkFuncType&)i->Item);
 					count++;
 				}
 			}
@@ -491,9 +491,9 @@ namespace toolkit {
 			if (!data)
 				return;
 			TkMutexGuard lock(data->Locker);
-			for (auto i = data->TFuncs.Begin(); i.isNotEnd(); ++i)
+			for (auto i = data->TkFuncs.Begin(); i.isNotEnd(); ++i)
 			{
-				const TFuncType& item = i->Item;
+				const TkFuncType& item = i->Item;
 				ASSERT_LOW_LAYER(item.m_function);
 				item.m_function(item.m_callee, params...);
 			}
@@ -501,7 +501,7 @@ namespace toolkit {
 	};
 
 	template<typename... Params>
-	inline u32 getHash(const TFunc<void(Params...)>& key)
+	inline u32 getHash(const TkFunc<void(Params...)>& key)
 	{
 		u32 hash = getHash((void*)key.m_callee);
 		combineHash(hash, getHash((void*)key.m_function));

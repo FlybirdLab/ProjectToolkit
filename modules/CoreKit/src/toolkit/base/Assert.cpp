@@ -1,3 +1,8 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 // Created by cubevlmu on 2025/8/4.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
@@ -33,6 +38,7 @@ namespace toolkit {
 #   elif TK_WINDOWS
         char txt[512];
         memset(&txt[0], 0, sizeof(char) * 512);
+        fprintf(stderr, "Assertion failed: %s (%s:%d %s)\n", msg, file, line, func);
         snprintf((char*)&txt[0], 512, "%s\n\n%s:%d %s", msg, file, line, func);
         if(!IsDebuggerPresent())
         {

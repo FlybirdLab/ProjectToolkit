@@ -365,7 +365,7 @@ namespace toolkit {
 		{
 			if (m_data == chars)
 				return;
-			TkMemory::memoryCopy(m_data, (void*)chars, length * sizeof(char));
+			TkMemory::memoryCopy(m_data, chars, length * sizeof(char));
 		}
 		else
 		{
@@ -373,7 +373,7 @@ namespace toolkit {
 			if (length != 0)
 			{
 				data = (char*)TkMemory::allocate(m_alloc, (length + 1) * sizeof(char), 16);
-				TkMemory::memoryCopy(data, (void*)chars, length * sizeof(char));
+				TkMemory::memoryCopy(data, chars, length * sizeof(char));
 				data[length] = '\0';
 			}
 			TkMemory::free(m_alloc, m_data);

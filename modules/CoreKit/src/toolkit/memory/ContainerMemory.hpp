@@ -5,8 +5,7 @@
 
 #include <toolkit/memory/Memory.hpp>
 
-namespace toolkit {
-
-	i32 calCapacityGrow(IAllocator& alloc, i32 capacity, const i32 minCapacity);
-
+namespace toolkit
+{
+	i32 calCapacityGrow(IAllocator &alloc, i32 capacity, const i32 minCapacity);
 }

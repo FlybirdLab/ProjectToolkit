@@ -1,4 +1,9 @@
-﻿// Created by cubevlmu on 2025/8/4.
+﻿/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
+// Created by cubevlmu on 2025/8/4.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
 #pragma once
@@ -61,6 +66,8 @@ namespace toolkit::type {
     constexpr f64 kMaxF64 = std::numeric_limits<f64>::max();
     constexpr f64 kMinF64 = -std::numeric_limits<f64>::max();
     static_assert(sizeof(bool) == 1, "bool is not vailed!");
+
+    constexpr i32 kInvalidIndex = -1;
 
     template <typename T, u32 count>
     constexpr u32 lengthOf(const T(&)[count])

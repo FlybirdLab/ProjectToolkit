@@ -1,3 +1,8 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 // Created by cubevlmu on 2025/8/8.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
@@ -27,7 +32,7 @@ namespace toolkit {
         explicit StackAllocator(IAllocator &fallback) : m_fallback(fallback) {}
         ~StackAllocator() { TK_ASSERT(!m_allocated); }
 
-        void* alloc(psize size, psize align)
+        void* alloc(psize size, psize align) override
 		{
             TK_ASSERT(align <= ALIGN);
             if (!m_allocated && size <= CAPACITY) {
@@ -37,7 +42,7 @@ namespace toolkit {
 			return TkMemory::allocate(m_fallback, size, align);
         }
 
-        void free(void* ptr)
+        void free(void* ptr) override
 		{
             if (!ptr) return;
             if (ptr == m_mem) {
@@ -52,7 +57,7 @@ namespace toolkit {
 			return CAPACITY;
 		}
 
-        void* realloc(void* ptr, psize new_size, psize old_size, psize align)
+        void* realloc(void* ptr, psize new_size, psize old_size, psize align) override
 		{
             TK_ASSERT(align <= ALIGN);
             if (!ptr) return alloc(new_size, align);

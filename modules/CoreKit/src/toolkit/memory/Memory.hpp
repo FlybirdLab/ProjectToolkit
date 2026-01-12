@@ -191,11 +191,17 @@ namespace toolkit {
 		}
 
 	public:
-		TK_FORCE_INLINE static void memoryCopy(void* dest, void* src, psize size) {
+		template <typename T>
+		TK_FORCE_INLINE static void memoryCopy(T* dest, const T* src, psize size) {
+			memcpy(dest, src, size);
+		}
+		TK_FORCE_INLINE static void memoryCopy(void* dest, const void* src, psize size) {
 			memcpy(dest, src, size);
 		}
 
-		TK_FORCE_INLINE static void memorySet(void* dest, i32 val, psize size) {
+
+		template <typename T>
+		TK_FORCE_INLINE static void memorySet(T* dest, i32 val, psize size) {
 			memset(dest, val, size);
 		}
 

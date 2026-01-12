@@ -1,76 +1,83 @@
-// Created by cubevlmu on 2025/12/22.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
-#include <toolkit/common.hpp>
+#include "toolkit/memory/Memory.hpp"
+#include <toolkit/collection/StackArray.hpp>
+#include <toolkit/collection/Array.hpp>
+#include <toolkit/base/Math.hpp>
 
 namespace toolkit {
 
 	// Template for dynamic array with variable capacity that uses fixed size memory chunks for data storage rather than linear allocation.
 	template<typename T, i32 ChunkSize>
-	class ChunkedArray
+	class TkChunkedArray
 	{
-		friend ChunkedArray;
-
-	private:
-		// TODO: don't use Array but small struct and don't InlinedArray or Chunk* but Chunk (less dynamic allocations)
-		typedef CArray<T> Chunk;
-
-		i32 m_count = 0;
-		CArray<Chunk*, InlinedAllocation<32>> m_chunks;
-
+		friend TkChunkedArray;
 	public:
-		ChunkedArray() = default;
-		~ChunkedArray()
+		TkChunkedArray(IAllocator& alloc = TkMemory::getDefault())
+		    : m_alloc {alloc} 
 		{
-			m_chunks.clearDelete();
+		}
+		~TkChunkedArray()
+		{
+			for (auto* ptr : m_chunks) {
+				if (ptr) {
+					TkMemory::destructItem(ptr);
+				    TkMemory::deletePtr(m_alloc, ptr);
+				}
+			}
+			//FIX: Manually delete pointer instead of stack-array's clear. m_chunks.clear();
 		}
 
 	public:
 		// Gets the amount of the elements in the collection.
-		CB_FORCE_INLINE i32 count() const
+		TK_FORCE_INLINE i32 count() const
 		{
 			return m_count;
 		}
 
 		// Gets the amount of the elements that can be hold by collection without resizing.
-		CB_FORCE_INLINE i32 capacity() const
+		TK_FORCE_INLINE i32 capacity() const
 		{
 			return m_chunks.count() * ChunkSize;
 		}
 
 		// Returns true if array isn't empty.
-		CB_FORCE_INLINE bool hasItems() const
+		TK_FORCE_INLINE bool hasItems() const
 		{
 			return m_count != 0;
 		}
 
 		// Returns true if collection is empty.
-		CB_FORCE_INLINE bool isEmpty() const
+		TK_FORCE_INLINE bool isEmpty() const
 		{
 			return m_count == 0;
 		}
 
 	public:
 		// Gets element by index
-		CB_FORCE_INLINE T& at(i32 index) const
+		TK_FORCE_INLINE T& at(i32 index) const
 		{
-			CB_ASSERT(index >= 0 && index < m_count);
+			TK_ASSERT(index >= 0 && index < m_count);
 			return m_chunks[index / ChunkSize]->at(index % ChunkSize);
 		}
 
 		// Gets/Sets element by index
-		CB_FORCE_INLINE T& operator[](i32 index)
+		TK_FORCE_INLINE T& operator[](i32 index)
 		{
-			CB_ASSERT(index >= 0 && index < m_count);
+			TK_ASSERT(index >= 0 && index < m_count);
 			return m_chunks[index / ChunkSize]->at(index % ChunkSize);
 		}
 
 		// Gets/Sets element by index
-		CB_FORCE_INLINE const T& operator[](i32 index) const
+		TK_FORCE_INLINE const T& operator[](i32 index) const
 		{
-			CB_ASSERT(index >= 0 && index < m_count);
+			TK_ASSERT(index >= 0 && index < m_count);
 			return m_chunks[index / ChunkSize]->at(index % ChunkSize);
 		}
 
@@ -78,14 +85,14 @@ namespace toolkit {
 		// Chunked array iterator.
 		struct Iterator
 		{
-			friend ChunkedArray;
+			friend TkChunkedArray;
 		private:
-			ChunkedArray* m_collection;
+			TkChunkedArray* m_collection;
 			i32 m_chunkIndex;
 			i32 m_index;
 
-			Iterator(const ChunkedArray* collection, const i32 index)
-				: m_collection(const_cast<ChunkedArray*>(collection))
+			Iterator(const TkChunkedArray* collection, const i32 index)
+				: m_collection(const_cast<TkChunkedArray*>(collection))
 				, m_chunkIndex(index / ChunkSize)
 				, m_index(index % ChunkSize)
 			{
@@ -94,8 +101,8 @@ namespace toolkit {
 		public:
 			Iterator()
 				: m_collection(nullptr)
-				, m_chunkIndex(INVALID_INDEX)
-				, m_index(INVALID_INDEX)
+				, m_chunkIndex(kInvalidIndex)
+				, m_index(kInvalidIndex)
 			{
 			}
 
@@ -114,37 +121,37 @@ namespace toolkit {
 			}
 
 		public:
-			CB_FORCE_INLINE i32 index() const
+			TK_FORCE_INLINE i32 index() const
 			{
 				return m_chunkIndex * ChunkSize + m_index;
 			}
 
-			CB_FORCE_INLINE bool isEnd() const
+			TK_FORCE_INLINE bool isEnd() const
 			{
 				return (m_chunkIndex * ChunkSize + m_index) == m_collection->m_count;
 			}
 
-			CB_FORCE_INLINE bool isNotEnd() const
+			TK_FORCE_INLINE bool isNotEnd() const
 			{
 				return (m_chunkIndex * ChunkSize + m_index) != m_collection->m_count;
 			}
 
-			CB_FORCE_INLINE T& operator*() const
+			TK_FORCE_INLINE T& operator*() const
 			{
 				return m_collection->m_chunks[m_chunkIndex]->at(m_index);
 			}
 
-			CB_FORCE_INLINE T* operator->() const
+			TK_FORCE_INLINE T* operator->() const
 			{
 				return &m_collection->m_chunks[m_chunkIndex]->at(m_index);
 			}
 
-			CB_FORCE_INLINE bool operator==(const Iterator& v) const
+			TK_FORCE_INLINE bool operator==(const Iterator& v) const
 			{
 				return m_collection == v.m_collection && m_chunkIndex == v.m_chunkIndex && m_index == v.m_index;
 			}
 
-			CB_FORCE_INLINE bool operator!=(const Iterator& v) const
+			TK_FORCE_INLINE bool operator!=(const Iterator& v) const
 			{
 				return m_collection != v.m_collection || m_chunkIndex != v.m_chunkIndex || m_index != v.m_index;
 			}
@@ -236,7 +243,7 @@ namespace toolkit {
 			// Allocate chunk if missing
 			if (chunk == nullptr)
 			{
-				chunk = New<Chunk>();
+				chunk = TkMemory::newObject<Chunk>(m_alloc);
 				chunk->setCapacity(ChunkSize);
 				m_chunks.add(chunk);
 			}
@@ -264,7 +271,7 @@ namespace toolkit {
 			// Allocate chunk if missing
 			if (chunk == nullptr)
 			{
-				chunk = New<Chunk>();
+				chunk = TkMemory::newObject<Chunk>();
 				chunk->setCapacity(ChunkSize);
 				m_chunks.add(chunk);
 			}
@@ -279,9 +286,9 @@ namespace toolkit {
 		{
 			if (isEmpty())
 				return;
-			CB_ASSERT(i.m_collection == this);
-			CB_ASSERT(i.m_chunkIndex < m_chunks.count() && i.m_index < ChunkSize);
-			CB_ASSERT(i.index() < count());
+			TK_ASSERT(i.m_collection == this);
+			TK_ASSERT(i.m_chunkIndex < m_chunks.count() && i.m_index < ChunkSize);
+			TK_ASSERT(i.index() < count());
 
 			auto lastChunkIndex = (m_count - 1) / ChunkSize;
 			auto lastIndex = (m_count - 1) % ChunkSize;
@@ -329,7 +336,7 @@ namespace toolkit {
 				++minChunks;
 			while (m_chunks.count() < minChunks)
 			{
-				auto chunk = New<Chunk>();
+				auto chunk = TkMemory::newObject<Chunk>(m_alloc);
 				chunk->setCapacity(ChunkSize);
 				m_chunks.add(chunk);
 			}
@@ -343,12 +350,12 @@ namespace toolkit {
 			{
 				auto& chunk = m_chunks.last();
 				i32 itemsLeft = count() - newSize;
-				i32 itemsToRemove = math::min(chunk->count(), itemsLeft);
+				i32 itemsToRemove = TkMath::min(chunk->count(), itemsLeft);
 				chunk->resize(chunk->count() - itemsToRemove);
 				m_count -= itemsToRemove;
 				if (chunk->count() == 0)
 				{
-					deletePtr(chunk);
+					TkMemory::deletePtr(m_alloc, chunk);
 					m_chunks.removeLast();
 				}
 			}
@@ -361,12 +368,12 @@ namespace toolkit {
 				i32 itemsReaming = newSize - count();
 				while (itemsReaming != 0)
 				{
-					CB_ASSERT(chunkIndex != m_chunks.count());
+					TK_ASSERT(chunkIndex != m_chunks.count());
 					auto& chunk = m_chunks[chunkIndex];
 
 					// Insert some items to this chunk if can
 					const i32 spaceLeft = chunk->capacity() - chunk->count();
-					i32 itemsToAdd = math::min(itemsReaming, spaceLeft);
+					i32 itemsToAdd = TkMath::min(itemsReaming, spaceLeft);
 					chunk->resize(chunk->count() + itemsToAdd);
 					m_count += itemsToAdd;
 
@@ -377,7 +384,7 @@ namespace toolkit {
 					chunkIndex++;
 				}
 			}
-			CB_ASSERT(newSize == count());
+			TK_ASSERT(newSize == count());
 		}
 
 
@@ -388,13 +395,13 @@ namespace toolkit {
 			for (i32 chunkIndex = 0; chunkIndex < m_chunks.count(); chunkIndex++)
 			{
 				const i32 index = m_chunks[chunkIndex]->Find(item);
-				if (index != INVALID_INDEX)
+				if (index != kInvalidIndex)
 					return startIndex + index;
 				startIndex += ChunkSize;
 				if (startIndex > m_count)
 					break;
 			}
-			return INVALID_INDEX;
+			return kInvalidIndex;
 		}
 
 	public:
@@ -413,24 +420,33 @@ namespace toolkit {
 			return Iterator(this, index);
 		}
 
-		CB_FORCE_INLINE Iterator begin()
+		TK_FORCE_INLINE Iterator begin()
 		{
 			return Iterator(this, 0);
 		}
 
-		CB_FORCE_INLINE Iterator end()
+		TK_FORCE_INLINE Iterator end()
 		{
 			return Iterator(this, m_count);
 		}
 
-		CB_FORCE_INLINE const Iterator begin() const
+		TK_FORCE_INLINE const Iterator begin() const
 		{
 			return Iterator(this, 0);
 		}
 
-		CB_FORCE_INLINE const Iterator end() const
+		TK_FORCE_INLINE const Iterator end() const
 		{
 			return Iterator(this, m_count);
 		}
+		
+	private:
+		// TODO: don't use Array but small struct and don't InlinedArray or Chunk* but Chunk (less dynamic allocations)
+		typedef TkArray<T> Chunk;
+
+		i32 m_count = 0;
+		IAllocator& m_alloc;
+		TkStackArray<Chunk*, 32> m_chunks;
+
 	};
 }
