@@ -19,10 +19,6 @@ namespace toolkit {
     public:
         typedef TkSpan<T> Base;
 
-    private:
-        bool m_isAllocated = false;
-        IAllocator& m_alloc;
-
     public:
         TkDataCollection(IAllocator& alloc = TkMemory::getDefault())
             : Base {}
@@ -279,6 +275,10 @@ namespace toolkit {
                 stream->writeBytes((void*)Base::m_data, Base::m_length * sizeof(T));
             }
         }
+        
+    private:
+        bool m_isAllocated = false;
+        IAllocator& m_alloc;
     };
 
     typedef TkDataCollection<byte> ByteCollection;

@@ -1,3 +1,8 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 // Created by cubevlmu on 2025/8/5.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
@@ -76,6 +81,15 @@ namespace toolkit {
 	{
 		return rpaligned_realloc(ptr, align, size, newSize, 0);
 	}
+
+    bool System::init() {
+        // allow cmd.exe switch encoder to utf8
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+
+        // record main thread id
+        return true;
+    }
 
 #endif
 }

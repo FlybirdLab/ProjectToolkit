@@ -1,24 +1,32 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Reference:
+ *     http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+ */
+
 
 #pragma once
 
-#include <toolkit/memory/ContainerAllocation.hpp>
 #include <toolkit/base/Assert.hpp>
+#include <toolkit/base/Hash.hpp>
+#include <toolkit/memory/ContainerMemory.hpp>
+#include <toolkit/memory/Memory.hpp>
 
 namespace toolkit {
 
 	// Template for unordered set of values (without duplicates with O(1) lookup access)
-	template<typename T, typename AllocationType = HeapAllocation>
-	class THashSet
+	template<typename T>
+	class TkHashSet
 	{
-		friend THashSet;
+		friend TkHashSet;
 	public:
 		// Describes single portion of space for the item in a hash map.
 		struct Bucket
 		{
-			friend THashSet;
-			T Item;
+			friend TkHashSet;
+			T item;
 
 		private:
 			BucketState m_state;
@@ -26,27 +34,27 @@ namespace toolkit {
 			TK_FORCE_INLINE void free()
 			{
 				if (m_state == BucketState::kOccupied)
-					TkMemory::destructItem(&Item);
+					TkMemory::destructItem(&item);
 				m_state = BucketState::kEmpty;
 			}
 
-			TK_FORCE_INLINE void Delete()
+			TK_FORCE_INLINE void destroy()
 			{
 				m_state = BucketState::kDeleted;
-				TkMemory::destructItem(&Item);
+				TkMemory::destructItem(&item);
 			}
 
 			template<typename ItemType>
 			TK_FORCE_INLINE void occupy(const ItemType& item)
 			{
-				TkMemory::constructItems(&Item, &item, 1);
+				TkMemory::constructItems(&this->item, &item, 1);
 				m_state = BucketState::kOccupied;
 			}
 
 			template<typename ItemType>
 			TK_FORCE_INLINE void occupy(ItemType&& item)
 			{
-				TkMemory::moveItems(&Item, &item, 1);
+				TkMemory::moveItems(&this->item, &item, 1);
 				m_state = BucketState::kOccupied;
 			}
 
@@ -71,46 +79,17 @@ namespace toolkit {
 			}
 		};
 
-		using AllocationData = typename AllocationType::template Data<Bucket>;
-
-	private:
-		i32 m_elementsCount = 0;
-		i32 m_deletedCount = 0;
-		i32 m_size = 0;
-		AllocationData m_allocation;
-
-		TK_FORCE_INLINE static void moveToEmpty(AllocationData& to, AllocationData& from, const i32 fromSize)
-		{
-			if constexpr (AllocationType::HasSwap)
-				to.swap(from);
-			else
-			{
-				to.allocate(fromSize);
-				Bucket* toData = to.get();
-				Bucket* fromData = from.get();
-				for (i32 i = 0; i < fromSize; ++i)
-				{
-					Bucket& fromBucket = fromData[i];
-					if (fromBucket.isOccupied())
-					{
-						Bucket& toBucket = toData[i];
-						TkMemory::moveItems(&toBucket.Item, &fromBucket.Item, 1);
-						toBucket.m_state = BucketState::kOccupied;
-						TkMemory::destructItem(&fromBucket.Item);
-						fromBucket.m_state = BucketState::kEmpty;
-					}
-				}
-				from.free();
-			}
-		}
-
 	public:
-		THashSet() = default;
-		explicit THashSet(const i32 capacity)
+		TkHashSet(IAllocator& alloc = TkMemory::getDefault()) 
+		    : m_alloc {alloc}
+		{ }
+		explicit TkHashSet(const i32 capacity, IAllocator& alloc = TkMemory::getDefault())
+		    : m_alloc {alloc}
 		{
 			setCapacity(capacity);
 		}
-		THashSet(THashSet&& other) noexcept
+		TkHashSet(TkHashSet&& other) noexcept
+		    : m_alloc {other.m_alloc}
 		{
 			m_elementsCount = other.m_elementsCount;
 			m_deletedCount = other.m_deletedCount;
@@ -118,44 +97,46 @@ namespace toolkit {
 			other.m_elementsCount = 0;
 			other.m_deletedCount = 0;
 			other.m_size = 0;
-			moveToEmpty(m_allocation, other.m_allocation, m_size);
+			moveToEmpty(m_data, other.m_data, m_size);
 		}
 
-		// <param name="other">Other collection to copy</param>
-		THashSet(const THashSet& other)
+		TkHashSet(const TkHashSet& other)
+            : m_alloc{other.m_alloc}
 		{
-			Clone(other);
+			clone(other);
 		}
 
 		// Clones the data from the other collection.
-		THashSet& operator=(const THashSet& other)
+		TkHashSet& operator=(const TkHashSet& other)
 		{
 			if (this != &other)
-				Clone(other);
+				clone(other);
 			return *this;
 		}
 
 		// Moves the data from the other collection.
-		THashSet& operator=(THashSet&& other) noexcept
+		TkHashSet& operator=(TkHashSet&& other) noexcept
 		{
 			if (this != &other)
 			{
 				clear();
-				m_allocation.free();
+				TkMemory::free(m_alloc, m_data);
 				m_elementsCount = other.m_elementsCount;
 				m_deletedCount = other.m_deletedCount;
 				m_size = other.m_size;
 				other.m_elementsCount = 0;
 				other.m_deletedCount = 0;
 				other.m_size = 0;
-				moveToEmpty(m_allocation, other.m_allocation, m_size);
+				moveToEmpty(m_data, other.m_data, m_size);
 			}
 			return *this;
 		}
 
-		~THashSet()
+		~TkHashSet()
 		{
 			clear();
+			if (m_data)
+			    TkMemory::free(m_alloc, m_data);
 		}
 
 	public:
@@ -187,20 +168,20 @@ namespace toolkit {
 		// The hash set collection iterator.
 		struct Iterator
 		{
-			friend THashSet;
+			friend TkHashSet;
 		private:
-			THashSet* m_collection;
+			TkHashSet* m_collection;
 			i32 m_index;
 
 		public:
-			Iterator(THashSet* collection, const i32 index)
+			Iterator(TkHashSet* collection, const i32 index)
 				: m_collection(collection)
 				, m_index(index)
 			{
 			}
 
-			Iterator(const THashSet* collection, const i32 index)
-				: m_collection(const_cast<THashSet*>(collection))
+			Iterator(const TkHashSet* collection, const i32 index)
+				: m_collection(const_cast<TkHashSet*>(collection))
 				, m_index(index)
 			{
 			}
@@ -241,12 +222,12 @@ namespace toolkit {
 
 			TK_FORCE_INLINE Bucket& operator*() const
 			{
-				return m_collection->m_allocation.get()[m_index];
+				return m_collection->m_data[m_index];
 			}
 
 			TK_FORCE_INLINE Bucket* operator->() const
 			{
-				return &m_collection->m_allocation.get()[m_index];
+				return &m_collection->m_data[m_index];
 			}
 
 			TK_FORCE_INLINE explicit operator bool() const
@@ -288,7 +269,7 @@ namespace toolkit {
 				const i32 capacity = m_collection->m_size;
 				if (m_index != capacity)
 				{
-					const Bucket* data = m_collection->m_allocation.get();
+					const Bucket* data = m_collection->m_data;
 					do
 					{
 						++m_index;
@@ -308,7 +289,7 @@ namespace toolkit {
 			{
 				if (m_index > 0)
 				{
-					const Bucket* data = m_collection->m_allocation.get();
+					const Bucket* data = m_collection->m_data;
 					do
 					{
 						--m_index;
@@ -331,25 +312,25 @@ namespace toolkit {
 		{
 			if (m_elementsCount + m_deletedCount != 0)
 			{
-				Bucket* data = m_allocation.get();
+				Bucket* data = m_data;
 				for (i32 i = 0; i < m_size; i++)
 					data[i].free();
 				m_elementsCount = m_deletedCount = 0;
 			}
 		}
 
-		// Clears the collection and delete value objects.
-		// Note: collection must contain pointers to the objects that have public destructor and be allocated using New method.
-#if defined(_MSC_VER)
-		template<typename = typename TEnableIf<TIsPointer<T>::Value>::Type>
-#endif
-		void clearDelete()
+
+		void clearDelete() requires(TIsPointer<T>::Value)
 		{
 			for (Iterator i = Begin(); i.isNotEnd(); ++i)
 			{
 				if (i->Item)
-					Delete(i->Item);
+					TkMemory::free(m_alloc, i->Item);
 			}
+			clear();
+		}
+
+		void clearDelete() requires(!TIsPointer<T>::Value) {
 			clear();
 		}
 
@@ -359,14 +340,13 @@ namespace toolkit {
 			if (capacity == this->capacity())
 				return;
 			TK_ASSERT(capacity >= 0);
-			AllocationData oldAllocation;
-			moveToEmpty(oldAllocation, m_allocation, m_size);
+			Bucket* oldAllocation = nullptr;
+			moveToEmpty(m_alloc, oldAllocation, m_data, m_size);
 			const i32 oldSize = m_size;
 			const i32 oldElementsCount = m_elementsCount;
 			m_deletedCount = m_elementsCount = 0;
 			if (capacity != 0 && (capacity & (capacity - 1)) != 0)
 			{
-				// Align capacity value to the next power of two (http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2)
 				capacity--;
 				capacity |= capacity >> 1;
 				capacity |= capacity >> 2;
@@ -377,13 +357,13 @@ namespace toolkit {
 			}
 			if (capacity)
 			{
-				m_allocation.allocate(capacity);
-				Bucket* data = m_allocation.get();
+				m_data = (Bucket*)TkMemory::allocate(m_alloc, capacity * sizeof(Bucket));
+				Bucket* data = m_data;
 				for (i32 i = 0; i < capacity; i++)
 					data[i].m_state = BucketState::kEmpty;
 			}
 			m_size = capacity;
-			Bucket* oldData = oldAllocation.get();
+			Bucket* oldData = oldAllocation;
 			if (oldElementsCount != 0 && capacity != 0 && preserveContents)
 			{
 				FindPositionResult pos;
@@ -392,10 +372,10 @@ namespace toolkit {
 					Bucket& oldBucket = oldData[i];
 					if (oldBucket.isOccupied())
 					{
-						findPosition(oldBucket.Item, pos);
-						TK_ASSERT(pos.FreeSlotIndex != -1);
-						Bucket* bucket = &m_allocation.get()[pos.FreeSlotIndex];
-						TkMemory::moveItems(&bucket->Item, &oldBucket.Item, 1);
+						findPosition(oldBucket.item, pos);
+						TK_ASSERT(pos.freeSlotIdx != -1);
+						Bucket* bucket = &m_data[pos.freeSlotIdx];
+						TkMemory::moveItems(&bucket->item, &oldBucket.item, 1);
 						bucket->m_state = BucketState::kOccupied;
 						m_elementsCount++;
 					}
@@ -413,25 +393,25 @@ namespace toolkit {
 		{
 			if (m_size >= minCapacity)
 				return;
-			i32 capacity = m_allocation.calculateCapacityGrow(m_size, minCapacity);
+			i32 capacity = calCapacityGrow(m_alloc, m_size, minCapacity);
 			if (capacity < DICTIONARY_DEFAULT_CAPACITY)
 				capacity = DICTIONARY_DEFAULT_CAPACITY;
 			setCapacity(capacity, preserveContents);
 		}
 
 		// Swaps the contents of collection with the other object without copy operation. Performs fast internal data exchange.
-		void swap(THashSet& other)
+		void swap(TkHashSet& other)
 		{
-			if constexpr (AllocationType::HasSwap)
+			if (m_alloc.getTypeId() != AllocatorType::kStack)
 			{
 				swap(m_elementsCount, other.m_elementsCount);
 				swap(m_deletedCount, other.m_deletedCount);
 				swap(m_size, other.m_size);
-				m_allocation.swap(other.m_allocation);
+				toolkit::swap(m_data, other.m_data);
 			}
 			else
 			{
-				THashSet tmp = moveTemp(other);
+				TkHashSet tmp = moveTemp(other);
 				other = *this;
 				*this = moveTemp(tmp);
 			}
@@ -473,9 +453,9 @@ namespace toolkit {
 				return false;
 			FindPositionResult pos;
 			findPosition(item, pos);
-			if (pos.ObjectIndex != -1)
+			if (pos.objIdx != -1)
 			{
-				m_allocation.get()[pos.ObjectIndex].Delete();
+				m_data[pos.objIdx].destroy();
 				--m_elementsCount;
 				++m_deletedCount;
 				return true;
@@ -489,8 +469,8 @@ namespace toolkit {
 			TK_ASSERT(i.m_collection == this);
 			if (i)
 			{
-				TK_ASSERT(m_allocation.get()[i.m_index].isOccupied());
-				m_allocation.get()[i.m_index].Delete();
+				TK_ASSERT(m_data[i.m_index].isOccupied());
+				m_data[i.m_index].Delete();
 				--m_elementsCount;
 				++m_deletedCount;
 				return true;
@@ -507,7 +487,7 @@ namespace toolkit {
 				return End();
 			FindPositionResult pos;
 			findPosition(item, pos);
-			return pos.ObjectIndex != -1 ? Iterator(this, pos.ObjectIndex) : End();
+			return pos.objIdx != -1 ? Iterator(this, pos.objIdx) : End();
 		}
 
 		// Determines whether a collection contains the specified element.
@@ -518,12 +498,12 @@ namespace toolkit {
 				return false;
 			FindPositionResult pos;
 			findPosition(item, pos);
-			return pos.ObjectIndex != -1;
+			return pos.objIdx != -1;
 		}
 
 	public:
 		// Clones other collection into this
-		void clone(const THashSet& other)
+		void clone(const TkHashSet& other)
 		{
 			clear();
 			setCapacity(other.capacity(), false);
@@ -574,8 +554,8 @@ namespace toolkit {
 		// The result container of the set item lookup searching.
 		struct FindPositionResult
 		{
-			i32 ObjectIndex;
-			i32 FreeSlotIndex;
+			i32 objIdx;
+			i32 freeSlotIdx;
 		};
 
 		// Returns a pair of positions: 1st where the object is, 2nd where
@@ -586,11 +566,11 @@ namespace toolkit {
 		{
 			TK_ASSERT(m_size);
 			const i32 tableSizeMinusOne = m_size - 1;
-			i32 bucketIndex = getHash(item) & tableSizeMinusOne;
+			i32 bucketIndex = toolkit::getHash(item) & tableSizeMinusOne;
 			i32 insertPos = -1;
 			i32 numChecks = 0;
-			const Bucket* data = m_allocation.get();
-			result.FreeSlotIndex = -1;
+			const Bucket* data = m_data;
+			result.freeSlotIdx = -1;
 			while (numChecks < m_size)
 			{
 				// Empty bucket
@@ -598,8 +578,8 @@ namespace toolkit {
 				if (bucket.isEmpty())
 				{
 					// Found place to insert
-					result.ObjectIndex = -1;
-					result.FreeSlotIndex = insertPos == -1 ? bucketIndex : insertPos;
+					result.objIdx = -1;
+					result.freeSlotIdx = insertPos == -1 ? bucketIndex : insertPos;
 					return;
 				}
 				// Deleted bucket
@@ -610,18 +590,18 @@ namespace toolkit {
 						insertPos = bucketIndex;
 				}
 					// Occupied bucket by target item
-				else if (bucket.Item == item)
+				else if (bucket.item == item)
 				{
 					// Found item
-					result.ObjectIndex = bucketIndex;
+					result.objIdx = bucketIndex;
 					return;
 				}
 
 				numChecks++;
 				bucketIndex = (bucketIndex + DICTIONARY_PROB_FUNC(m_size, numChecks)) & tableSizeMinusOne;
 			}
-			result.ObjectIndex = -1;
-			result.FreeSlotIndex = insertPos;
+			result.objIdx = -1;
+			result.freeSlotIdx = insertPos;
 		}
 
 		template<typename ItemType>
@@ -639,13 +619,13 @@ namespace toolkit {
 			findPosition(key, pos);
 
 			// Check if object has been already added
-			if (pos.ObjectIndex != -1)
+			if (pos.objIdx != -1)
 				return nullptr;
 
 			// Insert
-			TK_ASSERT(pos.FreeSlotIndex != -1);
+			TK_ASSERT(pos.freeSlotIdx != -1);
 			++m_elementsCount;
-			return &m_allocation.get()[pos.FreeSlotIndex];
+			return &m_data[pos.freeSlotIdx];
 		}
 
 		void compact()
@@ -653,30 +633,30 @@ namespace toolkit {
 			if (m_elementsCount == 0)
 			{
 				// Fast path if it's empty
-				Bucket* data = m_allocation.get();
+				Bucket* data = m_data;
 				for (i32 i = 0; i < m_size; ++i)
 					data[i].m_state = BucketState::kEmpty;
 			}
 			else
 			{
 				// Rebuild entire table completely
-				AllocationData oldAllocation;
-				moveToEmpty(oldAllocation, m_allocation, m_size);
-				m_allocation.allocate(m_size);
-				Bucket* data = m_allocation.get();
+				Bucket* oldAllocation = nullptr;
+				moveToEmpty(m_alloc, oldAllocation, m_data, m_size);
+				m_data = (Bucket*)TkMemory::allocate(m_alloc, m_size * sizeof(Bucket));
+				Bucket* data = m_data;
 				for (i32 i = 0; i < m_size; ++i)
 					data[i].m_state = BucketState::kEmpty;
-				Bucket* oldData = oldAllocation.get();
+				Bucket* oldData = oldAllocation;
 				FindPositionResult pos;
 				for (i32 i = 0; i < m_size; ++i)
 				{
 					Bucket& oldBucket = oldData[i];
 					if (oldBucket.isOccupied())
 					{
-						findPosition(oldBucket.Item, pos);
-						TK_ASSERT(pos.FreeSlotIndex != -1);
-						Bucket* bucket = &m_allocation.get()[pos.FreeSlotIndex];
-						TkMemory::moveItems(&bucket->Item, &oldBucket.Item, 1);
+						findPosition(oldBucket.item, pos);
+						TK_ASSERT(pos.freeSlotIdx != -1);
+						Bucket* bucket = &m_data[pos.freeSlotIdx];
+						TkMemory::moveItems(&bucket->item, &oldBucket.item, 1);
 						bucket->m_state = BucketState::kOccupied;
 					}
 				}
@@ -685,5 +665,39 @@ namespace toolkit {
 			}
 			m_deletedCount = 0;
 		}
+
+	private:
+		TK_FORCE_INLINE static void moveToEmpty(IAllocator& alloc, Bucket*& to, Bucket*& from, const i32 fromSize)
+		{
+			if (alloc.getTypeId() != AllocatorType::kStack)
+				toolkit::swap(to, from);
+			else
+			{
+				to = (Bucket*)TkMemory::allocate(alloc, fromSize);
+				Bucket* toData = to;
+				Bucket* fromData = from;
+				for (i32 i = 0; i < fromSize; ++i)
+				{
+					Bucket& fromBucket = fromData[i];
+					if (fromBucket.isOccupied())
+					{
+						Bucket& toBucket = toData[i];
+						TkMemory::moveItems(&toBucket.item, &fromBucket.item, 1);
+						toBucket.m_state = BucketState::kOccupied;
+						TkMemory::destructItem(&fromBucket.item);
+						fromBucket.m_state = BucketState::kEmpty;
+					}
+				}
+				TkMemory::free(alloc, from);
+			}
+		}
+		
+	private:
+		i32 m_elementsCount = 0;
+		i32 m_deletedCount = 0;
+		i32 m_size = 0;
+		IAllocator& m_alloc;
+		Bucket* m_data = nullptr;
+
 	};
 }

@@ -96,44 +96,6 @@ namespace toolkit
             }
         };
 
-    private:
-        i32 m_elementsCount = 0;
-        i32 m_deletedCount = 0;
-        i32 m_size = 0;
-        IAllocator &m_alloc;
-        Bucket* m_data = nullptr;
-
-        TK_FORCE_INLINE static bool moveToEmpty(IAllocator &alloc, Bucket *&to, Bucket *&from, const i32 fromSize)
-        {
-            if (alloc.getTypeId() != AllocatorType::kStack)
-            {
-                toolkit::swap(to, from);
-                return true;
-            }
-            else
-            {
-                to = (Bucket*)TkMemory::allocate(alloc, fromSize * sizeof(Bucket));
-                Bucket *toData = to;
-                Bucket *fromData = from;
-                for (i32 i = 0; i < fromSize; i++)
-                {
-                    Bucket &fromBucket = fromData[i];
-                    if (fromBucket.isOccupied())
-                    {
-                        Bucket &toBucket = toData[i];
-                        TkMemory::moveItems(&toBucket.Key, &fromBucket.Key, 1);
-                        TkMemory::moveItems(&toBucket.Value, &fromBucket.Value, 1);
-                        toBucket.m_state = BucketState::kOccupied;
-                        TkMemory::destructItem(&fromBucket.Key);
-                        TkMemory::destructItem(&fromBucket.Value);
-                        fromBucket.m_state = BucketState::kEmpty;
-                    }
-                }
-                TkMemory::free(alloc, from);
-                return false;
-            }
-        }
-
     public:
         TkHashMap(IAllocator &alloc = TkMemory::getDefault())
             : m_alloc{alloc}
@@ -869,6 +831,45 @@ namespace toolkit
             other.m_elementsCount = 0;
             other.m_deletedCount = 0;
         }
+
+        TK_FORCE_INLINE static bool moveToEmpty(IAllocator &alloc, Bucket *&to, Bucket *&from, const i32 fromSize)
+        {
+            if (alloc.getTypeId() != AllocatorType::kStack)
+            {
+                toolkit::swap(to, from);
+                return true;
+            }
+            else
+            {
+                to = (Bucket*)TkMemory::allocate(alloc, fromSize * sizeof(Bucket));
+                Bucket *toData = to;
+                Bucket *fromData = from;
+                for (i32 i = 0; i < fromSize; i++)
+                {
+                    Bucket &fromBucket = fromData[i];
+                    if (fromBucket.isOccupied())
+                    {
+                        Bucket &toBucket = toData[i];
+                        TkMemory::moveItems(&toBucket.Key, &fromBucket.Key, 1);
+                        TkMemory::moveItems(&toBucket.Value, &fromBucket.Value, 1);
+                        toBucket.m_state = BucketState::kOccupied;
+                        TkMemory::destructItem(&fromBucket.Key);
+                        TkMemory::destructItem(&fromBucket.Value);
+                        fromBucket.m_state = BucketState::kEmpty;
+                    }
+                }
+                TkMemory::free(alloc, from);
+                return false;
+            }
+        }
+
+    private:
+        i32 m_elementsCount = 0;
+        i32 m_deletedCount = 0;
+        i32 m_size = 0;
+        IAllocator &m_alloc;
+        Bucket* m_data = nullptr;
+
     };
 
 }

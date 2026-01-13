@@ -4,7 +4,6 @@
 #pragma once
 
 #include <toolkit/base/Format.hpp>
-#include <toolkit/memory/ContainerAllocation.hpp>
 #include <toolkit/utils/StringUtils.hpp>
 #include <toolkit/base/Assert.hpp>
 #include <toolkit/memory/Memory.hpp>
@@ -497,7 +496,7 @@ namespace toolkit {
 namespace toolkit {
 
 	template<typename T>
-	psize formatCustom(FormatBuffer& b, const TkString& v) {
+	inline psize formatCustom(FormatBuffer& b, const TkString& v) {
 		b.appendData((void*)v.get(), v.length() * sizeof(char));
 		return v.length();
 	}

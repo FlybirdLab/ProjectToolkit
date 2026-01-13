@@ -10,7 +10,7 @@
 namespace toolkit
 {
 	// Represents the difference between two dates and times
-	class TTimeSpan
+	class TkTimeSpan
 	{
 	public:
 		// The number of timespan ticks per day.
@@ -31,20 +31,20 @@ namespace toolkit
 		i64 ticks;
 
 	public:
-		TTimeSpan() = default;
-		TTimeSpan(i64 ticks)
+		TkTimeSpan() = default;
+		TkTimeSpan(i64 ticks)
 			: ticks(ticks)
 		{
 		}
-		TTimeSpan(i32 days, i32 hours, i32 minutes)
+		TkTimeSpan(i32 days, i32 hours, i32 minutes)
 		{
 			set(days, hours, minutes, 0, 0);
 		}
-		TTimeSpan(i32 days, i32 hours, i32 minutes, i32 seconds)
+		TkTimeSpan(i32 days, i32 hours, i32 minutes, i32 seconds)
 		{
 			set(days, hours, minutes, seconds, 0);
 		}
-		TTimeSpan(i32 days, i32 hours, i32 minutes, i32 seconds, i32 milliseconds)
+		TkTimeSpan(i32 days, i32 hours, i32 minutes, i32 seconds, i32 milliseconds)
 		{
 			set(days, hours, minutes, seconds, milliseconds);
 		}
@@ -56,58 +56,58 @@ namespace toolkit
 		TkString toString(const char option) const;
 
 	public:
-		TK_FORCE_INLINE TTimeSpan operator+(const TTimeSpan& other) const
+		TK_FORCE_INLINE TkTimeSpan operator+(const TkTimeSpan& other) const
 		{
-			return TTimeSpan(ticks + other.ticks);
+			return TkTimeSpan(ticks + other.ticks);
 		}
-		TK_FORCE_INLINE TTimeSpan& operator+=(const TTimeSpan& other)
+		TK_FORCE_INLINE TkTimeSpan& operator+=(const TkTimeSpan& other)
 		{
 			ticks += other.ticks;
 			return *this;
 		}
-		TK_FORCE_INLINE TTimeSpan operator-() const
+		TK_FORCE_INLINE TkTimeSpan operator-() const
 		{
-			return TTimeSpan(-ticks);
+			return TkTimeSpan(-ticks);
 		}
-		TK_FORCE_INLINE TTimeSpan operator-(const TTimeSpan& other) const
+		TK_FORCE_INLINE TkTimeSpan operator-(const TkTimeSpan& other) const
 		{
-			return TTimeSpan(ticks - other.ticks);
+			return TkTimeSpan(ticks - other.ticks);
 		}
-		TK_FORCE_INLINE TTimeSpan& operator-=(const TTimeSpan& other)
+		TK_FORCE_INLINE TkTimeSpan& operator-=(const TkTimeSpan& other)
 		{
 			ticks -= other.ticks;
 			return *this;
 		}
-		TK_FORCE_INLINE TTimeSpan operator*(float scalar) const
+		TK_FORCE_INLINE TkTimeSpan operator*(float scalar) const
 		{
-			return TTimeSpan((i64)((float)ticks * scalar));
+			return TkTimeSpan((i64)((float)ticks * scalar));
 		}
-		TK_FORCE_INLINE TTimeSpan& operator*=(float scalar)
+		TK_FORCE_INLINE TkTimeSpan& operator*=(float scalar)
 		{
 			ticks = (i64)((float)ticks * scalar);
 			return *this;
 		}
-		TK_FORCE_INLINE bool operator==(const TTimeSpan& other) const
+		TK_FORCE_INLINE bool operator==(const TkTimeSpan& other) const
 		{
 			return ticks == other.ticks;
 		}
-		TK_FORCE_INLINE bool operator!=(const TTimeSpan& other) const
+		TK_FORCE_INLINE bool operator!=(const TkTimeSpan& other) const
 		{
 			return ticks != other.ticks;
 		}
-		TK_FORCE_INLINE bool operator>(const TTimeSpan& other) const
+		TK_FORCE_INLINE bool operator>(const TkTimeSpan& other) const
 		{
 			return ticks > other.ticks;
 		}
-		TK_FORCE_INLINE bool operator>=(const TTimeSpan& other) const
+		TK_FORCE_INLINE bool operator>=(const TkTimeSpan& other) const
 		{
 			return ticks >= other.ticks;
 		}
-		TK_FORCE_INLINE bool operator<(const TTimeSpan& other) const
+		TK_FORCE_INLINE bool operator<(const TkTimeSpan& other) const
 		{
 			return ticks < other.ticks;
 		}
-		TK_FORCE_INLINE bool operator<=(const TTimeSpan& other) const
+		TK_FORCE_INLINE bool operator<=(const TkTimeSpan& other) const
 		{
 			return ticks <= other.ticks;
 		}
@@ -120,9 +120,9 @@ namespace toolkit
 		}
 
 		// Returns a time span with the absolute value of this time span.
-		TK_FORCE_INLINE TTimeSpan getDuration() const
+		TK_FORCE_INLINE TkTimeSpan getDuration() const
 		{
-			return TTimeSpan(ticks >= 0 ? ticks : -ticks);
+			return TkTimeSpan(ticks >= 0 ? ticks : -ticks);
 		}
 
 		// Gets the hours component of this time span.
@@ -181,35 +181,35 @@ namespace toolkit
 
 	public:
 		// Creates a time span that represents the specified number of days.
-		static TTimeSpan fromDays(double days);
+		static TkTimeSpan fromDays(double days);
 		// Creates a time span that represents the specified number of hours.
-		static TTimeSpan fromHours(double hours);
+		static TkTimeSpan fromHours(double hours);
 		// Creates a time span that represents the specified number of milliseconds.
-		static TTimeSpan fromMilliseconds(double milliseconds);
+		static TkTimeSpan fromMilliseconds(double milliseconds);
 		// Creates a time span that represents the specified number of minutes.
-		static TTimeSpan fromMinutes(double minutes);
+		static TkTimeSpan fromMinutes(double minutes);
 		// Creates a time span that represents the specified number of seconds.
-		static TTimeSpan fromSeconds(double seconds);
+		static TkTimeSpan fromSeconds(double seconds);
 
 	public:
 		// Returns the maximum time span value.
-		static TTimeSpan maxValue();
+		static TkTimeSpan maxValue();
 		// Returns the minimum time span value.
-		static TTimeSpan minValue();
+		static TkTimeSpan minValue();
 		// Returns the zero time span value.
-		static TTimeSpan zero();
+		static TkTimeSpan zero();
 
 	private:
 		void set(i32 days, i32 hours, i32 minutes, i32 seconds, i32 milliseconds);
 	};
 
-	inline TTimeSpan operator*(float scalar, const TTimeSpan& timespan)
+	inline TkTimeSpan operator*(float scalar, const TkTimeSpan& timespan)
 	{
 		return timespan.operator*(scalar);
 	}
 
 	template<>
-	struct TIsPODType<TTimeSpan>
+	struct TIsPODType<TkTimeSpan>
 	{
 		enum
 		{
@@ -219,7 +219,7 @@ namespace toolkit
 
 }
 
-FORMAT_CUSTOM(toolkit::TTimeSpan, "%02d:%02d:%02d.%07d",
+FORMAT_CUSTOM(toolkit::TkTimeSpan, "%02d:%02d:%02d.%07d",
 	t.getHours(),
 	t.getMinutes(),
 	t.getSeconds(),

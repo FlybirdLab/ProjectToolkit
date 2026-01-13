@@ -37,6 +37,7 @@
 #	define TK_ANDROID 0
 #	define TK_MACOS 0
 #	define TK_IOS 0
+#   define TK_APPLE 0
 #	define TK_WINDOWS 1
 #	define TK_STR "Windows"
 #elif defined(__APPLE_CC__)
@@ -45,12 +46,14 @@
 #		define TK_ANDROID 0
 #		define TK_MACOS 0
 #		define TK_IOS 1
+#       define TK_APPLE 1
 #		define TK_WINDOWS 0
 #		define TK_STR "iOS"
 #	else
 #		define TK_LINUX 0
 #		define TK_ANDROID 0
 #		define TK_MACOS 1
+#       define TK_APPLE 1
 #		define TK_IOS 0
 #		define TK_WINDOWS 0
 #		define TK_STR "MacOS"
@@ -60,12 +63,14 @@
 #	define TK_ANDROID 1
 #	define TK_MACOS 0
 #	define TK_IOS 0
+#   define TK_APPLE 0
 #	define TK_WINDOWS 0
 #	define TK_STR "Android"
 #elif defined(__linux__)
 #	define TK_LINUX 1
 #	define TK_ANDROID 0
 #	define TK_MACOS 0
+#   define TK_APPLE 0
 #	define TK_IOS 0
 #	define TK_WINDOWS 0
 #	define TK_STR "Linux"
@@ -75,9 +80,20 @@
 
 
 #if TK_LINUX || TK_ANDROID || TK_MACOS || TK_IOS
-#	define TK_POSIX 1
+#   define TK_POSIX 1
+#   define TK_LINE_TERMINATOR "\n"
 #else
-#	define TK_POSIX 0
+#   define TK_POSIX 0
+#   define TK_LINE_TERMINATOR "\r\n"
+#endif
+
+
+#if defined(__clang__) || defined(__GNUC__)
+    #define TK_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#elif defined(_MSC_VER)
+    #define TK_NO_SANITIZE_ADDRESS
+#else
+    #define TK_NO_SANITIZE_ADDRESS
 #endif
 
 

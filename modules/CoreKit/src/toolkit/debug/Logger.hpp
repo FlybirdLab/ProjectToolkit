@@ -128,7 +128,7 @@ namespace toolkit
         }
 
     public:
-        static TkLogger getShared();
+        static TkLogger* getShared();
 
     private:
         void emitLog(const char *msg, LogLevel level);
@@ -141,3 +141,9 @@ namespace toolkit
     };
 
 }
+
+#define LogInfo(STR, ...)  ::toolkit::TkLogger::getShared()->info(STR, __VA_ARGS__)
+#define LogWarn(STR, ...)  ::toolkit::TkLogger::getShared()->warning(STR, __VA_ARGS__)
+#define LogError(STR, ...) ::toolkit::TkLogger::getShared()->error(STR, __VA_ARGS__)
+#define LogDebug(STR, ...) ::toolkit::TkLogger::getShared()->debug(STR, __VA_ARGS__)
+#define LogTrace(STR, ...) ::toolkit::TkLogger::getShared()->trace(STR, __VA_ARGS__)

@@ -24,6 +24,10 @@
 #include "HashMapTest.hpp"
 #include "RingBufferTest.hpp"
 #include "DataCollectionTest.hpp"
+#include "HashSetTest.hpp"
+#include "ThreadTest.hpp"
+
+#include <toolkit/platforms/System.hpp>
 
 using namespace toolkit::type;
 using namespace toolkit;
@@ -40,13 +44,17 @@ enum class SandBoxTestType : toolkit::u8 {
 	kChunkedArray,
 	kHashMap,
 	kRingBuffer,
-	kDataContainer
+	kDataContainer,
+	kHashSet,
+	kThread
 };
 
-constexpr SandBoxTestType TestType = SandBoxTestType::kDataContainer;
+constexpr SandBoxTestType TestType = SandBoxTestType::kThread;
 
 int main(int argc, char **argv)
 {
+	System::init();
+
 	TestStruct t{
 		.a = 1000,
 		.b = "你好"};
@@ -71,6 +79,12 @@ int main(int argc, char **argv)
 		break;
 	case SandBoxTestType::kDataContainer:
 	    toolkit::testDataCollection();
+		break;
+	case SandBoxTestType::kHashSet:
+	    toolkit::testHashSet();
+		break;
+	case SandBoxTestType::kThread:
+	    toolkit::testThread();
 		break;
     }
 

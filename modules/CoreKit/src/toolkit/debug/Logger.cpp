@@ -24,10 +24,10 @@ namespace toolkit
         return TkMemory::newObject<TkLogger>(TkMemory::getDefault(), params);
     }
 
-    TkLogger TkLogger::getShared()
+    TkLogger* TkLogger::getShared()
     {
         static TkLogger *s_logger = setupLogger();
-        return TkLogger{s_logger};
+        return s_logger;
     }
 
     void TkLogger::emitLog(const char *msg, LogLevel level)

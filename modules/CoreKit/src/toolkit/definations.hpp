@@ -4,6 +4,7 @@
 #pragma once
 
 #define TK_USE_RPMALLOC 1
+#define TK_TRACY_ENABLE 0
 
 #ifndef DICTIONARY_DEFAULT_CAPACITY
 #if TK_WINDOWS || TK_MACOS || TK_LINUX

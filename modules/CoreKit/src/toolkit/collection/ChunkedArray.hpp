@@ -7,7 +7,7 @@
 #pragma once
 
 #include "toolkit/memory/Memory.hpp"
-#include <toolkit/collection/StackArray.hpp>
+#include <toolkit/collection/StaticArray.hpp>
 #include <toolkit/collection/Array.hpp>
 #include <toolkit/base/Math.hpp>
 
@@ -446,7 +446,7 @@ namespace toolkit {
 
 		i32 m_count = 0;
 		IAllocator& m_alloc;
-		TkStackArray<Chunk*, 32> m_chunks;
+		TkStaticArray<Chunk*, 32> m_chunks;
 
 	};
 }

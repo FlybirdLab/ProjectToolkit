@@ -7,42 +7,54 @@
 #include <toolkit/base/TypeTraits.hpp>
 #include <string>
 
-namespace toolkit {
+namespace toolkit
+{
 
-	struct AllocatorBase { };
-	using AllocFn = void* (*)(AllocatorBase* ctx, psize size, psize align);
-	using FreeFn  = void (*)(AllocatorBase* ctx, void* ptr);
-	using ReallocFn = void* (*)(AllocatorBase* ctx, void* ptr, psize newSize, psize oldSize, psize align);
+	struct AllocatorBase
+	{
+	};
+	using AllocFn = void *(*)(AllocatorBase * ctx, psize size, psize align);
+	using FreeFn = void (*)(AllocatorBase *ctx, void *ptr);
+	using ReallocFn = void *(*)(AllocatorBase * ctx, void *ptr, psize newSize, psize oldSize, psize align);
 
-	enum class AllocatorType : u8 {
+	enum class AllocatorType : u8
+	{
 		kUnkown,
-		kTag, kArena, kStd, kStack, kPage
+		kTag,
+		kArena,
+		kStd,
+		kStack,
+		kPage
 	};
 
 	struct IAllocator
 	{
 		friend class TkMemory;
+
 	public:
-		IAllocator(AllocFn, ReallocFn, FreeFn, AllocatorBase*, AllocatorType);
+		IAllocator(AllocFn, ReallocFn, FreeFn, AllocatorBase *, AllocatorType);
 		~IAllocator();
 
-		operator AllocatorBase*() {
+		operator AllocatorBase *()
+		{
 			return ctx;
 		}
-		operator AllocatorType() {
+		operator AllocatorType()
+		{
 			return typeId;
 		}
 
-		AllocatorType getTypeId() const {
+		AllocatorType getTypeId() const
+		{
 			return typeId;
 		}
 
 	private:
-		AllocatorBase*     ctx;
-		AllocFn            alloc;
-		ReallocFn          realloc;
-		FreeFn             free;
-		AllocatorType      typeId;
+		AllocatorBase *ctx;
+		AllocFn alloc;
+		ReallocFn realloc;
+		FreeFn free;
+		AllocatorType typeId;
 	};
 
 	struct AllocatorMeta
@@ -50,11 +62,11 @@ namespace toolkit {
 #if TK_DEBUG
 		const std::string_view tag = nullptr;
 #endif
-		const IAllocator* parent = nullptr;
+		const IAllocator *parent = nullptr;
 		u32 typeId = 0;
 	};
 
-	/// Memory management system
+	/// memory management system
 	class TkMemory
 	{
 	public:
@@ -88,61 +100,62 @@ namespace toolkit {
 			return capacity;
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyConstructible<T>::Value>::Type constructItem(T* dst)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyConstructible<T>::Value>::Type constructItem(T *dst)
 		{
-			new(dst) T();
+			new (dst) T();
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyConstructible<T>::Value>::Type constructItem(T*)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyConstructible<T>::Value>::Type constructItem(T *)
 		{
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyConstructible<T>::Value>::Type constructItems(T* dst, i32 count)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyConstructible<T>::Value>::Type constructItems(T *dst, i32 count)
 		{
 			while (count--)
 			{
-				new(dst) T();
-				++(T*&)dst;
+				new (dst) T();
+				++(T *&)dst;
 			}
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyConstructible<T>::Value>::Type constructItems(T*, i32)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyConstructible<T>::Value>::Type constructItems(T *, i32)
 		{
 		}
 
-		template<typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsBitwiseConstructible<T, U>::Value>::Type constructItems(T* dst, const U* src, i32 count)
+		template <typename T, typename U>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsBitwiseConstructible<T, U>::Value>::Type constructItems(T *dst, const U *src, i32 count)
 		{
 			while (count--)
 			{
-				new(dst) T(*src);
-				++(T*&)dst;
+				new (dst) T(*src);
+				++(T *&)dst;
 				++src;
 			}
 		}
 
-		template<typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<TIsBitwiseConstructible<T, U>::Value>::Type constructItems(T* dst, const U* src, i32 count)
+		template <typename T, typename U>
+		TK_FORCE_INLINE static typename TEnableIf<TIsBitwiseConstructible<T, U>::Value>::Type constructItems(T *dst, const U *src, i32 count)
 		{
-			memoryCopy((void*)dst, (void*)src, count * sizeof(U));
+			memoryCopy((void *)dst, (void *)src, count * sizeof(U));
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyDestructible<T>::Value>::Type destructItem(T* dst)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyDestructible<T>::Value>::Type destructItem(T *dst)
 		{
 			dst->~T();
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyDestructible<T>::Value>::Type destructItem(T*)
-		{}
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyDestructible<T>::Value>::Type destructItem(T *)
+		{
+		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyDestructible<T>::Value>::Type destructItems(T* dst, i32 count)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyDestructible<T>::Value>::Type destructItems(T *dst, i32 count)
 		{
 			while (count--)
 			{
@@ -151,13 +164,13 @@ namespace toolkit {
 			}
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyDestructible<T>::Value>::Type destructItems(T*, i32)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyDestructible<T>::Value>::Type destructItems(T *, i32)
 		{
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyCopyAssignable<T>::Value>::Type copyItems(T* dst, const T* src, i32 count)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyCopyAssignable<T>::Value>::Type copyItems(T *dst, const T *src, i32 count)
 		{
 			while (count--)
 			{
@@ -167,124 +180,148 @@ namespace toolkit {
 			}
 		}
 
-		template<typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyCopyAssignable<T>::Value>::Type copyItems(T* dst, const T* src, i32 count)
+		template <typename T>
+		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyCopyAssignable<T>::Value>::Type copyItems(T *dst, const T *src, i32 count)
 		{
 			memoryCopy(dst, src, count * sizeof(T));
 		}
 
-		template<typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsBitwiseConstructible<T, U>::Value>::Type moveItems(T* dst, const U* src, i32 count)
+		template <typename T, typename U>
+		TK_FORCE_INLINE static typename TEnableIf<!TIsBitwiseConstructible<T, U>::Value>::Type moveItems(T *dst, const U *src, i32 count)
 		{
 			while (count--)
 			{
-				new(dst) T((T&&)*src);
-				++(T*&)dst;
+				new (dst) T((T &&)*src);
+				++(T *&)dst;
 				++src;
 			}
 		}
 
-		template<typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<TIsBitwiseConstructible<T, U>::Value>::Type moveItems(T* dst, const U* src, i32 count)
+		template <typename T, typename U>
+		TK_FORCE_INLINE static typename TEnableIf<TIsBitwiseConstructible<T, U>::Value>::Type moveItems(T *dst, const U *src, i32 count)
 		{
-			memoryCopy((void*)dst, (void*)src, count * sizeof(U));
+			memoryCopy((void *)dst, (void *)src, count * sizeof(U));
 		}
 
 	public:
 		template <typename T>
-		TK_FORCE_INLINE static void memoryCopy(T* dest, const T* src, psize size) {
+		TK_FORCE_INLINE static void memoryCopy(T *dest, const T *src, psize size)
+		{
 			memcpy(dest, src, size);
 		}
-		TK_FORCE_INLINE static void memoryCopy(void* dest, const void* src, psize size) {
+		TK_FORCE_INLINE static void memoryCopy(void *dest, const void *src, psize size)
+		{
 			memcpy(dest, src, size);
 		}
 
+		TK_FORCE_INLINE static void memorySet(void *dest, u64 size, i32 value)
+		{
+			memset(dest, value, static_cast<size_t>(size));
+		}
 
-		template <typename T>
-		TK_FORCE_INLINE static void memorySet(T* dest, i32 val, psize size) {
-			memset(dest, val, size);
+		TK_FORCE_INLINE static void memoryClear(void *dest, u64 size)
+		{
+			memset(dest, 0, static_cast<size_t>(size));
+		}
+
+		TK_FORCE_INLINE static i32 memoryCompare(const void *ptr1, const void *ptr2, u64 size)
+		{
+			return memcmp(ptr1, ptr2, static_cast<size_t>(size));
 		}
 
 	public:
-		bool isValid(IAllocator&);
-		static IAllocator& getDefault();
+		bool isValid(IAllocator &);
+		static IAllocator &getDefault();
 
 	public:
-		TK_FORCE_INLINE static void* allocate(IAllocator& alloc, psize size, psize align = 16) {
+		TK_FORCE_INLINE static void *allocate(IAllocator &alloc, psize size, psize align = 16)
+		{
 			return alloc.alloc(alloc.ctx, size, align);
 		}
 
-		TK_FORCE_INLINE static void* reallocate(IAllocator& alloc, void* ptr, psize size, psize oldSize, psize align = 16) {
+		TK_FORCE_INLINE static void *reallocate(IAllocator &alloc, void *ptr, psize size, psize oldSize, psize align = 16)
+		{
 			return alloc.realloc(alloc.ctx, ptr, size, oldSize, align);
 		}
 
-		TK_FORCE_INLINE static void free(IAllocator& alloc, void* ptr) {
+		TK_FORCE_INLINE static void free(IAllocator &alloc, void *ptr)
+		{
 			return alloc.free(alloc.ctx, ptr);
 		}
 
 	public:
-		template<class T>
-		inline static T* newObject() {
-			T* ptr = (T *) allocate(getDefault(), sizeof(T), alignof(T));
+		template <class T>
+		inline static T *newObject()
+		{
+			T *ptr = (T *)allocate(getDefault(), sizeof(T), alignof(T));
 			constructItem(ptr);
 			return ptr;
 		}
 
-		template<class T>
-		inline static T* newObject(IAllocator& alloc) {
-			T* ptr = (T*) allocate(alloc, sizeof(T), alignof(T));
+		template <class T>
+		inline static T *newObject(IAllocator &alloc)
+		{
+			T *ptr = (T *)allocate(alloc, sizeof(T), alignof(T));
 			constructItem(ptr);
 			return ptr;
 		}
 
-		template<class T, class... Args>
-		inline T* newObject(Args&&... args) {
-			T *ptr = (T *) allocate(getDefault(), sizeof(T), alignof(T));
-			new(ptr) T(toolkit::forward<Args>(args)...);
+		template <class T, class... Args>
+		inline T *newObject(Args &&...args)
+		{
+			T *ptr = (T *)allocate(getDefault(), sizeof(T), alignof(T));
+			new (ptr) T(toolkit::forward<Args>(args)...);
 			return ptr;
 		}
 
-		template<class T, class... Args>
-		inline static T* newObject(IAllocator& alloc, Args &&...args) {
-			T* ptr = (T*) allocate(alloc, sizeof(T), alignof(T));
-			new(ptr) T(toolkit::forward<Args>(args)...);
+		template <class T, class... Args>
+		inline static T *newObject(IAllocator &alloc, Args &&...args)
+		{
+			T *ptr = (T *)allocate(alloc, sizeof(T), alignof(T));
+			new (ptr) T(toolkit::forward<Args>(args)...);
 			return ptr;
 		}
 
-		template<class T>
-		inline static T* newArray(u32 count) {
-			T *ptr = (T*) allocate(getDefault(), sizeof(T) * count, alignof(T));
+		template <class T>
+		inline static T *newArray(u32 count)
+		{
+			T *ptr = (T *)allocate(getDefault(), sizeof(T) * count, alignof(T));
 			constructItems(ptr, count);
 			return ptr;
 		}
 
-		template<class T>
-		inline static T *newArray(IAllocator& alloc, u32 count) {
-			T *ptr = (T *) allocate(alloc, sizeof(T) * count, alignof(T));
+		template <class T>
+		inline static T *newArray(IAllocator &alloc, u32 count)
+		{
+			T *ptr = (T *)allocate(alloc, sizeof(T) * count, alignof(T));
 			constructItems(ptr, count);
 			return ptr;
 		}
 
-		template<class T>
-		inline static void deletePtr(T* ptr) {
+		template <class T>
+		inline static void deletePtr(T *ptr)
+		{
 			destructItem(ptr);
 			free(getDefault(), ptr);
 		}
 
-		template<class T>
-		inline static void deletePtr(IAllocator& alloc, T* ptr) {
+		template <class T>
+		inline static void deletePtr(IAllocator &alloc, T *ptr)
+		{
 			destructItem(ptr);
 			free(alloc, ptr);
 		}
 
-		template<class T>
-		inline static void deleteArray(T* ptr, u32 count) {
+		template <class T>
+		inline static void deleteArray(T *ptr, u32 count)
+		{
 			destructItems(ptr, count);
 			free(getDefault(), ptr);
 		}
 
-		template<class T>
-		inline static void deleteArray(IAllocator& alloc, T* ptr, u32 count) {
+		template <class T>
+		inline static void deleteArray(IAllocator &alloc, T *ptr, u32 count)
+		{
 			destructItems(ptr, count);
 			free(alloc, ptr);
 		}

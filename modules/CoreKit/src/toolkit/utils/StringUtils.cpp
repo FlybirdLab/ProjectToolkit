@@ -10,12 +10,13 @@
 #include "toolkit/collection/Span.hpp"
 #include "toolkit/environment.hpp"
 
-namespace toolkit {
+namespace toolkit
+{
 
-	static char makeLowercase(char c) {
+	static char makeLowercase(char c)
+	{
 		return c >= 'A' && c <= 'Z' ? c - ('A' - 'a') : c;
 	}
-
 
 	i32 TkStringUtils::hexDigit(char c)
 	{
@@ -29,61 +30,70 @@ namespace toolkit {
 		return result;
 	}
 
-
 	bool TkStringUtils::equalStrings(TkStringView lhs, TkStringView rhs)
 	{
-		if (rhs.length() != lhs.length()) return false;
+		if (rhs.length() != lhs.length())
+			return false;
 		return strncmp(lhs.begin(), rhs.begin(), lhs.length()) == 0;
 	}
-	bool TkStringUtils::equalStrings(TkStringView lhs, TkStringView rhs, size_t len) {
+	bool TkStringUtils::equalStrings(TkStringView lhs, TkStringView rhs, size_t len)
+	{
 		return equalStrings(lhs.begin(), rhs.begin(), len);
 	}
-	bool TkStringUtils::equalStrings(const char* lhs, const char* rhs) {
+	bool TkStringUtils::equalStrings(const char *lhs, const char *rhs)
+	{
 		return strcmp(lhs, rhs) == 0;
 	}
-	bool TkStringUtils::equalStrings(const char* lhs, const char* rhs, size_t len) {
+	bool TkStringUtils::equalStrings(const char *lhs, const char *rhs, size_t len)
+	{
 		return strncmp(lhs, rhs, len) == 0;
 	}
 
-
 	bool TkStringUtils::equalIStrings(TkStringView lhs, TkStringView rhs)
 	{
-		if (lhs.length() != rhs.length()) return false;
+		if (lhs.length() != rhs.length())
+			return false;
 		return equalIStrings(lhs.begin(), rhs.begin());
 	}
-	bool TkStringUtils::equalIStrings(const char* lhs, const char* rhs) {
+	bool TkStringUtils::equalIStrings(const char *lhs, const char *rhs)
+	{
 #if TK_COMPILER_MSVC
 		return _stricmp(lhs, rhs) == 0;
 #else
 		return strcasecmp(lhs, rhs) == 0;
 #endif
 	}
-	bool TkStringUtils::equalIStrings(const char* lhs, const char* rhs, size_t len) {
+	bool TkStringUtils::equalIStrings(const char *lhs, const char *rhs, size_t len)
+	{
 #if TK_COMPILER_MSVC
 		return _strnicmp(lhs, rhs, len) == 0;
 #else
 		return strncasecmp(lhs, rhs, len) == 0;
 #endif
 	}
-	bool TkStringUtils::equalIStrings(TkStringView lhs, TkStringView rhs, size_t len) {
+	bool TkStringUtils::equalIStrings(TkStringView lhs, TkStringView rhs, size_t len)
+	{
 		return equalIStrings(lhs.begin(), rhs.begin(), len);
 	}
 
-
-	i32 TkStringUtils::compareStrings(const char* str1, const char* str2) {
+	i32 TkStringUtils::compareStrings(const char *str1, const char *str2)
+	{
 		return strcmp(str1, str2);
 	}
-	i32 TkStringUtils::compareStrings(const char* str1, const char* str2, i32 maxCount) {
+	i32 TkStringUtils::compareStrings(const char *str1, const char *str2, i32 maxCount)
+	{
 		return strncmp(str1, str2, maxCount);
 	}
-	i32 TkStringUtils::compareIStrings(const char* str1, const char* str2) {
+	i32 TkStringUtils::compareIStrings(const char *str1, const char *str2)
+	{
 #if TK_COMPILER_MSVC
 		return _stricmp(str1, str2) == 0;
 #else
 		return strcasecmp(str1, str2) == 0;
 #endif
 	}
-	i32 TkStringUtils::compareIStrings(const char* str1, const char* str2, i32 maxCount) {
+	i32 TkStringUtils::compareIStrings(const char *str1, const char *str2, i32 maxCount)
+	{
 #if TK_COMPILER_MSVC
 		return _strnicmp(str1, str2, maxCount) == 0;
 #else
@@ -91,61 +101,65 @@ namespace toolkit {
 #endif
 	}
 
-
-	int TkStringUtils::length(const char* str)
+	i32 TkStringUtils::length(const char *str)
 	{
-		return (int)strlen(str);
+		return str ? static_cast<i32>(strlen(str)) : 0;
 	}
-
+	i32 TkStringUtils::length(const wchar *str)
+	{
+		return str ? static_cast<i32>(wcslen(str)) : 0;
+	}
 
 	bool TkStringUtils::endsWithInsensitive(TkStringView str, TkStringView suffix)
 	{
-		if (str.length() < suffix.length()) return false;
-		TkStringView fs{ str.end() - suffix.length(), suffix.length() };
+		if (str.length() < suffix.length())
+			return false;
+		TkStringView fs{str.end() - suffix.length(), suffix.length()};
 		return equalIStrings(fs, suffix);
 	}
 
-
 	bool TkStringUtils::endsWith(TkStringView str, TkStringView suffix)
 	{
-		if (str.length() < suffix.length()) return false;
-		TkStringView fs{ str.end() - suffix.length(), suffix.length() };
+		if (str.length() < suffix.length())
+			return false;
+		TkStringView fs{str.end() - suffix.length(), suffix.length()};
 		return equalStrings(fs, suffix);
 	}
 
-
-	const char* TkStringUtils::find(const char* str, char toFind)
+	const char *TkStringUtils::find(const char *str, char toFind)
 	{
-		const char* c = str;
-		const char* end = str + sizeof(char) * length(str);
+		const char *c = str;
+		const char *end = str + sizeof(char) * length(str);
 		while (c != end)
 		{
-			if (*c == toFind) return c;
+			if (*c == toFind)
+				return c;
 			++c;
 		}
 		return nullptr;
 	}
 
-
-	const char* TkStringUtils::find(TkStringView str, char toFind)
+	const char *TkStringUtils::find(TkStringView str, char toFind)
 	{
-		const char* c = str.begin();
+		const char *c = str.begin();
 		while (c != str.end())
 		{
-			if (*c == toFind) return c;
+			if (*c == toFind)
+				return c;
 			++c;
 		}
 		return nullptr;
 	}
-
 
 	bool TkStringUtils::makeLowercase(TkSpan<char> output, TkStringView src)
 	{
-		char* destination = output.begin();
-		if (src.length() + 1 > output.length()) return false;
+		char *destination = output.begin();
+		if (src.length() + 1 > output.length())
+			return false;
 
-		const char* source = src.begin();
-		while (source != src.end()) {
+		const char *source = src.begin();
+		while (source != src.end())
+		{
 			*destination = toolkit::makeLowercase(*source);
 			++destination;
 			++source;
@@ -154,25 +168,29 @@ namespace toolkit {
 		return true;
 	}
 
-
-	const char* TkStringUtils::find(const char* str, const char* toFind) {
+	const char *TkStringUtils::find(const char *str, const char *toFind)
+	{
 		return strstr(str, toFind);
 	}
-	const char* TkStringUtils::find(TkStringView str, TkStringView toFind) {
+	const char *TkStringUtils::find(TkStringView str, TkStringView toFind)
+	{
 		return find(str.begin(), toFind.begin());
 	}
-	const char* TkStringUtils::findInsensitive(const char* str, const char* toFind)
+	const char *TkStringUtils::findInsensitive(const char *str, const char *toFind)
 	{
-		if (toFind == nullptr || str == nullptr) {
+		if (toFind == nullptr || str == nullptr)
+		{
 			return nullptr;
 		}
 
 		const char findInitial = (char)toUpper(*toFind);
 		const i32 length = TkStringUtils::length(toFind++) - 1;
 		char c = *str++;
-		while (c) {
+		while (c)
+		{
 			c = (char)toUpper(c);
-			if (c == findInitial && !compareIStrings(str, toFind, length)) {
+			if (c == findInitial && !compareIStrings(str, toFind, length))
+			{
 				return str - 1;
 			}
 
@@ -181,27 +199,28 @@ namespace toolkit {
 
 		return nullptr;
 	}
-	const char* TkStringUtils::findInsensitive(TkStringView str, TkStringView toFind) {
+	const char *TkStringUtils::findInsensitive(TkStringView str, TkStringView toFind)
+	{
 		return findInsensitive(str.begin(), toFind.begin());
 	}
-
 
 	bool TkStringUtils::contains(TkStringView haystack, char needle)
 	{
 		return find(haystack, needle) != nullptr;
 	}
 
-
-	char* TkStringUtils::copyString(TkSpan<char> dst, TkStringView src)
+	char *TkStringUtils::copyString(TkSpan<char> dst, TkStringView src)
 	{
-		if (dst.length() < 1) return dst.begin();
+		if (dst.length() < 1)
+			return dst.begin();
 
 		TK_ASSERT(dst.begin() >= src.end() || dst.begin() <= src.begin());
 
 		u32 length = dst.length();
-		char* tmp = dst.begin();
-		const char* srcp = src.begin();
-		while (srcp != src.end() && length > 1) {
+		char *tmp = dst.begin();
+		const char *srcp = src.begin();
+		while (srcp != src.end() && length > 1)
+		{
 			*tmp = *srcp;
 			--length;
 			++tmp;
@@ -211,37 +230,38 @@ namespace toolkit {
 		return tmp;
 	}
 
-
-	const char* TkStringUtils::reverseFind(TkStringView haystack, char c)
+	const char *TkStringUtils::reverseFind(TkStringView haystack, char c)
 	{
-		if (haystack.length() == 0) return nullptr;
+		if (haystack.length() == 0)
+			return nullptr;
 
-		const char* tmp = haystack.end() - 1;
-		while (tmp >= haystack.begin()) {
-			if (*tmp == c) return tmp;
+		const char *tmp = haystack.end() - 1;
+		while (tmp >= haystack.begin())
+		{
+			if (*tmp == c)
+				return tmp;
 			--tmp;
 		}
 
 		return nullptr;
 	}
 
-
-	char* TkStringUtils::catString(TkSpan<char> destination, TkStringView source)
+	char *TkStringUtils::catString(TkSpan<char> destination, TkStringView source)
 	{
-		char* dst = destination.begin();
+		char *dst = destination.begin();
 		u32 length = destination.length();
-		while (*dst && length) {
+		while (*dst && length)
+		{
 			--length;
 			++dst;
 		}
-		return copyString(TkSpan{ dst, static_cast<i32>(length) }, source);
+		return copyString(TkSpan{dst, static_cast<i32>(length)}, source);
 	}
 
-
-	static void reverse(char* str, int length)
+	static void reverse(char *str, int length)
 	{
-		char* beg = str;
-		char* end = str + length - 1;
+		char *beg = str;
+		char *end = str + length - 1;
 		while (beg < end)
 		{
 			char tmp = *beg;
@@ -252,11 +272,10 @@ namespace toolkit {
 		}
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, u64& result)
+	bool TkStringUtils::fromString(TkStringView str, u64 &result)
 	{
 		i64 sum = 0;
-		const char* p = str.begin();
+		const char *p = str.begin();
 		auto length = str.length();
 		while (length--)
 		{
@@ -269,8 +288,7 @@ namespace toolkit {
 		return true;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, u32& result)
+	bool TkStringUtils::fromString(TkStringView str, u32 &result)
 	{
 		u64 tmp;
 		const bool b = fromString(str, tmp);
@@ -278,8 +296,7 @@ namespace toolkit {
 		return b;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, u16& result)
+	bool TkStringUtils::fromString(TkStringView str, u16 &result)
 	{
 		u64 tmp;
 		const bool b = fromString(str, tmp);
@@ -287,8 +304,7 @@ namespace toolkit {
 		return b;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, u8& result)
+	bool TkStringUtils::fromString(TkStringView str, u8 &result)
 	{
 		u64 tmp;
 		const bool b = fromString(str, tmp);
@@ -296,11 +312,10 @@ namespace toolkit {
 		return b;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, i64& result)
+	bool TkStringUtils::fromString(TkStringView str, i64 &result)
 	{
 		i64 sum = 0;
-		const char* p = str.begin();
+		const char *p = str.begin();
 		auto length = str.length();
 		bool negate = false;
 		while (length--)
@@ -321,8 +336,7 @@ namespace toolkit {
 		return true;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, i32& result)
+	bool TkStringUtils::fromString(TkStringView str, i32 &result)
 	{
 		i64 tmp;
 		const bool b = fromString(str, tmp);
@@ -330,8 +344,7 @@ namespace toolkit {
 		return b;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, i16& result)
+	bool TkStringUtils::fromString(TkStringView str, i16 &result)
 	{
 		i64 tmp;
 		const bool b = fromString(str, tmp);
@@ -339,8 +352,7 @@ namespace toolkit {
 		return b;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, i8& result)
+	bool TkStringUtils::fromString(TkStringView str, i8 &result)
 	{
 		i64 tmp;
 		const bool b = fromString(str, tmp);
@@ -348,32 +360,32 @@ namespace toolkit {
 		return b;
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView str, f32& result)
+	bool TkStringUtils::fromString(TkStringView str, f32 &result)
 	{
-		char* end = nullptr;
+		char *end = nullptr;
 		result = strtof(str.begin(), &end);
 		return end != str.begin();
 	}
 
-
-	bool TkStringUtils::fromString(TkStringView input, bool& value)
+	bool TkStringUtils::fromString(TkStringView input, bool &value)
 	{
 		bool val = equalStrings(input, "true");
 		value = val;
 		return true;
 	}
 
-
-	const char* TkStringUtils::fromStringOctal(TkStringView input, u32& value)
+	const char *TkStringUtils::fromStringOctal(TkStringView input, u32 &value)
 	{
-		if (input.isEmpty()) return nullptr;
+		if (input.isEmpty())
+			return nullptr;
 
-		const char* c = input.begin();
+		const char *c = input.begin();
 		value = 0;
-		if (*c < '0' || *c > '7') return nullptr;
+		if (*c < '0' || *c > '7')
+			return nullptr;
 
-		while (c != input.end() && *c >= '0' && *c <= '7') {
+		while (c != input.end() && *c >= '0' && *c <= '7')
+		{
 			value *= 8;
 			value += *c - '0';
 			++c;
@@ -381,10 +393,9 @@ namespace toolkit {
 		return c;
 	}
 
-
 	void TkStringUtils::toStringPretty(i32 value, TkSpan<char> output)
 	{
-		char* c = output.begin();
+		char *c = output.begin();
 		u32 length = output.length();
 		if (length > 0)
 		{
@@ -399,17 +410,15 @@ namespace toolkit {
 		}
 	}
 
-
 	void TkStringUtils::toStringPretty(u32 value, TkSpan<char> output)
 	{
 		return toStringPretty(u64(value), output);
 	}
 
-
 	void TkStringUtils::toStringPretty(u64 value, TkSpan<char> output)
 	{
-		char* c = output.begin();
-		char* num_start = output.begin();
+		char *c = output.begin();
+		char *num_start = output.begin();
 		u32 length = output.length();
 		if (length > 0)
 		{
@@ -451,14 +460,15 @@ namespace toolkit {
 		return;
 	}
 
-
-	char* TkStringUtils::toString(i32 value, TkSpan<char> output)
+	char *TkStringUtils::toString(i32 value, TkSpan<char> output)
 	{
-		char* c = output.begin();
+		char *c = output.begin();
 		u32 length = output.length();
-		if (length < 2) return nullptr;
+		if (length < 2)
+			return nullptr;
 
-		if (value < 0) {
+		if (value < 0)
+		{
 			value = -value;
 			--length;
 			c[0] = '-';
@@ -468,13 +478,14 @@ namespace toolkit {
 		return toString((u32)value, TkSpan(c, length));
 	}
 
-
-	char* TkStringUtils::toString(i64 value, TkSpan<char> output)
+	char *TkStringUtils::toString(i64 value, TkSpan<char> output)
 	{
-		char* c = output.begin();
+		char *c = output.begin();
 		u32 length = output.length();
-		if (length < 2) return nullptr;
-		if (value < 0) {
+		if (length < 2)
+			return nullptr;
+		if (value < 0)
+		{
 			value = -value;
 			--length;
 			c[0] = '-';
@@ -484,28 +495,31 @@ namespace toolkit {
 		return toString((u64)value, TkSpan(c, length));
 	}
 
-
-	char* TkStringUtils::toString(u64 value, TkSpan<char> output)
+	char *TkStringUtils::toString(u64 value, TkSpan<char> output)
 	{
-		char* c = output.begin();
-		char* num_start = output.begin();
+		char *c = output.begin();
+		char *num_start = output.begin();
 		u32 length = output.length();
-		if (length < 2) return nullptr;
+		if (length < 2)
+			return nullptr;
 
-		if (value == 0) {
+		if (value == 0)
+		{
 			*c = '0';
 			*(c + 1) = 0;
 			return c + 1;
 		}
 
-		while (value > 0 && length > 0) {
+		while (value > 0 && length > 0)
+		{
 			*c = value % 10 + '0';
 			value = value / 10;
 			--length;
 			++c;
 		}
 
-		if (length > 0) {
+		if (length > 0)
+		{
 			reverse(num_start, (int)(c - num_start));
 			*c = 0;
 			return c;
@@ -515,11 +529,11 @@ namespace toolkit {
 		return nullptr;
 	}
 
-
 	void TkStringUtils::toStringHex(u8 value, TkSpan<char> output)
 	{
-		//FIX Hex output format error
-		if (output.length() < 3) {  // 2 char + '\0'
+		// FIX Hex output format error
+		if (output.length() < 3)
+		{ // 2 char + '\0'
 			return;
 		}
 		u8 first = value / 16;
@@ -531,27 +545,30 @@ namespace toolkit {
 		output[2] = '\0'; // end string
 	}
 
-
-	char* TkStringUtils::toString(u32 value, TkSpan<char> output)
+	char *TkStringUtils::toString(u32 value, TkSpan<char> output)
 	{
-		char* c = output.begin();
-		char* num_start = output.begin();
+		char *c = output.begin();
+		char *num_start = output.begin();
 		u32 length = output.length();
-		if (length < 2) return nullptr;
+		if (length < 2)
+			return nullptr;
 
-		if (value == 0) {
+		if (value == 0)
+		{
 			*c = '0';
 			*(c + 1) = 0;
 			return c + 1;
 		}
 
-		while (value > 0 && length > 0) {
+		while (value > 0 && length > 0)
+		{
 			*c = value % 10 + '0';
 			value = value / 10;
 			--length;
 			++c;
 		}
-		if (length > 0) {
+		if (length > 0)
+		{
 			reverse(num_start, (int)(c - num_start));
 			*c = 0;
 			return c;
@@ -560,74 +577,75 @@ namespace toolkit {
 		return nullptr;
 	}
 
-
 	TkString TkStringUtils::toString(i32 value)
 	{
 		char val[11];
-		TkSpan<char> outVal{ val };
-		char* end = toString(value, outVal);
-		if (end == nullptr) {
+		TkSpan<char> outVal{val};
+		char *end = toString(value, outVal);
+		if (end == nullptr)
+		{
 			return TkString::Empty;
 		}
-		return TkString{ &val[0], end };
+		return TkString{&val[0], end};
 	}
-
 
 	TkString TkStringUtils::toString(i64 value)
 	{
 		char val[21];
-		TkSpan<char> outVal{ val };
-		char* end = toString(value, outVal);
-		if (end == nullptr) {
+		TkSpan<char> outVal{val};
+		char *end = toString(value, outVal);
+		if (end == nullptr)
+		{
 			return TkString::Empty;
 		}
-		return TkString{ &val[0], end };
+		return TkString{&val[0], end};
 	}
-
 
 	TkString TkStringUtils::toString(u32 value)
 	{
 		char val[20];
-		TkSpan<char> outVal{ val };
-		char* end = toString(value, outVal);
-		if (end == nullptr) {
+		TkSpan<char> outVal{val};
+		char *end = toString(value, outVal);
+		if (end == nullptr)
+		{
 			return TkString::Empty;
 		}
-		return TkString{ &val[0], end };
+		return TkString{&val[0], end};
 	}
 
 	TkString TkStringUtils::toString(u64 value)
 	{
 		char val[21];
-		TkSpan<char> outVal{ val };
-		char* end = toString(value, outVal);
-		if (end == nullptr) {
+		TkSpan<char> outVal{val};
+		char *end = toString(value, outVal);
+		if (end == nullptr)
+		{
 			return TkString::Empty;
 		}
-		return TkString{ &val[0], end };
+		return TkString{&val[0], end};
 		return TkString::format("{}", value);
 	}
-
 
 	static int getDecimalDigitCount(float frac, int maxDigits = 7)
 	{
 		frac = fabsf(frac);
 		int count = 0;
-		for (int i = 0; i < maxDigits; ++i) {
+		for (int i = 0; i < maxDigits; ++i)
+		{
 			frac *= 10.0f;
-			int digit = (int)(frac + 1e-4f);  // add little bias to avoid conflict
+			int digit = (int)(frac + 1e-4f); // add little bias to avoid conflict
 			frac -= digit;
 
 			++count;
 
 			// check ends
-			if (fabsf(frac) < 1e-4f) {
+			if (fabsf(frac) < 1e-4f)
+			{
 				break;
 			}
 		}
 		return count;
 	}
-
 
 	static int getDecimalDigitCountD(double frac, int maxDigits = 17)
 	{
@@ -635,56 +653,58 @@ namespace toolkit {
 		int count = 0;
 		int lastNonZeroDigit = 0;
 
-		for (int i = 0; i < maxDigits; ++i) {
+		for (int i = 0; i < maxDigits; ++i)
+		{
 			frac *= 10.0;
 			int digit = (int)(frac + 1e-12);
 			frac -= digit;
 
 			++count;
-			if (digit != 0) lastNonZeroDigit = count;
+			if (digit != 0)
+				lastNonZeroDigit = count;
 
-			if (std::fabs(frac) < 1e-12) {
+			if (std::fabs(frac) < 1e-12)
+			{
 				break;
 			}
 		}
 		return lastNonZeroDigit;
 	}
 
-
 	TkString TkStringUtils::toString(f32 value)
 	{
 		char val[21];
-		TkSpan<char> outVal{ val };
+		TkSpan<char> outVal{val};
 		auto after_point = getDecimalDigitCount(value - floor(value));
-		char* end = toString((f32)value, outVal, after_point);
-		if (end == nullptr) {
+		char *end = toString((f32)value, outVal, after_point);
+		if (end == nullptr)
+		{
 			return TkString::Empty;
 		}
-		return TkString{ &val[0], end };
+		return TkString{&val[0], end};
 		return TkString::format("{}", value);
 	}
-
 
 	TkString TkStringUtils::toString(f64 value)
 	{
 		char val[21];
-		TkSpan<char> outVal{ val };
+		TkSpan<char> outVal{val};
 		auto after_point = getDecimalDigitCountD(value - floor(value));
-		char* end = toString((f32)value, outVal, after_point);
-		if (end == nullptr) {
+		char *end = toString((f32)value, outVal, after_point);
+		if (end == nullptr)
+		{
 			return TkString::Empty;
 		}
-		return TkString{ &val[0], end };
+		return TkString{&val[0], end};
 		return TkString::format("{}", value);
 	}
 
-
 	// returns new end or null if failed
-	static char* increment(const char* output, char* end, bool is_space_after)
+	static char *increment(const char *output, char *end, bool is_space_after)
 	{
 		char carry = 1;
 		{
-			char* c = end - 1; // skip '\0'
+			char *c = end - 1; // skip '\0'
 			while (c >= output)
 			{
 				if (*c == '.')
@@ -705,9 +725,11 @@ namespace toolkit {
 				--c;
 			}
 		}
-		if (carry && is_space_after) {
-			char* c = end; // including '\0' at the end of the String
-			while (c >= output) {
+		if (carry && is_space_after)
+		{
+			char *c = end; // including '\0' at the end of the String
+			while (c >= output)
+			{
 				*(c + 1) = *c;
 				--c;
 			}
@@ -715,18 +737,17 @@ namespace toolkit {
 			*c = '1';
 			return end + 1;
 		}
-		if (carry) return nullptr;
+		if (carry)
+			return nullptr;
 		return end;
 	}
 
-
-	char* TkStringUtils::toString(f32 value, TkSpan<char> output, int after_point)
+	char *TkStringUtils::toString(f32 value, TkSpan<char> output, int after_point)
 	{
 		return toString(double(value), output, after_point);
 	}
 
-
-	char* TkStringUtils::toString(bool value, TkSpan<char> output)
+	char *TkStringUtils::toString(bool value, TkSpan<char> output)
 	{
 		if (output.length() < (value ? 5 : 6)) // FIX: "true" need 5 bytes（include '\0'），"false" need 6
 			return nullptr;
@@ -735,14 +756,15 @@ namespace toolkit {
 		return copyString(output, str);
 	}
 
-
-	char* TkStringUtils::toString(f64 value, TkSpan<char> out, int after_point)
+	char *TkStringUtils::toString(f64 value, TkSpan<char> out, int after_point)
 	{
-		char* output = out.begin();
+		char *output = out.begin();
 		u32 length = out.length();
-		if (length < 2) return nullptr;
+		if (length < 2)
+			return nullptr;
 
-		if (value < 0) {
+		if (value < 0)
+		{
 			*output = '-';
 			++output;
 			value = -value;
@@ -751,14 +773,17 @@ namespace toolkit {
 		// int part
 		int exponent = value == 0 ? 0 : (int)log10(value);
 		double num = value;
-		char* c = output;
-		if (num < 1 && length > 1) {
+		char *c = output;
+		if (num < 1 && length > 1)
+		{
 			*c = '0';
 			++c;
 			--length;
 		}
-		else {
-			while ((num >= 1 || exponent >= 0) && length > 1) {
+		else
+		{
+			while ((num >= 1 || exponent >= 0) && length > 1)
+			{
 				const double power = pow(10.0, (double)exponent);
 				char digit = (char)floor(num / power);
 				num -= digit * power;
@@ -770,19 +795,23 @@ namespace toolkit {
 		}
 		// decimal part
 		double dec_part = num;
-		if (length > 1 && after_point > 0) {
+		if (length > 1 && after_point > 0)
+		{
 			*c = '.';
 			++c;
 			--length;
 		}
-		else if (length > 0 && after_point == 0) {
+		else if (length > 0 && after_point == 0)
+		{
 			*c = 0;
 			return c;
 		}
-		else {
+		else
+		{
 			return nullptr;
 		}
-		while (length > 1 && after_point > 0) {
+		while (length > 1 && after_point > 0)
+		{
 			dec_part *= 10;
 			char tmp = (char)dec_part;
 			*c = tmp + '0';
@@ -797,7 +826,6 @@ namespace toolkit {
 		return c;
 	}
 
-
 	bool TkStringUtils::startsWith(TkStringView str, TkStringView prefix)
 	{
 		if (str.length() < prefix.length())
@@ -805,7 +833,6 @@ namespace toolkit {
 		TkStringView pfx(str.begin(), prefix.length());
 		return equalStrings(pfx, prefix);
 	}
-
 
 	bool TkStringUtils::startsWithInsensitive(TkStringView str, TkStringView prefix)
 	{
@@ -815,9 +842,10 @@ namespace toolkit {
 		return equalIStrings(pfx, prefix);
 	}
 
-
-	char TkStringUtils::toLower(char c) {
-		if (c >= 'A' && c <= 'Z') return c - 'A' + 'a';
+	char TkStringUtils::toLower(char c)
+	{
+		if (c >= 'A' && c <= 'Z')
+			return c - 'A' + 'a';
 		return c;
 	}
 
@@ -831,13 +859,13 @@ namespace toolkit {
 	bool TkStringUtils::isHexDigit(char c) { return isxdigit(c) != 0; }
 	char TkStringUtils::toUpper(char c) { return toupper(c); }
 
-	bool TkStringUtils::fromHexString(const char* str, i32 length, u32& result)
+	bool TkStringUtils::fromHexString(const char *str, i32 length, u32 &result)
 	{
 		result = 0;
 
 		u32 sum = 0;
-		const char* p = str;
-		const char* end = str + length;
+		const char *p = str;
+		const char *end = str + length;
 		if (*p == '0' && *(p + 1) == 'x')
 			p += 2;
 		while (*p && p < end)
@@ -856,20 +884,41 @@ namespace toolkit {
 		return true;
 	}
 
-
-	TkString TkStringUtils::skipZeroToZero(const char* str)
+	bool TkStringUtils::fromHexString(const char *str, i32 length)
 	{
-		const char* end = str;
-		while (*end != '\0') {
+		u32 sum = 0;
+		const char *p = str;
+		const char *end = str + length;
+		if (*p == '0' && *(p + 1) == 'x')
+			p += 2;
+		while (*p && p < end)
+		{
+			i32 c = *p - '0';
+			if (c < 0 || c > 9)
+			{
+				c = toLower(*p) - 'a' + 10;
+				if (c < 10 || c > 15)
+					return false;
+			}
+			sum = 16 * sum + c;
+			p++;
+		}
+		return true;
+	}
+
+	TkString TkStringUtils::skipZeroToZero(const char *str)
+	{
+		const char *end = str;
+		while (*end != '\0')
+		{
 			end++;
 			if (*end == '\0')
 				end++;
 		}
-		return TkString{ str, (i32)(end - str) };
+		return TkString{str, (i32)(end - str)};
 	}
 
-
-	u32 TkStringUtils::getStringsHash(const char* str)
+	u32 TkStringUtils::getStringsHash(const char *str)
 	{
 		u32 hash = 5381;
 		char c;
@@ -881,8 +930,7 @@ namespace toolkit {
 		return hash;
 	}
 
-
-	u32 TkStringUtils::getStringsHash(const char* str, i32 length)
+	u32 TkStringUtils::getStringsHash(const char *str, i32 length)
 	{
 		u32 hash = 5381;
 		char c;

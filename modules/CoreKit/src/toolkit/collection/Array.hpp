@@ -25,7 +25,7 @@ namespace toolkit
 			: m_count{0}, m_capacity{capacity}, m_alloc{alloc}
 		{
 			if (capacity > 0)
-				m_data = TkMemory::allocate(alloc, capacity * sizeof(T), alignof(T));
+				m_data = (T*)TkMemory::allocate(alloc, capacity * sizeof(T), alignof(T));
 			else
 				m_data = nullptr;
 		}

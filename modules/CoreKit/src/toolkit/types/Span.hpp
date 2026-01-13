@@ -7,6 +7,7 @@
 #pragma once
 
 #include <toolkit/common.hpp>
+#include <toolkit/base/Assert.hpp>
 
 namespace toolkit {
 
@@ -65,12 +66,12 @@ namespace toolkit {
     public:
         TK_FORCE_INLINE T& operator[](i32 index)
         {
-            CB_ASSERT(index >= 0 && index < m_length);
+            TK_ASSERT(index >= 0 && index < m_length);
             return m_data[index];
         }
         TK_FORCE_INLINE const T& operator[](i32 index) const
         {
-            CB_ASSERT(index >= 0 && index < m_length);
+            TK_ASSERT(index >= 0 && index < m_length);
             return m_data[index];
         }
 

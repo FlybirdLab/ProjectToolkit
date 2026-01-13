@@ -13,15 +13,15 @@ namespace toolkit
 {
 
     template <typename T, psize Capacity>
-    class TkStackArray
+    class TkStaticArray
     {
     public:
-        TK_FORCE_INLINE TkStackArray()
-            : m_count(0)
+        TK_FORCE_INLINE TkStaticArray()
+            : m_count {0}
         {
         }
 
-        TkStackArray(std::initializer_list<T> initList)
+        TkStaticArray(std::initializer_list<T> initList)
         {
             m_count = static_cast<i32>(initList.size());
             if (m_count > 0)
@@ -30,7 +30,7 @@ namespace toolkit
             }
         }
 
-        TkStackArray(const T *data, const i32 length)
+        TkStaticArray(const T *data, const i32 length)
         {
             TK_ASSERT(length >= 0);
             m_count = length;
@@ -40,14 +40,14 @@ namespace toolkit
             }
         }
 
-        TkStackArray(const TkStackArray &other)
+        TkStaticArray(const TkStaticArray &other)
         {
             m_count = other.m_count;
             if (m_count > 0)
                 TkMemory::constructItems(m_data, other.get(), other.m_count);
         }
 
-        TkStackArray(const TkStackArray &other, i32 extraSize)
+        TkStaticArray(const TkStaticArray &other, i32 extraSize)
         {
             TK_ASSERT(extraSize >= 0);
             m_count = other.m_count + extraSize;
@@ -57,15 +57,15 @@ namespace toolkit
         }
 
         template <typename OtherT = T, psize OtherCapacity>
-        explicit TkStackArray(const TkStackArray<OtherT, OtherCapacity> &other) noexcept
+        explicit TkStaticArray(const TkStaticArray<OtherT, OtherCapacity> &other) noexcept
         {
-            static_assert(OtherCapacity <= Capacity, "TkStackArray capacity overflow");
+            static_assert(OtherCapacity <= Capacity, "TkStaticArray capacity overflow");
             m_count = other.count();
             if (m_count > 0)
                 TkMemory::constructItems(m_data, other.get(), m_count);
         }
 
-        TkStackArray(TkStackArray &&other) noexcept
+        TkStaticArray(TkStaticArray &&other) noexcept
         {
             m_count = other.m_count;
             for (i32 i = 0; i < m_count; ++i)
@@ -74,18 +74,18 @@ namespace toolkit
             TkMemory::destructItems(other.m_data, m_count);
             other.m_count = 0;
         }
-        TkStackArray &operator=(std::initializer_list<T> initList) noexcept
+        TkStaticArray &operator=(std::initializer_list<T> initList) noexcept
         {
             clear();
             if (initList.size() > 0)
             {
-                TK_ASSERT(static_cast<i32>(initList.size()) <= Capacity && "TkStackArray overflow");
+                TK_ASSERT(static_cast<i32>(initList.size()) <= Capacity && "TkStaticArray overflow");
                 m_count = static_cast<i32>(initList.size());
                 TkMemory::constructItems(m_data, initList.begin(), m_count);
             }
             return *this;
         }
-        TkStackArray &operator=(const TkStackArray &other) noexcept
+        TkStaticArray &operator=(const TkStaticArray &other) noexcept
         {
             if (this != &other)
             {
@@ -95,7 +95,7 @@ namespace toolkit
             }
             return *this;
         }
-        TkStackArray &operator=(TkStackArray &&other) noexcept
+        TkStaticArray &operator=(TkStaticArray &&other) noexcept
         {
             if (this != &other)
             {
@@ -111,7 +111,7 @@ namespace toolkit
             return *this;
         }
 
-        ~TkStackArray()
+        ~TkStaticArray()
         {
             TkMemory::destructItems(m_data, m_count);
         }
@@ -228,7 +228,7 @@ namespace toolkit
                 TkMemory::destructItems(m_data + size, m_count - size);
             else
             {
-                TK_ASSERT(size <= Capacity && "TkStackArray overflow");
+                TK_ASSERT(size <= Capacity && "TkStaticArray overflow");
                 TkMemory::constructItems(m_data + m_count, size - m_count);
             }
             m_count = size;
@@ -236,7 +236,7 @@ namespace toolkit
 
         TK_FORCE_INLINE void reserve(u32 capacity)
         {
-            TK_ASSERT(capacity <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(capacity <= Capacity && "TkStaticArray overflow");
         }
 
         void setAll(const T &value)
@@ -248,7 +248,7 @@ namespace toolkit
 
         void set(const T *data, const i32 count)
         {
-            TK_ASSERT(count <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(count <= Capacity && "TkStaticArray overflow");
             TkMemory::destructItems(m_data, m_count);
             m_count = count;
             TkMemory::constructItems(m_data, data, m_count);
@@ -256,24 +256,24 @@ namespace toolkit
 
         void add(const T &item)
         {
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
             TkMemory::constructItems(m_data + m_count, &item, 1);
             ++m_count;
         }
         void add(T &&item)
         {
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
             TkMemory::moveItems(m_data + m_count, &item, 1);
             ++m_count;
         }
         void add(const T *items, const i32 count)
         {
-            TK_ASSERT(m_count + count <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + count <= Capacity && "TkStaticArray overflow");
             TkMemory::constructItems(m_data + m_count, items, count);
             m_count += count;
         }
         template <typename OtherT, psize OtherCapacity>
-        TK_FORCE_INLINE void add(const TkStackArray<OtherT, OtherCapacity> &other)
+        TK_FORCE_INLINE void add(const TkStaticArray<OtherT, OtherCapacity> &other)
         {
             add(other.get(), other.count());
         }
@@ -286,20 +286,20 @@ namespace toolkit
 
         TK_FORCE_INLINE void addDefault(const i32 count = 1)
         {
-            TK_ASSERT(m_count + count <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + count <= Capacity && "TkStaticArray overflow");
             TkMemory::constructItems(m_data + m_count, count);
             m_count += count;
         }
 
         TK_FORCE_INLINE void addUninitialized(const i32 count = 1)
         {
-            TK_ASSERT(m_count + count <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + count <= Capacity && "TkStaticArray overflow");
             m_count += count;
         }
 
         TK_FORCE_INLINE T &addOne()
         {
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
             TkMemory::constructItems(m_data + m_count, 1);
             ++m_count;
             return m_data[m_count - 1];
@@ -308,7 +308,7 @@ namespace toolkit
         void insert(const i32 index, const T &item)
         {
             TK_ASSERT(index >= 0 && index <= m_count);
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
             T *data = m_data;
             TkMemory::constructItems(data + m_count, 1);
             for (i32 i = m_count - 1; i >= index; i--)
@@ -319,7 +319,7 @@ namespace toolkit
         void insert(const i32 index, T &&item)
         {
             TK_ASSERT(index >= 0 && index <= m_count);
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
             T *data = m_data;
             TkMemory::constructItems(data + m_count, 1);
             for (i32 i = m_count - 1; i >= index; i--)
@@ -330,7 +330,7 @@ namespace toolkit
         void insert(const i32 index)
         {
             TK_ASSERT(index >= 0 && index <= m_count);
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStackArray overflow");
+            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
             T *data = m_data;
             TkMemory::constructItems(data + m_count, 1);
             for (i32 i = m_count - 1; i >= index; i--)
@@ -427,7 +427,7 @@ namespace toolkit
             TkMemory::destructItems(m_data + m_count, 1);
         }
 
-        void swap(TkStackArray &other)
+        void swap(TkStaticArray &other)
         {
             const i32 minCount = m_count < other.m_count ? m_count : other.m_count;
 
@@ -550,7 +550,7 @@ namespace toolkit
 
     public:
         template <typename OtherT = T, psize OtherSize>
-        bool operator==(const TkStackArray<OtherT, OtherSize> &other) const
+        bool operator==(const TkStaticArray<OtherT, OtherSize> &other) const
         {
             if (m_count == other.count())
             {
@@ -567,7 +567,7 @@ namespace toolkit
         }
 
         template <typename OtherT = T, psize OtherSize>
-        bool operator!=(const TkStackArray<OtherT, OtherSize> &other) const
+        bool operator!=(const TkStaticArray<OtherT, OtherSize> &other) const
         {
             return !operator==(other);
         }
@@ -576,19 +576,19 @@ namespace toolkit
         // The collection iterator
         struct Iterator
         {
-            friend TkStackArray;
+            friend TkStaticArray;
 
         private:
-            TkStackArray *m_array;
+            TkStaticArray *m_array;
             i32 m_index;
 
-            Iterator(TkStackArray *array, const i32 index)
+            Iterator(TkStaticArray *array, const i32 index)
                 : m_array(array), m_index(index)
             {
             }
 
-            Iterator(const TkStackArray *array, const i32 index)
-                : m_array(const_cast<TkStackArray *>(array)), m_index(index)
+            Iterator(const TkStaticArray *array, const i32 index)
+                : m_array(const_cast<TkStaticArray *>(array)), m_index(index)
             {
             }
 
@@ -609,7 +609,7 @@ namespace toolkit
             }
 
         public:
-            TK_FORCE_INLINE TkStackArray *getTkStackArray() const
+            TK_FORCE_INLINE TkStaticArray *getTkStaticArray() const
             {
                 return m_array;
             }
@@ -713,7 +713,7 @@ namespace toolkit
 }
 
 template <typename T, toolkit::psize OtherSize>
-void *operator new(const toolkit::psize size, toolkit::TkStackArray<T, OtherSize> &array)
+void *operator new(const toolkit::psize size, toolkit::TkStaticArray<T, OtherSize> &array)
 {
     using namespace toolkit;
     TK_ASSERT(size == sizeof(T));
@@ -723,7 +723,7 @@ void *operator new(const toolkit::psize size, toolkit::TkStackArray<T, OtherSize
 }
 
 template <typename T, toolkit::psize OtherSize>
-void *operator new(const toolkit::psize size, toolkit::TkStackArray<T, OtherSize> &array, const toolkit::i32 index)
+void *operator new(const toolkit::psize size, toolkit::TkStaticArray<T, OtherSize> &array, const toolkit::i32 index)
 {
     using namespace toolkit;
     TK_ASSERT(size == sizeof(T));

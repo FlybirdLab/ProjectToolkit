@@ -1,11 +1,13 @@
-// Created by cubevlmu on 2025/8/5.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #include "toolkit/debug/Debug.hpp"
 
-#include "IncludeWindows.hpp"
+#include <toolkit/platforms/win32/IncludeWindows.hpp>
 #include <DbgHelp.h>
-#include <iostream>
 
 #pragma comment(lib, "Dbghelp.lib")
 

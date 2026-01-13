@@ -1,0 +1,4 @@
+git ls-files '*.cpp' '*.hpp' '*.h' '*.mm' '*.c' | xargs wc -l
+git ls-files '*.cpp' '*.hpp' '*.h' '*.mm' '*.c' '*.cs' | xargs wc -l
+
+git ls-files '*.cpp' '*.hpp' '*.h' '*.mm' '*.c' '*.cs' | ForEach-Object { Get-Content $_ | Measure-Object -Line } | Measure-Object -Property Lines -Sum

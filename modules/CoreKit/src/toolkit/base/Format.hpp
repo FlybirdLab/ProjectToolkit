@@ -114,7 +114,7 @@ namespace toolkit {
 #define FORMAT_CUSTOM(TYPE, FMT, ...) \
 namespace toolkit { \
 template<> \
-psize formatCustom<>(FormatBuffer& buf, const TYPE& t) { \
+inline psize formatCustom<>(FormatBuffer& buf, const TYPE& t) { \
 	return Formatter::formatRaw(buf, FMT, __VA_ARGS__); \
 } \
 }
