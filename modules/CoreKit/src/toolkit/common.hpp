@@ -17,6 +17,10 @@
 namespace toolkit::type
 {
 
+#ifndef MAX_PATH
+    enum { MAX_PATH = 260 };
+#endif
+
     typedef int8_t i8;
     typedef uint8_t u8;
     typedef int16_t i16;
@@ -43,6 +47,20 @@ namespace toolkit::type
     typedef u64 uintptr;
     typedef i64 intptr;
 #define POINTER_SIZE 8
+
+    static_assert(sizeof(i8) == 1, "Invalid i8 type size.");
+    static_assert(sizeof(i16) == 2, "Invalid i16 type size.");
+    static_assert(sizeof(i32) == 4, "Invalid i32 type size.");
+    static_assert(sizeof(i64) == 8, "Invalid i64 type size.");
+    static_assert(sizeof(u8) == 1, "Invalid u8 type size.");
+    static_assert(sizeof(u16) == 2, "Invalid u16 type size.");
+    static_assert(sizeof(u32) == 4, "Invalid u32 type size.");
+    static_assert(sizeof(u64) == 8, "Invalid u64 type size.");
+    static_assert(sizeof(wchar) == 2, "Invalid wchar type size.");
+    static_assert(sizeof(char) == 1, "Invalid char type size.");
+    static_assert(sizeof(bool) == 1, "Invalid bool type size.");
+    static_assert(sizeof(f32) == 4, "Invalid f32 type size.");
+    static_assert(sizeof(f64) == 8, "Invalid f64 type size.");
 
     constexpr i8 kMaxI8 = std::numeric_limits<i8>::max();
     constexpr i8 kMinI8 = std::numeric_limits<i8>::min();
@@ -137,6 +155,33 @@ namespace toolkit::type
     {
         return f64(x) / 1000000000.0;
     }
+
+    struct NonCopyable
+    {
+        NonCopyable() = default;
+        NonCopyable(const NonCopyable &) = delete;
+        NonCopyable &operator=(const NonCopyable &) = delete;
+    };
+
+#define NON_COPYABLE(type)                  \
+    type(type &&) = delete;                 \
+    type(const type &) = delete;            \
+    type &operator=(const type &) = delete; \
+    type &operator=(type &&) = delete;
+#define POD_COPYABLE(type)                                              \
+    type(const type &other) { memcpy(this, &other, sizeof(type)); }     \
+    type(type &&other) noexcept { memcpy(this, &other, sizeof(type)); } \
+    type &operator=(const type &other)                                  \
+    {                                                                   \
+        memcpy(this, &other, sizeof(type));                             \
+        return *this;                                                   \
+    }                                                                   \
+    type &operator=(type &&other) noexcept                              \
+    {                                                                   \
+        memcpy(this, &other, sizeof(type));                             \
+        return *this;                                                   \
+    }
+
 }
 
 namespace toolkit

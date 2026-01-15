@@ -18,6 +18,8 @@ namespace toolkit {
 	class TkSpan;
 	template<typename T>
 	class TkHashSet;
+	template <typename KeyType, typename ValueType>
+    class TkHashMap;
 	
     template<typename T, typename U>
     class TkPair;
@@ -32,6 +34,7 @@ namespace toolkit {
 
 	class TkThread;
 	class TkVersion;
+	class TkUuid;
 
 	// Forward
 	template <typename... Params>

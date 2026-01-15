@@ -12,6 +12,39 @@
 
 namespace toolkit
 {
+    enum class NetConType : u8
+    {
+        kNone,
+        kUnknown,
+        kAirplaneMode,
+        kCell,
+        kWiFi,
+        kBluetooth,
+        kEthernet,
+    };
+    extern const char *toString(NetConType v);
+
+    enum class ScreenOrienType : u8
+    {
+        kUnknown,
+        kPortrait,
+        kPortraitUpsideDown,
+        kLandscapeLeft,
+        kLandscapeRight,
+    };
+    extern const char *toString(ScreenOrienType v);
+
+    struct BatteryInfo final
+    {
+        enum
+        {
+            kUnknown,
+            kCharging,
+            kDischarging,
+            kConnected,
+        } state = BatteryInfo::kUnknown;
+        f32 percent = 1.0f;
+    };
 
     struct CPUStats final
     {
@@ -26,8 +59,7 @@ namespace toolkit
         u32 cacheLineSize;
     };
 
-
-    struct MemoryStats
+    struct MemoryStats final
     {
         u64 physicalMemSize = 0;
         u64 usedPhysicalSize = 0;
@@ -37,13 +69,26 @@ namespace toolkit
         u64 extraDevelopmentMem = 0;
     };
 
-
     struct ProcessMemoryStats
     {
         u64 usedPhysicalSize = 0;
         u64 usedVirtualSize = 0;
     };
-    
+
+    struct TimeStats
+    {
+        i32 year;
+        i32 month;
+        i32 dayOfWeek;
+        i32 day;
+        i32 hour;
+        i32 minute;
+        i32 second;
+        i32 millisecond;
+    };
+
+    typedef void *LibHandle;
+    constexpr LibHandle kInvalidHandle = nullptr;
 
     class System
     {
@@ -76,7 +121,7 @@ namespace toolkit
         // Get the name of the operating system.
         static TkString getOpSysName();
         // Get the version of the operating system.
-        static TkVersion GetOpSysVersion();
+        static TkVersion getOpSysVersion();
         // Get the CPU's information.
         static CPUStats getCPUStats();
         // Get the memory stats at current.
@@ -85,6 +130,86 @@ namespace toolkit
         static ProcessMemoryStats getProcessMemoryStats();
         /// Get the current process unique identifier.
         static u64 getCurrentProcessId();
+
+    public:
+        // Load local shared library as handle
+        static LibHandle loadLib(const char *filename);
+        // Release loaded shared library's handle
+        static void freeLib(LibHandle handle);
+        // Get symbol address from shared library
+        static void *getLibSymbol(LibHandle handle, const char *symbol);
+
+        // Create new sub-process of current app
+        static i32 newProcess(struct ProcessInitArgs &args);
+
+    public:
+        // Get the current time in seconds
+        static double getTimeSeconds();
+        // Get the current time as CPU cycles counter
+        static u64 getTimeCycles();
+        // Gets the system clock frequency
+        static u64 getClockFrequency();
+        // Get current system time
+        static void getSystemTime(TimeStats &time);
+        // Get current UTC time
+        static void getUTCTime(TimeStats &time);
+
+    public:
+        // Get full path of the executable file.
+        static TkString getExecPath();
+        // Get the (almost) unique ID of the current user device.
+        static TkUuid getUniqueDeviceId();
+        // Get the current working directory of the process.
+        static TkString getWorkDir();
+        // Set the current working directory of the process.
+        static bool setWorkDir(const TkString &path);
+
+    public:
+        // Open a given url with broswer.
+        static bool openUrl(const TkStringView url);
+
+        // Set the High DPI awareness.
+        static void setHighDpiAware(bool enable);
+        // Get the primary monitor's DPI setting
+        static i32 getDpi();
+        // Get the primary monitor's DPI setting scale factor (1 is default). Includes custom DPI scale.
+        static float getDpiScale();
+
+        // Get the battery information.
+        static BatteryInfo getBatteryStats();
+        // Get the current network connection type.
+        static NetConType getNetConType();
+        // Get the current screen orientation type.
+        static ScreenOrienType getScreenOrienType();
+
+        // Get the current locale culture (eg. "pl-PL" or "en-US").
+        static TkString getLocale();
+        // Get the computer machine name.
+        static TkString getComputerName();
+        // Get the user name.
+        static TkString getUserName();
+
+        // Returns true if app has user focus.
+        static bool getHasFocus();
+        // Returns true if app is paused, only basic service is updated until app end or resume.
+        static bool getIsPaused();
+
+        // Create the unique identifier.
+        static void createUuid(TkUuid &result);
+
+    public:
+        // Get the process environment variables (pairs of key and value).
+        static void getEnvVars(TkHashMap<TkString, TkString> &result);
+        // Get the environment variable value.
+        static bool getEnvVar(const TkStringView name, TkString &value);
+        // Set the environment variable value.
+        static bool setEnvVar(const TkStringView name, const TkString &value);
+
+    public:
+        // Create the system mutex.
+        static bool createProcessMutex(const char* name);
+        // Release the system mutex.
+        static void releaseProcessMutex();
     };
 
 }

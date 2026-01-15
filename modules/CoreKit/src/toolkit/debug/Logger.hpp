@@ -127,6 +127,10 @@ namespace toolkit
             emitLog(msg, LogLevel::kTrace);
         }
 
+        TK_FORCE_INLINE void log(LogLevel level, const char* msg) {
+            emitLog(msg, level);
+        }
+
     public:
         static TkLogger* getShared();
 

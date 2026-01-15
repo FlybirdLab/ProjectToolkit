@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "toolkit/base/Assert.hpp"
 #include <toolkit/common.hpp>
 #include <math.h>
 
@@ -842,4 +843,46 @@ namespace toolkit
 		}
 	};
 
+    struct Pos
+    {
+        double x, y;
+
+        Pos operator+(const Pos &other) const
+        {
+            return {x + other.x, y + other.y};
+        }
+        Pos operator-(const Pos &other) const
+        {
+            return {x - other.x, y - other.y};
+        }
+        Pos operator*(double scalar) const
+        {
+            return {x * scalar, y * scalar};
+        }
+        friend Pos operator*(double scalar, const Pos &pos)
+        {
+            return pos * scalar;
+        }
+        Pos operator/(double scalar) const
+        {
+            if (scalar == 0)
+                TK_ASSERT(false);
+            return {x / scalar, y / scalar};
+        }
+        Pos &operator=(const Pos &other) = default;
+        bool operator==(const Pos &other) const
+        {
+            constexpr double epsilon = 1e-9;
+            return TkMathD::abs(x - other.x) < epsilon && TkMathD::abs(y - other.y) < epsilon;
+        }
+        bool operator!=(const Pos &other) const
+        {
+            return !(*this == other);
+        }
+    };
+
+    struct Rect
+    {
+        double x, y, w, h;
+    };
 }

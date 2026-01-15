@@ -1,3 +1,8 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 // Created by cubevlmu on 2025/8/5.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
@@ -5,6 +10,10 @@
 
 #define TK_USE_RPMALLOC 1
 #define TK_TRACY_ENABLE 0
+#define TK_CRASH_LOG    1
+#define TK_HEADLESS     0
+
+#define TK_WINDOW_KIT   0
 
 #ifndef DICTIONARY_DEFAULT_CAPACITY
 #if TK_WINDOWS || TK_MACOS || TK_LINUX

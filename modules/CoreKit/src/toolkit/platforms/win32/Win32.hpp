@@ -257,7 +257,7 @@ namespace toolkit {
         DWORD nFileSizeLow;
         DWORD dwReserved0;
         DWORD dwReserved1;
-        CHAR cFileName[MAX_PATH];
+        CHAR cFileName[260];
         CHAR cAlternateFileName[14];
     } WIN32_FIND_DATAA, *PWIN32_FIND_DATAA, *LPWIN32_FIND_DATAA;
 

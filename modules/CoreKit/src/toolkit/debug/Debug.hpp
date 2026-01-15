@@ -1,11 +1,57 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 // Created by cubevlmu on 2025/8/5.
 // Copyright (c) 2025 Flybird Games. All rights reserved.
 
 #pragma once
 
-namespace toolkit {
+#include <toolkit/common.hpp>
 
-    typedef void(*stack_trace_func)(const char*);
+namespace toolkit
+{
+
+    typedef void (*stack_trace_func)(const char *);
     void getStackTrace(const stack_trace_func);
+
+    struct StackFrame
+    {
+        char module[256];
+        char func[256];
+        char file[256];
+        i32 line;
+        void *programCounter;
+    };
+
+    class Debug
+    {
+    public:
+        // Write log to system's default debug console. 
+        static void log(const TkStringView msg);
+
+    public:
+        static bool isDebuggerPresent();
+
+        // Get current native stack trace information.
+        static TkArray<StackFrame> getStackFrames(i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
+        /// Get current native stack trace information as string.
+        static TkString getStackTrace(i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
+        // Crash dump data handling
+        static void collectCrashData(const TkString &crashDataFolder, void *context = nullptr);
+
+    public:
+        // Make a fatal crash.
+        static void crash(i32 line, const char *file);
+        // Make a fatal crash occurred on memory allocation fail.
+        static void crashOOM(i32 line = -1, const char *file = nullptr);
+        // Make a fatal crash due to code not being implemented.
+        static void crashNotImpl(i32 line, const char *file, const char *info);
+        // Make a fatal crash due to assertion fail.
+        static void assert(const char *message, const char *file, int line);
+        // Make a error message log due to runtime value check fail.
+        static void checkFailed(const char *message, const char *file, int line);
+    };
 
 }

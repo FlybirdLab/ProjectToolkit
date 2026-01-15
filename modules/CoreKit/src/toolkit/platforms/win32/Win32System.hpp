@@ -1,39 +1,70 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #pragma once
 
-#include <toolkit/platforms/System.hpp>
+#include <toolkit/platforms/base/BaseSystem.hpp>
 
 #if TK_WINDOWS
 
-namespace toolkit {
+#include "toolkit/types/UUID.hpp"
 
-    struct Win32SystemData {
-        u64 mainThreadId;
+#include <toolkit/types/String.hpp>
+#include <toolkit/collection/Array.hpp>
+
+#define UNICODE
+#define _UNICODE
+
+#define NOMINMAX
+#ifdef MAX_PATH
+#undef MAX_PATH
+#endif
+#include "Win32.hpp"
+#include <WinSock2.h>
+
+namespace toolkit
+{
+
+    struct SystemGlobals
+    {
+        TkUuid deviceId;
+        CPUStats cpuStats;
+        u64 programSizeMem;
+        u64 clockFreq;
+        f64 cycles2Seconds;
+        WSAData wsaData;
+
+        TkString userLocale, computerName, windowsName;
+        HANDLE processMutex = nullptr;
+        i32 dpi = 96;
+        struct
+        {
+            i32 major = 0;
+            i32 minor = 0;
+            i32 build = 0;
+        } version;
+#if TK_WINDOW_KIT
+        RECT virtualScreenBounds{0.0f, 0.0f, 0.0f, 0.0f};
+#endif
+#if TK_CRASH_LOG
+#if TK_TRACY_ENABLE
+        bool isSymInit = true;
+#else
+        bool isSymInit = false;
+#endif
+        TkArray<TkString> symbolsPath;
+#endif
     };
 
-    class Win32System
+    // Windows specific api
+    class Win32System : public System
     {
     public:
-        static Win32SystemData* getData();
-
-    public:
-        // Invoke in main function to setup toolkit platform data
-        static bool init();
-        // Log the platform's information to console
-        static void logInfo();
-        // Setup platform service before run application
-        static void beforeRun();
-        // Update platform service in main loop for handling events or others.
-        static void update();
-        // Invoke before application quit to clean up
-        static void beforeQuit();
-        // For application quit platform service
-        static void quit();
+        static bool readRegVal(void *root, const TkStringView key, const TkStringView name, TkString *result);
+        static bool isWindows10();
     };
 
 }

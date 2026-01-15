@@ -114,21 +114,31 @@ namespace toolkit
 
     void TkThread::setThreadPriority(ThreadPriority priority)
     {
-        ::SetThreadPriority(
-            ::GetCurrentThread(),
-            ThreadImpl::convertType(priority));
+        ::SetThreadPriority(::GetCurrentThread(), ThreadImpl::convertType(priority));
     }
 
     void TkThread::setThreadAffinityMask(u64 affinityMask)
     {
-        ::SetThreadAffinityMask(
-            ::GetCurrentThread(),
-            (DWORD_PTR)affinityMask);
+        ::SetThreadAffinityMask(::GetCurrentThread(), (DWORD_PTR)affinityMask);
     }
 
     void TkThread::sleep(i32 milliseconds)
     {
-        ::Sleep(milliseconds);
+        static thread_local HANDLE timer = NULL;
+        if (timer == NULL)
+        {
+            // Attempt to create high-resolution timer for each thread (Windows 10 build 17134 or later)
+            timer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+            if (timer == NULL) // fallback for older versions of Windows
+                timer = CreateWaitableTimer(NULL, TRUE, NULL);
+        }
+
+        // Negative value is relative to current time, minimum waitable time is 10 microseconds
+        ::LARGE_INTEGER dueTime;
+        dueTime.QuadPart = -int64_t(milliseconds) * 10000;
+
+        ::SetWaitableTimerEx(timer, &dueTime, 0, NULL, NULL, NULL, 0);
+        WaitForSingleObject(timer, INFINITE);
     }
 
     u64 TkThread::getCurrentThreadID()
@@ -140,14 +150,12 @@ namespace toolkit
     {
         auto *thread = static_cast<ThreadImpl *>(pThis);
 
-
         StringAsUTF16<128> to{thread->m_name.get()};
         if (!thread->m_name.isEmpty())
         {
             SetThreadDescription(
                 GetCurrentThread(),
-                (PCWSTR)to.get()
-            );
+                (PCWSTR)to.get());
         }
 
         const i32 exitCode = thread->run();
