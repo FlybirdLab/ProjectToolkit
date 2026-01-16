@@ -18,8 +18,8 @@ namespace toolkit
 		friend TkAction<Params...>;
 		typedef ReturnType (*Signature)(Params...);
 
-		template <typename... TParams>
-		friend u32 getHash(const TkFunc<void(TParams...)> &key);
+		template <typename T, typename Enable>
+		friend struct HashFunc;
 
 	private:
 		typedef ReturnType (*StubSignature)(void *, Params...);
@@ -498,10 +498,14 @@ namespace toolkit
 	};
 
 	template <typename... Params>
-	inline u32 getHash(const TkFunc<void(Params...)> &key)
+	struct HashFunc<TkFunc<void(Params...)>>
 	{
-		u32 hash = getHash((void *)key.m_callee);
-		combineHash(hash, getHash((void *)key.m_function));
-		return hash;
-	}
+		static u32 get(const TkFunc<void(Params...)> &key)
+		{
+			u32 hash = HashFunc<void *>::get((void *)key.m_callee);
+			combineHash(hash, HashFunc<void *>::get((void *)key.m_function));
+			return hash;
+		}
+	};
+
 }

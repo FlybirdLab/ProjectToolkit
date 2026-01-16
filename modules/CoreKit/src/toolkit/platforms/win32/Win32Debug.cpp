@@ -251,7 +251,7 @@ namespace toolkit
         CrashInfo crashInfo;
         crashInfo.exceptionPointers = (PEXCEPTION_POINTERS)context;
         crashInfo.callerThreadId = GetCurrentThreadId();
-        crashInfo.miniDumpPath = crashDataFolder / TEXT("Minidump.dmp");
+        crashInfo.miniDumpPath = crashDataFolder / "Minidump.dmp";
         LogError("Creating Mini Dump to %s", crashInfo.miniDumpPath);
         auto threadFunc = [](void *data) -> DWORD
         {

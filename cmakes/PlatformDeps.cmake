@@ -6,6 +6,7 @@ function(SetPlatformDeps incVar lnkVar)
                 "user32"
                 "gdi32"
                 "shell32"
+                "Ws2_32"
         )
         add_compile_options(/utf-8)
     ELSEIF(APPLE)

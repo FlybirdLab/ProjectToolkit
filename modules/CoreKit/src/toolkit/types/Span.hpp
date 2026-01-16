@@ -97,7 +97,7 @@ namespace toolkit {
 
     protected:
         T* m_data;
-        i32 m_length;
+        i64 m_length;
     };
 
 

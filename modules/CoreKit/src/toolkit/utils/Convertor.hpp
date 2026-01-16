@@ -118,8 +118,20 @@ namespace toolkit
 
         static void utf16ToUtf8(const wchar *from, char *to, i32 fromLength, i32 &toLength);
         static char *utf16ToUtf8(const wchar *from, i32 fromLength, i32 &toLength);
-    };
 
+    public:
+        i32 base64EncodeLength(i32 size);
+        i32 base64DecodeLength(const char *encoded, i32 length);
+
+        void base64Encode(const byte *bytes, i32 size, TkArray<char> &encoded);
+        void base64Encode(const byte *bytes, i32 size, char *encoded);
+
+        void base64Decode(const char *encoded, i32 length, TkArray<byte> &output);
+        void base64Decode(const char *encoded, i32 length, byte *output);
+        
+        void encryptBytes(byte *data, u64 size);
+        void decryptBytes(byte *data, u64 size);
+    };
 
     template <typename CharType, int InlinedSize = 128>
     class StringAsBase
@@ -146,7 +158,6 @@ namespace toolkit
         CharType *m_dynamic = nullptr;
         CharType m_inlined[InlinedSize];
     };
-
 
     template <int InlinedSize = 128>
     class StringAsANSI : public StringAsBase<char, InlinedSize>
@@ -182,7 +193,6 @@ namespace toolkit
         typedef StringAsBase<CharType, InlinedSize> Base;
     };
 
-
     template <int InlinedSize = 128>
     class StringAsUTF8 : public StringAsBase<char, InlinedSize>
     {
@@ -217,7 +227,6 @@ namespace toolkit
         typedef StringAsBase<CharType, InlinedSize> Base;
     };
 
-
     template <int InlinedSize = 128>
     class StringAsUTF16 : public StringAsBase<wchar, InlinedSize>
     {
@@ -251,7 +260,6 @@ namespace toolkit
         typedef wchar CharType;
         typedef StringAsBase<CharType, InlinedSize> Base;
     };
-
 
     template <typename CharType = wchar>
     class StringAsTerminated

@@ -25,7 +25,7 @@ namespace toolkit {
     TkPath::TkPath(TkStringView path)
     {
         m_length = u32(normalize(path, TkSpan(m_path)) - m_path);
-        //TODO m_hash = StableHash(m_path);
+        m_hash = StableHash(m_path);
     }
 
 
@@ -34,11 +34,11 @@ namespace toolkit {
         TkSpan span(m_path + m_length, m_path + MAX_PATH);
         m_length = u32(TkStringUtils::copyString(span, value) - m_path);
     }
-    //TODO void TkPath::add(StableHash hash)
-    // {
-    //     TkSpan span(m_path + m_length, m_path + MAX_PATH);
-    //     m_length = u32(TkStringUtils::toString(hash.getHashValue(), span) - m_path);
-    // }
+    void TkPath::add(StableHash hash)
+    {
+        TkSpan span(m_path + m_length, m_path + MAX_PATH);
+        m_length = u32(TkStringUtils::toString(hash.getHashValue(), span) - m_path);
+    }
     void TkPath::add(u64 value)
     {
         TkSpan span(m_path + m_length, m_path + MAX_PATH);
@@ -136,14 +136,14 @@ namespace toolkit {
 
     void TkPath::endUpdate() {
         m_length = u32(normalize(m_path) - m_path);
-        //TODO m_hash = StableHash(m_path);
+        m_hash = StableHash(m_path);
     }
 
 
     void TkPath::operator=(TkStringView rhs) {
         TK_ASSERT(rhs.length() < lengthOf(m_path));
         m_length = u32(normalize(rhs, TkSpan(m_path)) - m_path);
-        //TODO m_hash = StableHash(m_path);
+        m_hash = StableHash(m_path);
     }
 
 
@@ -156,15 +156,13 @@ namespace toolkit {
     }
 
     bool TkPath::operator==(const TkPath& rhs) const {
-        // TK_ASSERT(TkStringUtils::equalStrings(m_path, rhs.m_path) == (m_hash == rhs.m_hash));
-        //TODO return m_hash == rhs.m_hash;
-        return false;
+        TK_ASSERT(TkStringUtils::equalStrings(m_path, rhs.m_path) == (m_hash == rhs.m_hash));
+        return m_hash == rhs.m_hash;
     }
 
     bool TkPath::operator!=(const TkPath& rhs) const {
-        // TK_ASSERT(TkStringUtils::equalStrings(m_path, rhs.m_path) == (m_hash == rhs.m_hash));
-        //TODO return m_hash != rhs.m_hash;
-        return false;
+        TK_ASSERT(TkStringUtils::equalStrings(m_path, rhs.m_path) == (m_hash == rhs.m_hash));
+        return m_hash != rhs.m_hash;
     }
 
 

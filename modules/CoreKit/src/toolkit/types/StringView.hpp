@@ -8,7 +8,8 @@
 #include <toolkit/utils/StringUtils.hpp>
 #include <toolkit/base/Format.hpp>
 
-namespace toolkit {
+namespace toolkit
+{
 
 	// Represents static text view as a sequence of ANSI characters. wcharacters sequence might not be null-terminated
 	class TkStringView final
@@ -17,63 +18,59 @@ namespace toolkit {
 		static TkStringView Empty;
 
 	public:
-		TkStringView(const class TkString& str);
-		TkStringView(const char* str)
+		TkStringView(const class TkString &str);
+		TkStringView(const char *str)
 		{
 			m_data = str;
 			m_length = TkStringUtils::length(str);
 		}
 		constexpr TkStringView()
-			: m_data(nullptr)
-			, m_length(0)
+			: m_data(nullptr), m_length(0)
 		{
 		}
-		constexpr TkStringView(const char* data, i32 length)
-			: m_data(data)
-			, m_length(length)
+		constexpr TkStringView(const char *data, i32 length)
+			: m_data(data), m_length(length)
 		{
 		}
-		constexpr TkStringView(const TkStringView& other)
-			: m_data(other.m_data)
-			, m_length(other.m_length)
+		constexpr TkStringView(const TkStringView &other)
+			: m_data(other.m_data), m_length(other.m_length)
 		{
 		}
-
 
 	public:
-		TK_FORCE_INLINE TkStringView& operator=(const char* str)
+		TK_FORCE_INLINE TkStringView &operator=(const char *str)
 		{
 			m_data = str;
 			m_length = TkStringUtils::length(str);
 			return *this;
 		}
-		TK_FORCE_INLINE bool operator==(const TkStringView& other) const
+		TK_FORCE_INLINE bool operator==(const TkStringView &other) const
 		{
 			return m_length == other.m_length && (m_length == 0 || TkStringUtils::compareStrings(m_data, other.m_data, m_length) == 0);
 		}
-		TK_FORCE_INLINE bool operator!=(const TkStringView& other) const
+		TK_FORCE_INLINE bool operator!=(const TkStringView &other) const
 		{
 			return !(*this == other);
 		}
-		TK_FORCE_INLINE bool operator==(const char* other) const
+		TK_FORCE_INLINE bool operator==(const char *other) const
 		{
 			return *this == TkStringView(other);
 		}
-		TK_FORCE_INLINE bool operator!=(const char* other) const
+		TK_FORCE_INLINE bool operator!=(const char *other) const
 		{
 			return !(*this == TkStringView(other));
 		}
-		bool operator==(const TkString& other) const;
-		bool operator!=(const TkString& other) const;
+		bool operator==(const TkString &other) const;
+		bool operator!=(const TkString &other) const;
 
 	public:
-		TK_FORCE_INLINE const char& operator[](i32 index) const
+		TK_FORCE_INLINE const char &operator[](i32 index) const
 		{
 			TK_ASSERT(index >= 0 && index <= m_length);
 			return m_data[index];
 		}
 
-		TK_FORCE_INLINE TkStringView& operator=(const TkStringView& other)
+		TK_FORCE_INLINE TkStringView &operator=(const TkStringView &other)
 		{
 			if (this != &other)
 			{
@@ -83,7 +80,7 @@ namespace toolkit {
 			return *this;
 		}
 
-		i32 compare(const TkStringView& str, bool searchCase = true) const;
+		i32 compare(const TkStringView &str, bool searchCase = true) const;
 
 	public:
 		TK_FORCE_INLINE bool isEmpty() const
@@ -101,25 +98,27 @@ namespace toolkit {
 			return m_length;
 		}
 
-		TK_FORCE_INLINE constexpr const char* operator*() const
+		TK_FORCE_INLINE constexpr const char *operator*() const
 		{
 			return m_data;
 		}
 
-		TK_FORCE_INLINE constexpr const char* get() const
+		TK_FORCE_INLINE constexpr const char *get() const
 		{
 			return m_data;
 		}
 
-		TK_FORCE_INLINE const char* getText() const
+		TK_FORCE_INLINE const char *getText() const
 		{
-			return m_data ? m_data : (const char*)"";
+			return m_data ? m_data : (const char *)"";
 		}
 
-		TK_FORCE_INLINE const char* begin() const {
+		TK_FORCE_INLINE const char *begin() const
+		{
 			return m_data ? m_data : "";
 		}
-		TK_FORCE_INLINE const char* end() const {
+		TK_FORCE_INLINE const char *end() const
+		{
 			return m_data ? m_data + m_length * sizeof(char) : "";
 		}
 
@@ -132,8 +131,8 @@ namespace toolkit {
 		bool startsWith(char c, bool searchCase = false) const;
 		bool endsWith(char c, bool searchCase = false) const;
 
-		bool startsWith(const TkStringView& prefix, bool searchCase = false) const;
-		bool endsWith(const TkStringView& suffix, bool searchCase = false) const;
+		bool startsWith(const TkStringView &prefix, bool searchCase = false) const;
+		bool endsWith(const TkStringView &suffix, bool searchCase = false) const;
 
 	public:
 		// Gets the left most given number of characters.
@@ -149,25 +148,32 @@ namespace toolkit {
 		TkString toString() const;
 
 	private:
-		const char* m_data;
+		const char *m_data;
 		i32 m_length;
 	};
 
-
-	inline u32 getHash(const TkStringView& key)
+	template <>
+	struct HashFunc<TkStringView>
 	{
-		return TkStringUtils::getStringsHash(key.get(), key.length());
-	}
+		static u32 get(const TkStringView &key)
+		{
+			return TkStringUtils::getStringsHash(
+				key.get(),
+				key.length());
+		}
+	};
 
-	bool operator==(const TkString& a, const TkStringView& b);
-	bool operator!=(const TkString& a, const TkStringView& b);
+	bool operator==(const TkString &a, const TkStringView &b);
+	bool operator!=(const TkString &a, const TkStringView &b);
 }
 
-namespace toolkit {
+namespace toolkit
+{
 
-	template<typename T>
-	psize formatCustom(FormatBuffer& b, const TkStringView& v) {
-		b.appendData((void*)v.get(), v.length() * sizeof(char));
+	template <typename T>
+	psize formatCustom(FormatBuffer &b, const TkStringView &v)
+	{
+		b.appendData((void *)v.get(), v.length() * sizeof(char));
 		return v.length();
 	}
 

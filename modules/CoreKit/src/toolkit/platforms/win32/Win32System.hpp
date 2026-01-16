@@ -35,7 +35,7 @@ namespace toolkit
         u64 programSizeMem;
         u64 clockFreq;
         f64 cycles2Seconds;
-        WSAData wsaData;
+        ::WSAData wsaData;
 
         TkString userLocale, computerName, windowsName;
         HANDLE processMutex = nullptr;

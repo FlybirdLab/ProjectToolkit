@@ -56,7 +56,7 @@ namespace toolkit
         bool operator!=(const TkPath &rhs) const;
 
         u32 length() const { return m_length; }
-        //TODO FilePathHash getHash() const { return m_hash; }
+        FilePathHash getHash() const { return m_hash; }
         template <typename... Args>
         void append(Args... args);
         char *beginUpdate() { return m_path; }
@@ -68,12 +68,12 @@ namespace toolkit
 
     private:
         void add(TkStringView);
-        //TODO void add(StableHash hash);
+        void add(StableHash hash);
         void add(u64 value);
 
         char m_path[MAX_PATH];
         u32 m_length = 0;
-        //TODO FilePathHash m_hash;
+        FilePathHash m_hash;
     };
 
     template <typename... Args>

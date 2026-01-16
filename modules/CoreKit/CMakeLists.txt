@@ -34,6 +34,8 @@ SetPlatformDeps(INCS LNKS)
 AddStb(INCS LNKS)
 AddSpdlog(INCS LNKS)
 AddRpmalloc(INCS LNKS)
+AddXXHash(INCS LNKS)
+AddConcurrentQueue(INCS LNKS)
 
 #################################################################
 # project configurations

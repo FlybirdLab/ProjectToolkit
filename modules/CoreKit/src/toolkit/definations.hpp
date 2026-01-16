@@ -23,6 +23,10 @@
 #endif
 #endif
 
+#ifndef TK_PLATFORM_THREADS_LIMIT
+#define TK_PLATFORM_THREADS_LIMIT 64
+#endif
+
 // Default slack space divider for the dictionaries.
 #define DICTIONARY_DEFAULT_SLACK_SCALE 3
 // Function for dictionary that tells how change hash index during iteration (size param is a buckets table size).

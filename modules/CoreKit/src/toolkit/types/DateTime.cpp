@@ -180,14 +180,14 @@ namespace toolkit {
 
     TkDateTime TkDateTime::now()
     {
-        System::Time time {};
+        TimeStats time {};
         System::getSystemTime(time);
         return TkDateTime(time.year, time.month, time.day, time.hour, time.minute, time.second, time.millisecond);
     }
 
     TkDateTime TkDateTime::nowUTC()
     {
-        System::Time time {};
+        TimeStats time {};
         System::getUTCTime(time);
         return TkDateTime(time.year, time.month, time.day, time.hour, time.minute, time.second, time.millisecond);
     }

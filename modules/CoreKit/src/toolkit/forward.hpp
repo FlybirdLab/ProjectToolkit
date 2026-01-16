@@ -37,8 +37,8 @@ namespace toolkit {
 	class TkUuid;
 
 	// Forward
-	template <typename... Params>
-	uint32_t getHash(const TkFunc<void(Params...)> &);
-    template<class T, class U>
-    inline uint32_t getHash(const TkPair<T, U>& key);
+	// template <typename... Params>
+	// uint32_t getHash_(const TkFunc<void(Params...)> &);
+    // template<class T, class U>
+    // inline uint32_t getHash_(const TkPair<T, U>& key);
 }

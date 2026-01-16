@@ -714,7 +714,7 @@ namespace toolkit
         {
             TK_ASSERT(m_size);
             const i32 tableSizeMinusOne = m_size - 1;
-            i32 bucketIndex = toolkit::getHash(key) & tableSizeMinusOne;
+            i32 bucketIndex = HashFunc<KeyComparableType>::get(key) & tableSizeMinusOne;
             i32 insertPos = -1;
             i32 checksCount = 0;
             const Bucket *data = m_data;

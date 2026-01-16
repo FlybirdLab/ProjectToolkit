@@ -802,7 +802,8 @@ namespace toolkit
 		T *m_data;
 		IAllocator &m_alloc;
 
-		TK_FORCE_INLINE static void moveToEmpty(IAllocator &alloc, void *&to, void *&from, const i32 fromCount, const i32 fromCapacity)
+		template <typename Vt>
+		TK_FORCE_INLINE static void moveToEmpty(IAllocator &alloc, Vt *&to, Vt *&from, const i32 fromCount, const i32 fromCapacity)
 		{
 			toolkit::swap(to, from);
 		}

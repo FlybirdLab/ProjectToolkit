@@ -19,11 +19,11 @@ namespace toolkit
     private:
         // Array with characters of the string (it's not null-terminated)
         TkArray<char> m_data;
-        IAllocator& m_alloc;
+        IAllocator &m_alloc;
 
     public:
-        TkStringBuilder(IAllocator& alloc = TkMemory::getDefault());
-        TkStringBuilder(i32 capacity, IAllocator& alloc = TkMemory::getDefault());
+        TkStringBuilder(IAllocator &alloc = TkMemory::getDefault());
+        TkStringBuilder(i32 capacity, IAllocator &alloc = TkMemory::getDefault());
 
     public:
         TK_FORCE_INLINE i32 capacity() const
@@ -55,13 +55,13 @@ namespace toolkit
         TkStringBuilder &append(i32 val);
         TkStringBuilder &append(u32 val);
 
-		template<typename... Args>
-		TkStringBuilder& appendFormat(const char* format, const Args& ... args)
-		{
-			FormatBuffer buf { m_alloc };
-			Formatter::format(buf, format, args...);
+        template <typename... Args>
+        TkStringBuilder &appendFormat(const char *format, const Args &...args)
+        {
+            FormatBuffer buf{m_alloc};
+            Formatter::format(buf, format, args...);
             return append(buf.getPointer(), buf.getUsed());
-		}
+        }
 
         TkStringBuilder &appendLine();
         TkStringBuilder &appendLine(i32);
@@ -91,19 +91,27 @@ namespace toolkit
         TkStringView toStringView() const;
     };
 
-    inline u32 getHash(const TkStringBuilder &key)
+    template <>
+    struct HashFunc<TkStringBuilder>
     {
-        return TkStringUtils::getStringsHash(key.getCharArray().get(), key.length());
-    }
+        static u32 get(const TkStringBuilder &key)
+        {
+            return TkStringUtils::getStringsHash(
+                key.getCharArray().get(),
+                key.length());
+        }
+    };
+
 }
 
+namespace toolkit
+{
 
-namespace toolkit {
-
-	template<typename T>
-	inline psize formatCustom(FormatBuffer& b, const TkStringBuilder& v) {
-		b.appendData((void*)v.getCharArray().get(), v.length() * sizeof(char));
-		return v.length();
-	}
+    template <typename T>
+    inline psize formatCustom(FormatBuffer &b, const TkStringBuilder &v)
+    {
+        b.appendData((void *)v.getCharArray().get(), v.length() * sizeof(char));
+        return v.length();
+    }
 
 }

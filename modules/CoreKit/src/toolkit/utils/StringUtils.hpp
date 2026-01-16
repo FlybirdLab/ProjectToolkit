@@ -4,6 +4,7 @@
 #pragma once
 
 #include <toolkit/common.hpp>
+#include <toolkit/base/Hash.hpp>
 
 namespace toolkit
 {
@@ -126,14 +127,19 @@ namespace toolkit
 	{
 		return TkStringUtils::fromHexString(str, TkStringUtils::length(str), result);
 	}
-	// supporting cobalt hashing model
-	TK_FORCE_INLINE u32 getHash(const char *key)
+
+	// supporting toolkit hashing model
+	template <>
+	struct HashFunc<char *>
 	{
-		return TkStringUtils::getStringsHash(key);
-	}
-	TK_FORCE_INLINE u32 getHash(const char *key, i32 length)
-	{
-		return TkStringUtils::getStringsHash(key, length);
-	}
+		static u32 get(const char *k)
+		{
+			return TkStringUtils::getStringsHash(k);
+		}
+		static u32 get(const char *k, i32 length)
+		{
+			return TkStringUtils::getStringsHash(k, length);
+		}
+	};
 
 }

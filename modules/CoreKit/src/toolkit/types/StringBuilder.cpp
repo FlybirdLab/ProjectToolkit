@@ -102,4 +102,8 @@ namespace toolkit {
     {
         return TkString(m_data.get(), m_data.count());
     }
+
+    TkStringView TkStringBuilder::toStringView() const {
+        return TkStringView {m_data.get(), m_data.count()};
+    }
 }

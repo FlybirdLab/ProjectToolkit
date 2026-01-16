@@ -158,7 +158,7 @@ namespace toolkit
 
 namespace toolkit
 {
-    static SystemGlobals s_global;
+    SystemGlobals s_global{};
     static constexpr u64 kClrException = 0xE0434352;
     static constexpr u64 kVcppException = 0xE06D7363;
 
@@ -558,8 +558,8 @@ namespace toolkit
             s_global.deviceId = TkUuid::Empty;
 
             // A - Computer Name and User Name
-            u32 hash = getHash(System::getComputerName());
-            combineHash(hash, getHash(System::getUserName()));
+            u32 hash = HashFunc<TkString>::get(System::getComputerName());
+            combineHash(hash, HashFunc<TkString>::get(System::getUserName()));
             s_global.deviceId.a = hash;
 
             // B - MAC address
@@ -1045,6 +1045,9 @@ namespace toolkit
         {
             result = -1;
             const TkString cmdLine = args.file + " " + args.args;
+            
+            StringAsUTF16 u16 {cmdLine.getText()};
+            StringAsUTF16 dirPth {args.workDir.get()};
 
             ::STARTUPINFOEX startupInfoEx;
             ZeroMemory(&startupInfoEx, sizeof(startupInfoEx));
@@ -1127,8 +1130,6 @@ namespace toolkit
 
             // Create the process
             ::PROCESS_INFORMATION procInfo;
-            StringAsUTF16 u16 {cmdLine.getText()};
-            StringAsUTF16 dirPth {args.workDir.get()};
             if (!CreateProcessW(nullptr, const_cast<LPWSTR>(u16.get()), nullptr, nullptr, TRUE, dwCreationFlags, (LPVOID)environmentStr, args.workDir.hasChars() ? dirPth.get() : nullptr, &startupInfoEx.StartupInfo, &procInfo))
             {
                 LogWarn("Cannot start process. Error code: 0x{0:x}", (u64)GetLastError());

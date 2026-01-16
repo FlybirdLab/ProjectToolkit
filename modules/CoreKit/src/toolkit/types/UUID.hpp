@@ -10,6 +10,7 @@
 #include <toolkit/base/TypeTraits.hpp>
 #include <toolkit/base/Format.hpp>
 #include <toolkit/base/Assert.hpp>
+#include <toolkit/base/Hash.hpp>
 
 namespace toolkit
 {
@@ -88,7 +89,6 @@ namespace toolkit
         static TkUuid create();
     };
 
-
     template <>
     struct TIsPODType<TkUuid>
     {
@@ -98,11 +98,16 @@ namespace toolkit
         };
     };
 
-    
-    inline u32 getHash(const TkUuid &key)
+    template <>
+    struct HashFunc<TkUuid>
     {
-        return static_cast<i32>(key.a ^ key.b ^ key.c ^ key.d);
-    }
+        static u32 get(const TkUuid &key)
+        {
+            return static_cast<u32>(
+                key.a ^ key.b ^ key.c ^ key.d);
+        }
+    };
+
 }
 
 FORMAT_CUSTOM(TkUuid, "%08x%08x%08x%08x", t.a, t.b, t.c, t.d);

@@ -25,6 +25,10 @@
 
 namespace toolkit
 {
+
+    TkSpan<const char *> TkConvertor::Private::BytesSizes {};
+    TkSpan<const char *> TkConvertor::Private::HertzSizes {};
+
 #if TK_POSIX
 
     static inline i32 calU8CodePointLen(char ch)
@@ -433,4 +437,125 @@ namespace toolkit
         to[toLength] = 0;
         return to;
     }
+
+    static const char *s_b64Chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz"
+        "0123456789+/";
+
+    static const i32 s_b64Idx[256] =
+        {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 63, 62, 62, 63,
+            52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+            15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0, 0, 0, 0, 63,
+            0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+            41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51};
+
+    void TkConvertor::encryptBytes(byte *data, u64 size)
+    {
+        byte offset = 71;
+        for (u64 i = 0; i < size; i++)
+        {
+            data[i] = (data[i] ^ (byte)i) + offset;
+            offset += 13;
+        }
+    }
+
+    void TkConvertor::decryptBytes(byte *data, u64 size)
+    {
+        byte offset = 71;
+        for (u64 i = 0; i < size; i++)
+        {
+            data[i] = data[i] - offset ^ (byte)i;
+            offset += 13;
+        }
+    }
+
+    i32 TkConvertor::base64EncodeLength(i32 size)
+    {
+        return (size + 2) / 3 * 4;
+    }
+
+    i32 TkConvertor::base64DecodeLength(const char *encoded, i32 length)
+    {
+        if (length == 0)
+            return 0;
+        const i32 pad1 = length % 4 || encoded[length - 1] == '=';
+        const i32 pad2 = pad1 && (length % 4 > 2 || encoded[length - 2] != '=');
+        const i32 last = (length - pad1) / 4 << 2;
+        return last / 4 * 3 + pad1 + pad2;
+    }
+
+    void TkConvertor::base64Encode(const byte *bytes, i32 size, TkArray<char> &encoded)
+    {
+        encoded.resize(base64EncodeLength(size));
+        base64Encode(bytes, size, encoded.get());
+    }
+
+    void TkConvertor::base64Encode(const byte *bytes, i32 size, char *encoded)
+    {
+        i32 i;
+        for (i = 0; i < size - 2; i += 3)
+        {
+            *encoded++ = s_b64Chars[bytes[i] >> 2 & 0x3F];
+            *encoded++ = s_b64Chars[(bytes[i] & 0x3) << 4 | (i32)(bytes[i + 1] & 0xF0) >> 4];
+            *encoded++ = s_b64Chars[(bytes[i + 1] & 0xF) << 2 | (i32)(bytes[i + 2] & 0xC0) >> 6];
+            *encoded++ = s_b64Chars[bytes[i + 2] & 0x3F];
+        }
+        if (i < size)
+        {
+            *encoded++ = s_b64Chars[bytes[i] >> 2 & 0x3F];
+            if (i == size - 1)
+            {
+                *encoded++ = s_b64Chars[((bytes[i] & 0x3) << 4)];
+                *encoded++ = '=';
+            }
+            else
+            {
+                *encoded++ = s_b64Chars[(bytes[i] & 0x3) << 4 | (i32)(bytes[i + 1] & 0xF0) >> 4];
+                *encoded++ = s_b64Chars[((bytes[i + 1] & 0xF) << 2)];
+            }
+            *encoded = '=';
+        }
+    }
+
+    void TkConvertor::base64Decode(const char *encoded, i32 length, TkArray<byte> &output)
+    {
+        output.clear();
+        if (length == 0)
+            return;
+        output.resize(base64DecodeLength(encoded, length));
+        TkConvertor::base64Decode(encoded, length, output.get());
+    }
+
+    void TkConvertor::base64Decode(const char *encoded, i32 length, byte *output)
+    {
+        if (length == 0)
+            return;
+        i32 j = 0;
+        const i32 pad1 = length % 4 || encoded[length - 1] == '=', pad2 = pad1 && (length % 4 > 2 || encoded[length - 2] != '=');
+        const i32 last = (length - pad1) / 4 << 2;
+        byte *str = output;
+        for (i32 i = 0; i < last; i += 4)
+        {
+            i32 n = s_b64Idx[encoded[i]] << 18 | s_b64Idx[encoded[i + 1]] << 12 | s_b64Idx[encoded[i + 2]] << 6 | s_b64Idx[encoded[i + 3]];
+            str[j++] = n >> 16;
+            str[j++] = n >> 8 & 0xFF;
+            str[j++] = n & 0xFF;
+        }
+        if (pad1)
+        {
+            i32 n = s_b64Idx[encoded[last]] << 18 | s_b64Idx[encoded[last + 1]] << 12;
+            str[j++] = n >> 16;
+            if (pad2)
+            {
+                n |= s_b64Idx[encoded[last + 2]] << 6;
+                str[j] = n >> 8 & 0xFF;
+            }
+        }
+    }
+
 }

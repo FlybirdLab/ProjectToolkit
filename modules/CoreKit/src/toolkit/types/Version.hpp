@@ -9,6 +9,7 @@
 #include "toolkit/memory/Memory.hpp"
 #include <toolkit/common.hpp>
 #include <toolkit/base/TypeTraits.hpp>
+#include <toolkit/base/Hash.hpp>
 
 namespace toolkit
 {
@@ -18,7 +19,7 @@ namespace toolkit
     public:
         static TkVersion Empty;
 
-        static bool parse(const TkString& text, TkVersion &value, IAllocator& alloc = TkMemory::getDefault());
+        static bool parse(const TkString &text, TkVersion &value, IAllocator &alloc = TkMemory::getDefault());
 
     public:
         TkVersion(i32 major, i32 minor, i32 build, i32 revision);
@@ -94,10 +95,14 @@ namespace toolkit
         i32 m_revision;
     };
 
-    inline u32 getHash(const TkVersion &key)
+    template <>
+    struct HashFunc<TkVersion>
     {
-        return ((key.major() & 15) << 28) | ((key.minor() & 255) << 20) | ((key.build() & 255) << 12) | (key.revision() & 4095);
-    }
+        static u32 get(const TkVersion &key)
+        {
+            return ((key.major() & 15) << 28) | ((key.minor() & 255) << 20) | ((key.build() & 255) << 12) | (key.revision() & 4095);
+        }
+    };
 
     template <>
     struct TIsPODType<TkVersion>

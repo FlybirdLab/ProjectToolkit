@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
@@ -7,73 +10,225 @@
 
 namespace toolkit
 {
-
-	inline u32 getHash(const u8 key)
+	// use if you want fast hash with low probability of collisions and size (8 bytes) is not an issue
+	// can change in future, do not serialize
+	struct RuntimeHash
 	{
-		return key;
-	}
+		static RuntimeHash fromU64(u64 hash);
+		RuntimeHash() {}
+		explicit RuntimeHash(const char *string);
+		RuntimeHash(const void *data, u32 len);
 
-	inline u32 getHash(const i8 key)
-	{
-		return key;
-	}
+		bool operator!=(RuntimeHash rhs) const { return hash != rhs.hash; }
+		bool operator==(RuntimeHash rhs) const { return hash == rhs.hash; }
 
-	inline u32 getHash(const u16 key)
-	{
-		return key;
-	}
+		u64 getHashValue() const { return hash; }
 
-	inline u32 getHash(const i16 key)
-	{
-		return key;
-	}
+	private:
+		u64 hash = 0;
+#ifdef TK_DEBUG
+		const char *debug_str = nullptr;
+#endif
+	};
 
-	inline u32 getHash(const i32 key)
+	// same as RuntimeHash, but only 32 bits
+	struct RuntimeHash32
 	{
-		return key;
-	}
+		static RuntimeHash32 fromU32(u32 hash);
+		RuntimeHash32() {}
+		explicit RuntimeHash32(const char *string);
+		RuntimeHash32(const void *data, u32 len);
 
-	inline u32 getHash(const u32 key)
-	{
-		return key;
-	}
+		bool operator!=(RuntimeHash32 rhs) const { return hash != rhs.hash; }
+		bool operator==(RuntimeHash32 rhs) const { return hash == rhs.hash; }
 
-	inline u32 getHash(const u64 key)
-	{
-		return (u32)key + ((u32)(key >> 32) * 23);
-	}
+		u32 getHashValue() const { return hash; }
 
-	inline u32 getHash(const i64 key)
-	{
-		return (u32)key + ((u32)(key >> 32) * 23);
-	}
+	private:
+		u32 hash = 0;
+	};
 
-	inline u32 getHash(const char key)
+	// use if you want to serialize it
+	// 64bits
+	struct StableHash
 	{
-		return key;
-	}
+		static StableHash fromU64(u64 hash);
+		StableHash() {}
+		explicit StableHash(const char *str);
+		StableHash(const void *data, u32 len);
 
-	inline u32 getHash(const float key)
-	{
-		return *(u32 *)&key;
-	}
+		bool operator!=(StableHash rhs) const { return hash != rhs.hash; }
+		bool operator==(StableHash rhs) const { return hash == rhs.hash; }
+		bool operator<(StableHash rhs) const { return hash < rhs.hash; }
 
-	inline u32 getHash(const double key)
-	{
-		return getHash(*(u64 *)&key);
-	}
+		u64 getHashValue() const { return hash; }
 
-	inline u32 getHash(const void *key)
-	{
-		static const i64 shift = 3;
-		return (u32)((i64)(key) >> shift);
-	}
+	private:
+		u64 hash = 0;
+	};
 
-	template <typename EnumType>
-	inline typename TEnableIf<TIsEnum<EnumType>::Value, u32>::Type getHash(const EnumType key)
+	// same as StableHash, but only 32bits
+	struct StableHash32
 	{
-		return getHash((__underlying_type(EnumType))key);
-	}
+		static StableHash32 fromU32(u32 hash);
+		StableHash32() {}
+		explicit StableHash32(const char *string);
+		StableHash32(const void *data, u32 len);
+
+		bool operator!=(StableHash32 rhs) const { return hash != rhs.hash; }
+		bool operator==(StableHash32 rhs) const { return hash == rhs.hash; }
+		bool operator<(StableHash32 rhs) const { return hash < rhs.hash; }
+
+		u32 getHashValue() const { return hash; }
+
+	private:
+		u32 hash = 0;
+	};
+
+	using FilePathHash = StableHash;
+	using BoneNameHash = StableHash;
+
+	// begin/end pair cannot cross thread boundaries
+	struct RollingStableHasher
+	{
+		void begin();
+		void update(const void *data, u32 len);
+		StableHash32 end();
+		StableHash end64();
+	};
+
+	// begin/end pair cannot cross thread boundaries
+	struct RollingHasher
+	{
+		void begin();
+		void update(const void *data, u32 len);
+		RuntimeHash32 end();
+	};
+
+	template <typename T, typename Enable = void>
+	struct HashFunc;
+
+	template <typename T, typename Enable>
+	struct HashFunc
+	{
+		static u32 get(const T &)
+		{
+			static_assert(sizeof(T) == 0, "HashFunc<T> is not specialized");
+			return 0;
+		}
+	};
+
+	template <>
+	struct HashFunc<RuntimeHash>
+	{
+		static u32 get(const RuntimeHash &k)
+		{
+			const u64 hash = k.getHashValue();
+			return u32(hash ^ (hash >> 16));
+		}
+	};
+
+	template <>
+	struct HashFunc<StableHash>
+	{
+		static u32 get(const StableHash &k)
+		{
+			const u64 hash = k.getHashValue();
+			return u32(hash ^ (hash >> 32));
+		}
+	};
+
+	template <>
+	struct HashFunc<StableHash32>
+	{
+		static u32 get(const StableHash32 &k)
+		{
+			return k.getHashValue();
+		}
+	};
+
+	template <>
+	struct HashFunc<RuntimeHash32>
+	{
+		static u32 get(const RuntimeHash32 &k)
+		{
+			return k.getHashValue();
+		}
+	};
+
+#define HASH_FUNC_FOR_INTERGER(TYPE)  \
+	template <>                       \
+	struct HashFunc<TYPE>             \
+	{                                 \
+		static u32 get(const TYPE &k) \
+		{                             \
+			return k;                 \
+		}                             \
+	};
+	HASH_FUNC_FOR_INTERGER(u8);
+	HASH_FUNC_FOR_INTERGER(i8);
+	HASH_FUNC_FOR_INTERGER(u16);
+	HASH_FUNC_FOR_INTERGER(i16);
+	HASH_FUNC_FOR_INTERGER(i32);
+	HASH_FUNC_FOR_INTERGER(u32);
+	HASH_FUNC_FOR_INTERGER(char);
+#undef HASH_FUNC_FOR_INTERGER
+
+	template <>
+	struct HashFunc<u64>
+	{
+		static u32 get(const u64 &k)
+		{
+			return (u32)k + ((u32)(k >> 32) * 23);
+		}
+	};
+
+	template <>
+	struct HashFunc<i64>
+	{
+		static u32 get(const i64 &k)
+		{
+			return (u32)k + ((u32)(k >> 32) * 23);
+		}
+	};
+
+	template <>
+	struct HashFunc<f32>
+	{
+		static u32 get(const f32 &k)
+		{
+			return *(u32 *)&k;
+		}
+	};
+
+	template <>
+	struct HashFunc<f64>
+	{
+		static u32 get(const f64 &k)
+		{
+			return HashFunc::get(*(u64 *)&k);
+		}
+	};
+
+	template <>
+	struct HashFunc<void *>
+	{
+		static u32 get(const void *k)
+		{
+			static const i64 shift = 3;
+			return (u32)((i64)(k) >> shift);
+		}
+	};
+
+	template <typename T>
+	struct HashFunc<T, typename TEnableIf<TIsEnum<T>::Value>::Type>
+	{
+		static u32 get(T v)
+		{
+			using U = __underlying_type(T);
+			return HashFunc<U>::get((U)v);
+		}
+	};
 
 	inline void combineHash(u32 &hash, const u32 value)
 	{
@@ -84,7 +239,6 @@ namespace toolkit
 	template <typename T>
 	inline void combineHash(u32 &hash, const T *value)
 	{
-		combineHash(hash, getHash(value));
+		combineHash(hash, HashFunc<T>::get(value));
 	}
-
 }

@@ -9,3 +9,4 @@ libs
 .cache
 .github
 build
+.VSCodeCounter

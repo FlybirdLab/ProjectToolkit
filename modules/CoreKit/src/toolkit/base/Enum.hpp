@@ -248,7 +248,7 @@ namespace toolkit
 
 
     // Macros for enums declaration with in-build toString conversion
-#define TK_ENUM_TO_STR(x) _TK_STR(x)
+#define TK_ENUM_TO_STR(x) #x
 #define TK_ENUM_TO_STR_FALLBACK ""
 
 #define TK_DECLARE_ENUM_1(name, t0)       \
