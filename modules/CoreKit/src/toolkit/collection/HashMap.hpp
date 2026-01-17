@@ -406,7 +406,10 @@ namespace toolkit
             }
         }
 
-        void clearDelete() requires(TIsPointer<ValueType>::Value)
+        void clearDelete() 
+#if TK_COMPILER_MSVC
+            requires(TIsPointer<ValueType>::Value)
+#endif
         {
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
             {
@@ -416,10 +419,12 @@ namespace toolkit
             clear();
         }
 
+#if TK_COMPILER_MSVC
         void clearDelete() requires(!TIsPointer<ValueType>::Value)
         {
             clear();
         }
+#endif
 
         // Changes the capacity of the collection.
         void setCapacity(i32 capacity, const bool preserveContents = true)

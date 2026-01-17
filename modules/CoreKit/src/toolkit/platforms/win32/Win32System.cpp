@@ -26,6 +26,7 @@
 #include "toolkit/platforms/ProcessInitArgs.hpp"
 #include "toolkit/debug/Profiler.hpp"
 #include "toolkit/types/Path.hpp"
+#include "toolkit/platforms/FileSystem.hpp"
 
 #include <rpmalloc/rpmalloc.h>
 
@@ -292,7 +293,7 @@ namespace toolkit
         return (dpiX + dpiY) / 2;
     }
 
-    static TkString getLastErrMsg()
+    TkString Win32System::getLastErrMsg()
     {
         wchar *s = nullptr;
         ::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -589,7 +590,10 @@ namespace toolkit
 
         // Init networking
         if (WSAStartup(MAKEWORD(2, 0), &s_global.wsaData) != 0)
-            LogError("Unable to initializes native network! Error : %s", getLastErrMsg());
+            LogError("Unable to initializes native network! Error : %s", Win32System::getLastErrMsg());
+
+            
+        TkFileSystem::getDirPath(SpecialFolder::kAppData, s_global.tempDir);
 
         return true;
     }
@@ -618,6 +622,11 @@ namespace toolkit
         GetCurrentDirectoryW(MAX_PATH, buffer);
         StringAsUTF8<MAX_PATH> u8{buffer};
         return TkString{u8.get()};
+    }
+
+    TkString System::getTempDir()
+    {
+        return s_global.tempDir;
     }
 
     bool System::setWorkDir(const TkString &path)

@@ -161,6 +161,8 @@ namespace toolkit
         static TkUuid getUniqueDeviceId();
         // Get the current working directory of the process.
         static TkString getWorkDir();
+        // Get the temporary dir isolated from system app data
+        static TkString getTempDir();
         // Set the current working directory of the process.
         static bool setWorkDir(const TkString &path);
 

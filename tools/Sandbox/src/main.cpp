@@ -39,7 +39,8 @@ struct TestStruct
 };
 FORMAT_CUSTOM(TestStruct, "[a:%i, b:%s]", t.a, t.b);
 
-enum class SandBoxTestType : toolkit::u8 {
+enum class SandBoxTestType : toolkit::u8
+{
 	kNone = 0,
 	kChunkedArray,
 	kHashMap,
@@ -65,28 +66,29 @@ int main(int argc, char **argv)
 	toolkit::StackAllocator<100> alloc{TkMemory::getDefault()};
 	auto it = alloc.asInterface();
 
-	switch (TestType) {
-    case SandBoxTestType::kNone:
-	    break;
-    case SandBoxTestType::kChunkedArray:
-        toolkit::testChunkedArray();
-        break;
+	switch (TestType)
+	{
+	case SandBoxTestType::kNone:
+		break;
+	case SandBoxTestType::kChunkedArray:
+		toolkit::testChunkedArray();
+		break;
 	case SandBoxTestType::kHashMap:
-	    toolkit::testHashMap();
+		toolkit::testHashMap();
 		break;
 	case SandBoxTestType::kRingBuffer:
-	    toolkit::testRingBuffer();
+		toolkit::testRingBuffer();
 		break;
 	case SandBoxTestType::kDataContainer:
-	    toolkit::testDataCollection();
+		toolkit::testDataCollection();
 		break;
 	case SandBoxTestType::kHashSet:
-	    toolkit::testHashSet();
+		toolkit::testHashSet();
 		break;
 	case SandBoxTestType::kThread:
-	    toolkit::testThread();
+		toolkit::testThread();
 		break;
-    }
+	}
 
 	TkString str = "";
 	auto r = TkString::format("Test %s", t);

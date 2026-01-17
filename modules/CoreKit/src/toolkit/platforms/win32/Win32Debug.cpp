@@ -50,45 +50,6 @@ namespace toolkit
 {
     extern SystemGlobals s_global;
 
-    template <typename Lambda>
-    inline void DumpStack(Lambda &&lambda)
-    {
-        const int maxFrames = 64;
-        void *frames[maxFrames] = {0};
-
-        USHORT captured = RtlCaptureStackBackTrace(0, maxFrames, frames, nullptr);
-        if (captured == 0)
-            return;
-
-        HANDLE process = GetCurrentProcess();
-        SymInitialize(process, NULL, TRUE);
-
-        for (USHORT i = 0; i < captured; ++i)
-        {
-            DWORD64 address = (DWORD64)frames[i];
-
-            char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME] = {0};
-            PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
-            pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-            pSymbol->MaxNameLen = MAX_SYM_NAME;
-
-            DWORD64 displacement = 0;
-            if (SymFromAddr(process, address, &displacement, pSymbol))
-            {
-                lambda(pSymbol->Name);
-            }
-            else
-            {
-                lambda("Unknown");
-            }
-        }
-    }
-
-    void getStackTrace(const stack_trace_func f)
-    {
-        DumpStack(f);
-    }
-
     void Debug::log(const TkStringView msg)
     {
         char buffer[512];
@@ -237,6 +198,131 @@ namespace toolkit
 
         tk_dbg_unlock();
         return result;
+    }
+
+    void Debug::getStackFrames(symbol_fn fn, i32 skipCount, i32 maxDepth, void *context)
+    {
+        ::tk_dbg_lock();
+
+        // Initialize
+        HANDLE process = GetCurrentProcess();
+        HANDLE thread = GetCurrentThread();
+        if (!s_global.isSymInit)
+        {
+            s_global.isSymInit = true;
+            TkString symbolSearchPath;
+            for (auto &path : s_global.symbolsPath)
+            {
+                symbolSearchPath += path;
+                symbolSearchPath += ";";
+            }
+            symbolSearchPath += System::getWorkDir();
+            StringAsUTF16 pth{symbolSearchPath.get()};
+            ::SymInitializeW(process, pth.get(), TRUE);
+        }
+
+        // Capture the backtrace
+        i32 count;
+        void *backtrace[100];
+        maxDepth = TkMath::min<i32>(maxDepth, lengthOf(backtrace));
+        if (context)
+        {
+            auto &ctx = *(((EXCEPTION_POINTERS *)context)->ContextRecord);
+            STACKFRAME64 stack;
+            memset(&stack, 0, sizeof(stack));
+            DWORD imageType;
+#ifdef _M_IX86
+            imageType = IMAGE_FILE_MACHINE_I386;
+            stack.AddrPC.Offset = ctx.Eip;
+            stack.AddrPC.Mode = AddrModeFlat;
+            stack.AddrFrame.Offset = ctx.Ebp;
+            stack.AddrFrame.Mode = AddrModeFlat;
+            stack.AddrStack.Offset = ctx.Esp;
+            stack.AddrStack.Mode = AddrModeFlat;
+#elif _M_X64
+            imageType = IMAGE_FILE_MACHINE_AMD64;
+            stack.AddrPC.Offset = ctx.Rip;
+            stack.AddrPC.Mode = AddrModeFlat;
+            stack.AddrFrame.Offset = ctx.Rsp;
+            stack.AddrFrame.Mode = AddrModeFlat;
+            stack.AddrStack.Offset = ctx.Rsp;
+            stack.AddrStack.Mode = AddrModeFlat;
+#elif _M_IA64
+            imageType = IMAGE_FILE_MACHINE_IA64;
+            stack.AddrPC.Offset = ctx.StIIP;
+            stack.AddrPC.Mode = AddrModeFlat;
+            stack.AddrFrame.Offset = ctx.IntSp;
+            stack.AddrFrame.Mode = AddrModeFlat;
+            stack.AddrBStore.Offset = ctx.RsBSP;
+            stack.AddrBStore.Mode = AddrModeFlat;
+            stack.AddrStack.Offset = ctx.IntSp;
+            stack.AddrStack.Mode = AddrModeFlat;
+#elif _M_ARM64
+            imageType = IMAGE_FILE_MACHINE_ARM64;
+            stack.AddrPC.Offset = ctx.Pc;
+            stack.AddrPC.Mode = AddrModeFlat;
+            stack.AddrFrame.Offset = ctx.Fp;
+            stack.AddrFrame.Mode = AddrModeFlat;
+            stack.AddrStack.Offset = ctx.Sp;
+            stack.AddrStack.Mode = AddrModeFlat;
+#else
+#error "Platform not supported!"
+#endif
+            count = 0;
+            for (i32 i = 0; i < skipCount; i++)
+                StackWalk64(imageType, process, thread, &stack, &ctx, nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr);
+            while (count < maxDepth && StackWalk64(imageType, process, thread, &stack, &ctx, nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr))
+                backtrace[count++] = (void *)stack.AddrPC.Offset;
+        }
+        else
+        {
+            skipCount++;
+            count = RtlCaptureStackBackTrace(skipCount, maxDepth, backtrace, nullptr);
+        }
+
+        // Walk the stack to collect the symbols
+        for (i32 i = 0; i < count; i++)
+        {
+            StackFrame frame {};
+            frame.programCounter = backtrace[i];
+
+            // Get function name
+            alignas(IMAGEHLP_SYMBOL64) byte symbolData[sizeof(IMAGEHLP_SYMBOL64) + lengthOf(frame.func)];
+            IMAGEHLP_SYMBOL64 *symbol = (IMAGEHLP_SYMBOL64 *)symbolData;
+            symbol->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL64);
+            symbol->MaxNameLength = lengthOf(frame.func) - 1;
+            DWORD64 displacement = 0;
+            if (SymGetSymFromAddr64(process, (DWORD64)frame.programCounter, &displacement, symbol))
+            {
+                UnDecorateSymbolName(symbol->Name, frame.func, lengthOf(frame.func), UNDNAME_COMPLETE);
+            }
+
+            // Get filename and line number
+            IMAGEHLP_LINE64 line;
+            line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+            DWORD offset;
+            if (SymGetLineFromAddr64(process, (DWORD64)frame.programCounter, &offset, &line))
+            {
+                frame.line = line.LineNumber;
+                const i32 fileNameLength = TkMath::min<i32>(lengthOf(frame.file) - 1, TkStringUtils::length(line.FileName));
+                memcpy(frame.file, line.FileName, fileNameLength);
+                frame.file[fileNameLength] = '\0';
+            }
+
+            // Get module name
+            IMAGEHLP_MODULE64 module;
+            module.SizeOfStruct = sizeof(IMAGEHLP_MODULE64);
+            if (SymGetModuleInfo64(process, (DWORD64)frame.programCounter, &module))
+            {
+                const i32 moduleNameLength = TkMath::min<i32>(lengthOf(frame.module) - 1, TkStringUtils::length(module.ImageName));
+                memcpy(frame.module, module.ImageName, moduleNameLength);
+                frame.module[moduleNameLength] = '\0';
+            }
+
+            fn(frame);
+        }
+
+        tk_dbg_unlock();
     }
 
     void Debug::collectCrashData(const TkString &crashDataFolder, void *context)

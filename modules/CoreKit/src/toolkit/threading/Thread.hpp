@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <toolkit/threading/Runnable.hpp>
 #include <toolkit/memory/Memory.hpp>
 #include <toolkit/types/String.hpp>
 
@@ -24,27 +25,27 @@ namespace toolkit
     class IRunnable;
     class ThreadImpl;
 
-
     struct TkThread
     {
         friend struct ThreadImpl;
         friend struct WrappedThread;
+
     public:
         ThreadPriority getPriority();
         void setPriority(ThreadPriority priority);
-        IAllocator& getAllocator();
+        IAllocator &getAllocator();
         u64 getID();
         bool isRunning();
-        const TkString& getName();
+        const TkString &getName();
 
         void kill(bool waitForJoin = false);
         void join();
 
-        struct IRunnable* getRunnable();
+        struct IRunnable *getRunnable();
 
     public:
-        static TkAction<struct TkThread*> ThreadStarting;
-        static TkAction<TkThread*, i32> ThreadExiting;
+        static TkAction<struct TkThread *> ThreadStarting;
+        static TkAction<TkThread *, i32> ThreadExiting;
 
     public:
         static void setThreadPriority(ThreadPriority priority);
@@ -56,17 +57,23 @@ namespace toolkit
         static u64 getMainThreadId();
 
     public:
-        static TkThread* newThread(struct IRunnable*, const TkString& name, ThreadPriority priority, IAllocator& alloc = TkMemory::getDefault());
-        static TkThread* newThread(IRunnable* runnable, const TkString& name, IAllocator& alloc = TkMemory::getDefault(), ThreadPriority priority = ThreadPriority::kNormal, u32 stackSize = 0);
-        static void destroy(TkThread*);
+        static TkThread *newThread(struct IRunnable *, const TkString &name, ThreadPriority priority, IAllocator &alloc = TkMemory::getDefault());
+        static TkThread *newThread(IRunnable *runnable, const TkString &name, IAllocator &alloc = TkMemory::getDefault(), ThreadPriority priority = ThreadPriority::kNormal, u32 stackSize = 0);
+        static void destroy(TkThread *);
+        
+        static TkThread* start(const TkFunc<i32()> &callback, const TkString &threadName, ThreadPriority priority = ThreadPriority::kNormal)
+        {
+            auto runnable = TkMemory::newObject<Runnable>(TkMemory::getDefault(), true);
+            runnable->onWork = callback;
+            return TkThread::newThread(runnable, threadName, TkMemory::getDefault(), priority, 0);
+        }
 
     protected:
-        TkThread(struct ThreadImpl* impl);
+        TkThread(struct ThreadImpl *impl);
 
-        ThreadImpl* m_impl;
+        ThreadImpl *m_impl;
     };
 
-
-    typedef struct TkThread* ThreadHandle;
+    typedef struct TkThread *ThreadHandle;
     constexpr ThreadHandle INVALID_HANDLE = nullptr;
 }

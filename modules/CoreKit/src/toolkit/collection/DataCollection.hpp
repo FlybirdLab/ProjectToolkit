@@ -7,7 +7,7 @@
 #pragma once
 
 #include "toolkit/memory/Memory.hpp"
-#include <toolkit/collection/Span.hpp>
+#include <toolkit/types/Span.hpp>
 
 namespace toolkit {
 

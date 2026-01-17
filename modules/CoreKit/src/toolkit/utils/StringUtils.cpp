@@ -7,7 +7,7 @@
 
 #include "toolkit/types/String.hpp"
 #include "toolkit/types/StringView.hpp"
-#include "toolkit/collection/Span.hpp"
+#include "toolkit/types/Span.hpp"
 #include "toolkit/environment.hpp"
 
 namespace toolkit

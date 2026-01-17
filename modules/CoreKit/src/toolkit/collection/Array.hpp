@@ -264,7 +264,9 @@ namespace toolkit
 		}
 
 		void clearDelete()
-			requires(TIsPointer<T>::Value)
+#if TK_COMPILER_MSVC
+			requires(bool(TIsPointer<T>::Value))
+#endif
 		{
 			T *data = get();
 			for (i32 i = 0; i < m_count; i++)
@@ -275,11 +277,13 @@ namespace toolkit
 			clear();
 		}
 
+#if TK_COMPILER_MSVC
 		void clearDelete()
-			requires(!TIsPointer<T>::Value)
+			requires(!bool(TIsPointer<T>::Value))
 		{
 			clear();
 		}
+#endif
 
 		void setCapacity(const i32 capacity, const bool preserveContents = true)
 		{

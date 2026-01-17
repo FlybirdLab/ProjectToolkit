@@ -35,6 +35,12 @@ namespace toolkit {
 	class TkThread;
 	class TkVersion;
 	class TkUuid;
+	class TkDateTime;
+	class TkTimeSpan;
+	class TkStringBuilder;
+
+	template<typename T>
+    class TkDataCollection;
 
 	// Forward
 	// template <typename... Params>

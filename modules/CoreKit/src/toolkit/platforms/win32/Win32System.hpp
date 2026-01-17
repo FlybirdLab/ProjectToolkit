@@ -38,6 +38,7 @@ namespace toolkit
         ::WSAData wsaData;
 
         TkString userLocale, computerName, windowsName;
+        TkString tempDir;
         HANDLE processMutex = nullptr;
         i32 dpi = 96;
         struct
@@ -65,6 +66,7 @@ namespace toolkit
     public:
         static bool readRegVal(void *root, const TkStringView key, const TkStringView name, TkString *result);
         static bool isWindows10();
+        static TkString getLastErrMsg();
     };
 
 }

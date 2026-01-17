@@ -180,7 +180,7 @@ namespace toolkit
 
 		TK_FORCE_INLINE ReturnType operator()(Params... params) const
 		{
-			ASSERT_LOW_LAYER(m_function);
+			TK_ASSERT(m_function);
 			return m_function(m_callee, forward<Params>(params)...);
 		}
 
@@ -474,7 +474,7 @@ namespace toolkit
 				TkMutexGuard lock(data->locker);
 				for (auto i = data->funcs.Begin(); i.isNotEnd(); ++i)
 				{
-					new (buffer + count) TkFuncType((const TkFuncType &)i->Item);
+					new (buffer + count) TkFuncType((const TkFuncType &)i->item);
 					count++;
 				}
 			}

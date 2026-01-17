@@ -71,6 +71,7 @@ namespace toolkit {
         void notifyOne();
         void notifyAll();
         void wait(TkMutex&);
+        bool wait(TkMutex&, const i32 timeout);
 
     private:
 #if TK_POSIX

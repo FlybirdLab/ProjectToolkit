@@ -79,6 +79,10 @@ namespace toolkit {
         SleepConditionVariableCS(&m_handle, &mtx.m_handle, kMaxU32);
     }
 
+    bool TkCondVar::wait(TkMutex& mtx, const i32 timeout) {
+        return SleepConditionVariableCS(&m_handle, &mtx.m_handle, timeout);
+    }
+
 
     void TkSpinLock::lock() {
         for (u32 spinCount = 0; !tryLock(); ++spinCount) {

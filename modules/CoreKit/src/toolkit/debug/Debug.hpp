@@ -12,10 +12,6 @@
 
 namespace toolkit
 {
-
-    typedef void (*stack_trace_func)(const char *);
-    void getStackTrace(const stack_trace_func);
-
     struct StackFrame
     {
         char module[256];
@@ -24,6 +20,7 @@ namespace toolkit
         i32 line;
         void *programCounter;
     };
+    typedef void(*symbol_fn)(StackFrame);
 
     class Debug
     {
@@ -36,6 +33,8 @@ namespace toolkit
 
         // Get current native stack trace information.
         static TkArray<StackFrame> getStackFrames(i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
+        // Get current native stack trace information without heap-alloc.
+        static void getStackFrames(symbol_fn fn, i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
         /// Get current native stack trace information as string.
         static TkString getStackTrace(i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
         // Crash dump data handling
