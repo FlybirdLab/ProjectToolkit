@@ -26,7 +26,7 @@
 
 namespace toolkit
 {
-        void assert(const char *msg, const char *func, const char *file, int line)
+        void tk_assert(const char *msg, const char *func, const char *file, int line)
         {
 #if TK_ANDROID
                 __android_log_print(ANDROID_LOG_ERROR, "ToolkitAssert", "Assertion failed: %s (%s:%d %s)", msg, file, line, func);

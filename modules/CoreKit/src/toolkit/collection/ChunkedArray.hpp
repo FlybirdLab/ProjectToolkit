@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #pragma once
@@ -11,27 +11,99 @@
 #include <toolkit/collection/Array.hpp>
 #include <toolkit/base/Math.hpp>
 
-namespace toolkit {
+namespace toolkit
+{
 
 	// Template for dynamic array with variable capacity that uses fixed size memory chunks for data storage rather than linear allocation.
-	template<typename T, i32 ChunkSize>
+	template <typename T, i32 ChunkSize>
 	class TkChunkedArray
 	{
 		friend TkChunkedArray;
+
 	public:
-		TkChunkedArray(IAllocator& alloc = TkMemory::getDefault())
-		    : m_alloc {alloc} 
+		TkChunkedArray(IAllocator &alloc = TkMemory::getDefault())
+			: m_alloc{alloc}
 		{
 		}
 		~TkChunkedArray()
 		{
-			for (auto* ptr : m_chunks) {
-				if (ptr) {
+			for (auto *ptr : m_chunks)
+			{
+				if (ptr)
+				{
 					TkMemory::destructItem(ptr);
-				    TkMemory::deletePtr(m_alloc, ptr);
+					TkMemory::deletePtr(m_alloc, ptr);
 				}
 			}
-			//FIX: Manually delete pointer instead of stack-array's clear. m_chunks.clear();
+			// FIX: Manually delete pointer instead of stack-array's clear. m_chunks.clear();
+		}
+		TkChunkedArray(TkChunkedArray &&other) noexcept
+			: m_count(other.m_count), m_alloc(other.m_alloc), m_chunks(std::move(other.m_chunks))
+		{
+			other.m_count = 0;
+			other.m_chunks.clear();
+		}
+		TkChunkedArray &operator=(TkChunkedArray &&other) noexcept
+		{
+			if (this == &other)
+				return *this;
+
+			for (auto *ptr : m_chunks)
+			{
+				if (ptr)
+				{
+					TkMemory::destructItem(ptr);
+					TkMemory::deletePtr(m_alloc, ptr);
+				}
+			}
+			m_chunks.clear();
+
+			// steal
+			m_count = other.m_count;
+			m_chunks = std::move(other.m_chunks);
+
+			other.m_count = 0;
+			other.m_chunks.clear();
+
+			return *this;
+		}
+		TkChunkedArray(const TkChunkedArray &other)
+			: m_count(0), m_alloc(other.m_alloc)
+		{
+			for (i32 i = 0; i < other.m_chunks.count(); ++i)
+			{
+				auto *src = other.m_chunks[i];
+				auto *dst = TkMemory::newObject<Chunk>(m_alloc);
+				dst->setCapacity(ChunkSize);
+
+				for (i32 j = 0; j < src->count(); ++j)
+					dst->add((*src)[j]);
+
+				m_chunks.add(dst);
+				m_count += src->count();
+			}
+		}
+		TkChunkedArray &operator=(const TkChunkedArray &other)
+		{
+			if (this == &other)
+				return *this;
+
+			release();
+
+			for (i32 i = 0; i < other.m_chunks.count(); ++i)
+			{
+				auto *src = other.m_chunks[i];
+				auto *dst = TkMemory::newObject<Chunk>(m_alloc);
+				dst->setCapacity(ChunkSize);
+
+				for (i32 j = 0; j < src->count(); ++j)
+					dst->add((*src)[j]);
+
+				m_chunks.add(dst);
+				m_count += src->count();
+			}
+
+			return *this;
 		}
 
 	public:
@@ -61,21 +133,21 @@ namespace toolkit {
 
 	public:
 		// Gets element by index
-		TK_FORCE_INLINE T& at(i32 index) const
+		TK_FORCE_INLINE T &at(i32 index) const
 		{
 			TK_ASSERT(index >= 0 && index < m_count);
 			return m_chunks[index / ChunkSize]->at(index % ChunkSize);
 		}
 
 		// Gets/Sets element by index
-		TK_FORCE_INLINE T& operator[](i32 index)
+		TK_FORCE_INLINE T &operator[](i32 index)
 		{
 			TK_ASSERT(index >= 0 && index < m_count);
 			return m_chunks[index / ChunkSize]->at(index % ChunkSize);
 		}
 
 		// Gets/Sets element by index
-		TK_FORCE_INLINE const T& operator[](i32 index) const
+		TK_FORCE_INLINE const T &operator[](i32 index) const
 		{
 			TK_ASSERT(index >= 0 && index < m_count);
 			return m_chunks[index / ChunkSize]->at(index % ChunkSize);
@@ -86,37 +158,30 @@ namespace toolkit {
 		struct Iterator
 		{
 			friend TkChunkedArray;
+
 		private:
-			TkChunkedArray* m_collection;
+			TkChunkedArray *m_collection;
 			i32 m_chunkIndex;
 			i32 m_index;
 
-			Iterator(const TkChunkedArray* collection, const i32 index)
-				: m_collection(const_cast<TkChunkedArray*>(collection))
-				, m_chunkIndex(index / ChunkSize)
-				, m_index(index % ChunkSize)
+			Iterator(const TkChunkedArray *collection, const i32 index)
+				: m_collection(const_cast<TkChunkedArray *>(collection)), m_chunkIndex(index / ChunkSize), m_index(index % ChunkSize)
 			{
 			}
 
 		public:
 			Iterator()
-				: m_collection(nullptr)
-				, m_chunkIndex(kInvalidIndex)
-				, m_index(kInvalidIndex)
+				: m_collection(nullptr), m_chunkIndex(kInvalidIndex), m_index(kInvalidIndex)
 			{
 			}
 
-			Iterator(const Iterator& i)
-				: m_collection(i.m_collection)
-				, m_chunkIndex(i.m_chunkIndex)
-				, m_index(i.m_index)
+			Iterator(const Iterator &i)
+				: m_collection(i.m_collection), m_chunkIndex(i.m_chunkIndex), m_index(i.m_index)
 			{
 			}
 
-			Iterator(Iterator&& i)
-				: m_collection(i.m_collection)
-				, m_chunkIndex(i.m_chunkIndex)
-				, m_index(i.m_index)
+			Iterator(Iterator &&i)
+				: m_collection(i.m_collection), m_chunkIndex(i.m_chunkIndex), m_index(i.m_index)
 			{
 			}
 
@@ -136,27 +201,27 @@ namespace toolkit {
 				return (m_chunkIndex * ChunkSize + m_index) != m_collection->m_count;
 			}
 
-			TK_FORCE_INLINE T& operator*() const
+			TK_FORCE_INLINE T &operator*() const
 			{
 				return m_collection->m_chunks[m_chunkIndex]->at(m_index);
 			}
 
-			TK_FORCE_INLINE T* operator->() const
+			TK_FORCE_INLINE T *operator->() const
 			{
 				return &m_collection->m_chunks[m_chunkIndex]->at(m_index);
 			}
 
-			TK_FORCE_INLINE bool operator==(const Iterator& v) const
+			TK_FORCE_INLINE bool operator==(const Iterator &v) const
 			{
 				return m_collection == v.m_collection && m_chunkIndex == v.m_chunkIndex && m_index == v.m_index;
 			}
 
-			TK_FORCE_INLINE bool operator!=(const Iterator& v) const
+			TK_FORCE_INLINE bool operator!=(const Iterator &v) const
 			{
 				return m_collection != v.m_collection || m_chunkIndex != v.m_chunkIndex || m_index != v.m_index;
 			}
 
-			Iterator& operator=(const Iterator& v)
+			Iterator &operator=(const Iterator &v)
 			{
 				m_collection = v.m_collection;
 				m_chunkIndex = v.m_chunkIndex;
@@ -164,7 +229,7 @@ namespace toolkit {
 				return *this;
 			}
 
-			Iterator& operator=(Iterator&& v)
+			Iterator &operator=(Iterator &&v)
 			{
 				m_collection = v.m_collection;
 				m_chunkIndex = v.m_chunkIndex;
@@ -172,7 +237,7 @@ namespace toolkit {
 				return *this;
 			}
 
-			Iterator& operator++()
+			Iterator &operator++()
 			{
 				// Check if it is not at end
 				if ((m_chunkIndex * ChunkSize + m_index) != m_collection->m_count)
@@ -197,7 +262,7 @@ namespace toolkit {
 				return i;
 			}
 
-			Iterator& operator--()
+			Iterator &operator--()
 			{
 				// Check if it's not at beginning
 				if (m_index != 0 || m_chunkIndex != 0)
@@ -227,10 +292,10 @@ namespace toolkit {
 
 	public:
 		// Adds the specified item to the collection.
-		T* add(const T& item)
+		T *add(const T &item)
 		{
 			// Find first chunk with some space
-			Chunk* chunk = nullptr;
+			Chunk *chunk = nullptr;
 			for (i32 i = 0; i < m_chunks.count(); i++)
 			{
 				if (m_chunks[i]->count() < ChunkSize)
@@ -255,10 +320,10 @@ namespace toolkit {
 		}
 
 		// Adds the one item to the collection and returns the reference to it.
-		T& addOne()
+		T &addOne()
 		{
 			// Find first chunk with some space
-			Chunk* chunk = nullptr;
+			Chunk *chunk = nullptr;
 			for (i32 i = 0; i < m_chunks.count(); i++)
 			{
 				if (m_chunks[i]->count() < ChunkSize)
@@ -282,7 +347,7 @@ namespace toolkit {
 		}
 
 		// Removes the element at specified iterator position.
-		void remove(const Iterator& i)
+		void remove(const Iterator &i)
 		{
 			if (isEmpty())
 				return;
@@ -292,7 +357,7 @@ namespace toolkit {
 
 			auto lastChunkIndex = (m_count - 1) / ChunkSize;
 			auto lastIndex = (m_count - 1) % ChunkSize;
-			auto& lastChunk = *m_chunks[lastChunkIndex];
+			auto &lastChunk = *m_chunks[lastChunkIndex];
 
 			// Check if remove element from the last chunk
 			if (i.m_chunkIndex == lastChunkIndex)
@@ -342,13 +407,12 @@ namespace toolkit {
 			}
 		}
 
-
 		// Resizes that collection to the specified new size. It may not preserve collection contents in case of shrinking.
 		void resize(i32 newSize)
 		{
 			while (newSize < count())
 			{
-				auto& chunk = m_chunks.last();
+				auto &chunk = m_chunks.last();
 				i32 itemsLeft = count() - newSize;
 				i32 itemsToRemove = TkMath::min(chunk->count(), itemsLeft);
 				chunk->resize(chunk->count() - itemsToRemove);
@@ -369,7 +433,7 @@ namespace toolkit {
 				while (itemsReaming != 0)
 				{
 					TK_ASSERT(chunkIndex != m_chunks.count());
-					auto& chunk = m_chunks[chunkIndex];
+					auto &chunk = m_chunks[chunkIndex];
 
 					// Insert some items to this chunk if can
 					const i32 spaceLeft = chunk->capacity() - chunk->count();
@@ -387,9 +451,8 @@ namespace toolkit {
 			TK_ASSERT(newSize == count());
 		}
 
-
 		// Searches for the specified object and returns the zero-based index of the first occurrence within the entire collection.
-		i32 find(const T& item) const
+		i32 find(const T &item) const
 		{
 			i32 startIndex = 0;
 			for (i32 chunkIndex = 0; chunkIndex < m_chunks.count(); chunkIndex++)
@@ -439,14 +502,13 @@ namespace toolkit {
 		{
 			return Iterator(this, m_count);
 		}
-		
+
 	private:
 		// TODO: don't use Array but small struct and don't InlinedArray or Chunk* but Chunk (less dynamic allocations)
 		typedef TkArray<T> Chunk;
 
 		i32 m_count = 0;
-		IAllocator& m_alloc;
-		TkStaticArray<Chunk*, 32> m_chunks;
-
+		IAllocator &m_alloc;
+		TkStaticArray<Chunk *, 32> m_chunks;
 	};
 }

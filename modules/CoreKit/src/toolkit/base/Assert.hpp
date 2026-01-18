@@ -10,7 +10,7 @@
 namespace toolkit
 {
     // Message mustn't be out of ASCII charset.
-    void assert(const char *msg, const char *func, const char *file, int line);
+    void tk_assert(const char *msg, const char *func, const char *file, int line);
     // List stack frames and print to console without any heap allocation.
     void printStackTrace();
 }
@@ -19,7 +19,7 @@ namespace toolkit
     {                                                          \
         if (!(x))                                              \
         {                                                      \
-            toolkit::assert(#x, __func__, __FILE__, __LINE__); \
+            toolkit::tk_assert(#x, __func__, __FILE__, __LINE__); \
         }                                                      \
     } while (0)
 #define TK_ASSERT_ENABLED 1

@@ -44,7 +44,7 @@ namespace toolkit
         // #endif
         //         OutOfMemoryBuffer = Allocator::Allocate(PLATFORM_OUT_OF_MEMORY_BUFFER_SIZE);
 
-        return false;
+        return true;
     }
 
     void BaseSystem::logInfo()

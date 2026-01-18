@@ -17,7 +17,7 @@ namespace toolkit
     {
     public:
         TK_FORCE_INLINE TkStaticArray()
-            : m_count {0}
+            : m_count{0}
         {
         }
 
@@ -429,23 +429,12 @@ namespace toolkit
 
         void swap(TkStaticArray &other)
         {
-            const i32 minCount = m_count < other.m_count ? m_count : other.m_count;
+            static_assert(std::is_move_constructible_v<T>);
 
-            for (i32 i = 0; i < minCount; ++i)
+            const i32 max = m_count > other.m_count ? m_count : other.m_count;
+
+            for (i32 i = 0; i < max; ++i)
                 ::toolkit::swap(m_data[i], other.m_data[i]);
-
-            if (m_count > other.m_count)
-            {
-                for (i32 i = minCount; i < m_count; ++i)
-                    other.add(moveTemp(m_data[i]));
-                TkMemory::destructItems(m_data + minCount, m_count - minCount);
-            }
-            else if (other.m_count > m_count)
-            {
-                for (i32 i = minCount; i < other.m_count; ++i)
-                    add(moveTemp(other.m_data[i]));
-                TkMemory::destructItems(other.m_data + minCount, other.m_count - minCount);
-            }
 
             ::toolkit::swap(m_count, other.m_count);
         }
@@ -707,7 +696,6 @@ namespace toolkit
     private:
         i32 m_count;
         T m_data[Capacity];
-
     };
 
 }

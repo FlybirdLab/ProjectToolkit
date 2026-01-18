@@ -124,7 +124,7 @@ namespace toolkit
                    TkStringUtils::fromHexString(*text + 29, 8, value.d);
         }
         default:
-            return true;
+            return false;
         }
     }
 

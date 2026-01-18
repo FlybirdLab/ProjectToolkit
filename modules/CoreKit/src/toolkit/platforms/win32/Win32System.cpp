@@ -478,9 +478,9 @@ namespace toolkit
                 {
                     if (buffer)
                     {
-                        free(buffer);
+                        TkMemory::free(TkMemory::getDefault(), buffer);
                     }
-                    buffer = static_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION>(malloc(returnLength));
+                    buffer = static_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION>(TkMemory::allocate(TkMemory::getDefault(), returnLength));
                     if (buffer == nullptr)
                     {
                         return false;
@@ -530,7 +530,7 @@ namespace toolkit
             byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
             ptr++;
         }
-        free(buffer);
+        TkMemory::free(TkMemory::getDefault(), buffer);
 
         // Set info about the CPU
         s_global.cpuStats.packageCount = processorPackageCount;

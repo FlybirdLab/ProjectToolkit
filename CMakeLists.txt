@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.31)
 
 #set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
+set(USE_TEST ON)
+
 ##########################################################
 # dependencies
 ##########################################################
@@ -12,3 +14,6 @@ project(ToolkitProject)
 ##########################################################
 add_subdirectory(modules)
 add_subdirectory(tools)
+IF(USE_TEST)
+add_subdirectory(tests)
+ENDIF()
