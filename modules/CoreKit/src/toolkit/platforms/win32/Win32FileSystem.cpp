@@ -108,7 +108,7 @@ namespace toolkit
         return SetFilePointer(handle, 0, nullptr, FILE_CURRENT);
     }
 
-    void TkFileSystem::SetFilePos(FileHandle handle, u32 seek)
+    void TkFileSystem::setFilePos(FileHandle handle, u32 seek)
     {
         SetFilePointer(handle, seek, nullptr, FILE_BEGIN);
     }

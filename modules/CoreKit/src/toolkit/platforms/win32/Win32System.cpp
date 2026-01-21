@@ -2,9 +2,9 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * References:
+ *     https://www.tillett.info/2013/05/13/how-to-create-a-windows-program-that-works-as-both-as-a-gui-and-console-application
  */
-// Created by cubevlmu on 2025/8/5.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
 
 #include "Win32System.hpp"
 
@@ -43,14 +43,16 @@
 #undef ShellExecute
 #if TK_CRASH_LOG
 #include <DbgHelp.h>
+#include <libloaderapi.h>
 #endif
-#pragma comment(lib, "Iphlpapi.lib")
+#include <iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
 
 #ifdef STARTUPINFO
 #undef STARTUPINFO
 #endif
 
-using StartupInfo  = STARTUPINFOW;
+using StartupInfo = STARTUPINFOW;
 using StartupInfoEx = STARTUPINFOEXW;
 
 #if TK_CRASH_LOG || TK_TRACY_ENABLE
@@ -592,14 +594,91 @@ namespace toolkit
         if (WSAStartup(MAKEWORD(2, 0), &s_global.wsaData) != 0)
             LogError("Unable to initializes native network! Error : %s", Win32System::getLastErrMsg());
 
-            
         TkFileSystem::getDirPath(SpecialFolder::kAppData, s_global.tempDir);
+
+        // Init console output (engine is linked with /SUBSYSTEM:WINDOWS so it lacks of proper console output on Windows)
+#if TK_CONSOLE_SUB
+        // Attaches output of application to parent console, returns true if running in console-mode
+        if (AttachConsole(ATTACH_PARENT_PROCESS))
+        {
+            const HANDLE consoleHandleOut = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (consoleHandleOut != INVALID_HANDLE_VALUE)
+            {
+                freopen("CONOUT$", "w", stdout);
+                setvbuf(stdout, NULL, _IONBF, 0);
+            }
+            const HANDLE consoleHandleError = GetStdHandle(STD_ERROR_HANDLE);
+            if (consoleHandleError != INVALID_HANDLE_VALUE)
+            {
+                freopen("CONOUT$", "w", stderr);
+                setvbuf(stderr, NULL, _IONBF, 0);
+            }
+        }
+#endif
+
+        // Set the lowest possible timer resolution
+        const HMODULE ntdll = LoadLibraryW(L"ntdll.dll");
+        if (ntdll)
+        {
+            typedef LONG(NTAPI * NtSetTimerResolution)(
+                ULONG DesiredResolution,
+                BOOLEAN SetResolution,
+                PULONG CurrentResolution);
+            const NtSetTimerResolution ntSetTimerResolution = (NtSetTimerResolution)GetProcAddress(ntdll, "NtSetTimerResolution");
+            if (ntSetTimerResolution)
+            {
+                ULONG currentResolution;
+                ntSetTimerResolution(1, TRUE, &currentResolution);
+            }
+            ::FreeLibrary(ntdll);
+        }
+
+        DWORD tmp;
+        wchar buffer1[256];
+
+        // Get user locale string
+        if (GetUserDefaultLocaleName(buffer1, LOCALE_NAME_MAX_LENGTH))
+        {
+            StringAsUTF8<> name{buffer1};
+            s_global.userLocale = name.get();
+        }
+
+        // Get computer name string
+        if (GetComputerNameW(buffer1, &tmp))
+        {
+            StringAsUTF8<> name{buffer1};
+            s_global.computerName = name.get();
+        }
+
+        // Get user name string
+        TkString userName;
+        if (GetUserNameW(buffer1, &tmp))
+        {
+            StringAsUTF8<> name{buffer1};
+            userName = name.get();
+        }
 
         return true;
     }
 
+    void System::beforeQuit()
+    {
+    }
+
     void System::quit()
     {
+#if TK_CRASH_LOG
+        tk_dbg_lock();
+#if !TK_TRACY_ENABLE
+        if (s_global.isSymInit)
+        {
+            s_global.isSymInit = false;
+            SymCleanup(GetCurrentProcess());
+        }
+#endif
+        s_global.symbolsPath.resize(0);
+        tk_dbg_unlock();
+#endif
         WSACleanup();
     }
 
@@ -756,6 +835,14 @@ namespace toolkit
         LogInfo("Microsoft %s 64-bit (%i.%i.%i)", s_global.windowsName, s_global.version.major, s_global.version.minor, s_global.version.build);
     }
 
+    void System::beforeRun()
+    {
+    }
+
+    void System::update()
+    {
+    }
+
     bool System::createProcessMutex(const char *name)
     {
         StringAsUTF16<MAX_PATH> u16{name};
@@ -833,9 +920,197 @@ namespace toolkit
         return s_global.dpi;
     }
 
+    float System::getDpiScale()
+    {
+        return 1.0f * (float)System::getDpi() / 96.0f;
+    }
+
+    Pos System::getMousePos()
+    {
+        POINT cursorPos;
+        ::GetCursorPos(&cursorPos);
+        return Pos{(f32)cursorPos.x, (f32)cursorPos.y};
+    }
+
+    void System::setMousePos(const Pos pos)
+    {
+        ::SetCursorPos((i32)pos.x, (i32)pos.y);
+    }
+
+    struct GetMonitorBoundsData
+    {
+        Pos pos;
+        Rect result;
+
+        GetMonitorBoundsData(const Pos &pos)
+            : pos(pos), result(0, 0, System::getDesktopSize().x, System::getDesktopSize().y)
+        {
+        }
+    };
+
+    BOOL CALLBACK EnumMonitorSize(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+    {
+        GetMonitorBoundsData *data = reinterpret_cast<GetMonitorBoundsData *>(dwData);
+        Rect monitorRect(
+            (float)lprcMonitor->left,
+            (float)lprcMonitor->top,
+            (float)(lprcMonitor->right - lprcMonitor->left),
+            (float)(lprcMonitor->bottom - lprcMonitor->top));
+        if (monitorRect.contains(data->pos))
+        {
+            data->result = monitorRect;
+            return FALSE;
+        }
+        return TRUE;
+    }
+
+    Rect System::getMonitorBounds(const Pos pos)
+    {
+        GetMonitorBoundsData data(pos);
+        EnumDisplayMonitors(nullptr, nullptr, EnumMonitorSize, reinterpret_cast<LPARAM>(&data));
+        return data.result;
+    }
+
+    Pos System::getDesktopSize()
+    {
+        return Pos(
+            static_cast<float>(GetSystemMetrics(SM_CXSCREEN)),
+            static_cast<float>(GetSystemMetrics(SM_CYSCREEN)));
+    }
+
+    BOOL CALLBACK EnumMonitorTotalBounds(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+    {
+        LPRECT l = reinterpret_cast<LPRECT>(dwData);
+        UnionRect(l, l, lprcMonitor);
+        return TRUE;
+    }
+
+    Rect System::getVDesktopBounds()
+    {
+        if (s_global.virtualScreenBounds.x == 0)
+        {
+            RECT screenRect = {};
+            EnumDisplayMonitors(nullptr, nullptr, EnumMonitorTotalBounds, reinterpret_cast<LPARAM>(&screenRect));
+            s_global.virtualScreenBounds.x = static_cast<float>(screenRect.left);
+            s_global.virtualScreenBounds.y = static_cast<float>(screenRect.top);
+            s_global.virtualScreenBounds.w = static_cast<float>(screenRect.right - screenRect.left);
+            s_global.virtualScreenBounds.h = static_cast<float>(screenRect.bottom - screenRect.top);
+        }
+        return s_global.virtualScreenBounds;
+    }
+
+    Pos System::GetVDesktopSize()
+    {
+        auto b = System::getVDesktopBounds();
+        return {b.w, b.h};
+    }
+
     TkString System::getUserName()
     {
         return s_global.userLocale;
+    }
+
+    NetConType System::getNetConType()
+    {
+        ULONG bufLen = 0;
+        GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, nullptr, &bufLen);
+
+        if (bufLen == 0)
+            return NetConType::kNone;
+
+        IP_ADAPTER_ADDRESSES *addrs =
+            reinterpret_cast<IP_ADAPTER_ADDRESSES *>(malloc(bufLen));
+
+        if (!addrs)
+            return NetConType::kUnknown;
+
+        DWORD ret = GetAdaptersAddresses(
+            AF_UNSPEC,
+            GAA_FLAG_SKIP_ANYCAST |
+                GAA_FLAG_SKIP_MULTICAST |
+                GAA_FLAG_SKIP_DNS_SERVER,
+            nullptr,
+            addrs,
+            &bufLen);
+
+        if (ret != NO_ERROR)
+        {
+            free(addrs);
+            return NetConType::kUnknown;
+        }
+
+        NetConType result = NetConType::kNone;
+
+        for (auto *a = addrs; a; a = a->Next)
+        {
+            if (a->OperStatus != IfOperStatusUp)
+                continue;
+
+            switch (a->IfType)
+            {
+            case IF_TYPE_IEEE80211:
+                result = NetConType::kWiFi;
+                goto done;
+
+            case IF_TYPE_ETHERNET_CSMACD:
+                result = NetConType::kEthernet;
+                goto done;
+
+            case IF_TYPE_WWANPP:
+            case IF_TYPE_WWANPP2:
+                result = NetConType::kCell;
+                goto done;
+                // case IF_TYPE_BLUETOOTH:
+                //     result = NetConType::kBluetooth;
+                //     goto done;
+
+            default:
+                result = NetConType::kUnknown;
+                break;
+            }
+        }
+
+    done:
+        free(addrs);
+        return result;
+    }
+
+    ScreenOrienType System::getScreenOrienType()
+    {
+        DEVMODEW dm{};
+        dm.dmSize = sizeof(dm);
+
+        if (!EnumDisplaySettingsW(nullptr, ENUM_CURRENT_SETTINGS, &dm))
+            return ScreenOrienType::kUnknown;
+
+        switch (dm.dmDisplayOrientation)
+        {
+        case DMDO_DEFAULT:
+            return ScreenOrienType::kLandscapeLeft;
+
+        case DMDO_90:
+            return ScreenOrienType::kPortrait;
+
+        case DMDO_180:
+            return ScreenOrienType::kLandscapeRight;
+
+        case DMDO_270:
+            return ScreenOrienType::kPortraitUpsideDown;
+
+        default:
+            return ScreenOrienType::kUnknown;
+        }
+    }
+
+    TkString System::getLocale()
+    {
+        WCHAR localeName[LOCALE_NAME_MAX_LENGTH] = {};
+
+        if (GetUserDefaultLocaleName(localeName, LOCALE_NAME_MAX_LENGTH) == 0)
+            return TkString::Empty;
+
+        StringAsUTF8<> o8{localeName};
+        return o8.get();
     }
 
     TkString System::getComputerName()
@@ -980,7 +1255,7 @@ namespace toolkit
         return WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
     }
 
-    static void readPipe(HANDLE pipe, TkArray<char> &rawData, TkArray<wchar> &logData, LogLevel logType, ProcessInitArgs& args)
+    static void readPipe(HANDLE pipe, TkArray<char> &rawData, TkArray<wchar> &logData, LogLevel logType, ProcessInitArgs &args)
     {
         // Check if any data is ready to read
         DWORD bytesAvailable = 0;
@@ -1005,7 +1280,7 @@ namespace toolkit
                 i32 tmp;
                 TkConvertor::ansiToUtf16(rawData.get(), logData.get(), rawData.count(), tmp);
                 logData.last() = '\0';
-                StringAsUTF8 u8 {logData.get()};
+                StringAsUTF8 u8{logData.get()};
                 if (args.logOutput)
                     TkLogger::getShared()->log(logType, TkStringView(u8.get(), rawData.count()).get());
                 if (args.saveOutput)
@@ -1054,9 +1329,9 @@ namespace toolkit
         {
             result = -1;
             const TkString cmdLine = args.file + " " + args.args;
-            
-            StringAsUTF16 u16 {cmdLine.getText()};
-            StringAsUTF16 dirPth {args.workDir.get()};
+
+            StringAsUTF16 u16{cmdLine.getText()};
+            StringAsUTF16 dirPth{args.workDir.get()};
 
             ::STARTUPINFOEX startupInfoEx;
             ZeroMemory(&startupInfoEx, sizeof(startupInfoEx));
@@ -1190,6 +1465,169 @@ namespace toolkit
                 TkMemory::free(TkMemory::getDefault(), environmentStr);
         }
 
+        return result;
+    }
+
+    typedef struct _DROPFILES
+    {
+        DWORD pFiles;
+        POINT pt;
+        BOOL fNC;
+        BOOL fWide;
+    } DROPFILES, *LPDROPFILES;
+
+    void System::clearClipBoard()
+    {
+        OpenClipboard(nullptr);
+        EmptyClipboard();
+        CloseClipboard();
+    }
+
+    void System::setClipBoard(const TkStringView text)
+    {
+        const i32 sizeWithoutNull = text.length() * sizeof(char);
+        const HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, sizeWithoutNull + sizeof(wchar));
+
+        wchar *pMem = static_cast<wchar *>(GlobalLock(hMem));
+        StringAsUTF16<> out{text.get()};
+        TkMemory::memoryCopy(pMem, out.get(), sizeWithoutNull);
+        TkMemory::memorySet(pMem + out.length(), sizeof(wchar), 0);
+        GlobalUnlock(hMem);
+
+        OpenClipboard(nullptr);
+        EmptyClipboard();
+        SetClipboardData(CF_UNICODETEXT, hMem);
+        CloseClipboard();
+    }
+
+    void System::setClipBoard(const TkSpan<byte> data)
+    {
+        HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, data.length());
+        TkMemory::memoryCopy(GlobalLock(hMem), data.get(), data.length());
+        GlobalUnlock(hMem);
+
+        OpenClipboard(nullptr);
+        EmptyClipboard();
+        SetClipboardData(CF_PENDATA, hMem);
+        CloseClipboard();
+    }
+
+    void System::setClipBoard(const TkArray<TkString> &files)
+    {
+        i32 size = sizeof(DROPFILES);
+        for (i32 i = 0; i < files.count(); i++)
+        {
+            size += (files[i].length() + 1) * sizeof(char);
+        }
+        size += 2 * sizeof(char);
+
+        HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, size);
+        DROPFILES *data = (DROPFILES *)GlobalLock(hMem);
+        ZeroMemory(data, size);
+        data->pFiles = sizeof(DROPFILES);
+        data->fWide = TRUE;
+        LPWSTR ptr = (LPWSTR)(data + 1);
+        for (i32 i = 0; i < files.count(); i++)
+        {
+            StringAsUTF16<> out{files[i].getText()};
+            TkMemory::memoryCopy(ptr, out.get(), (out.length() + 1) * sizeof(wchar));
+            ptr += out.length() + 1;
+        }
+        *ptr++ = 0;
+        *ptr = 0;
+        GlobalUnlock(hMem);
+
+        OpenClipboard(nullptr);
+        EmptyClipboard();
+        SetClipboardData(CF_HDROP, hMem);
+        CloseClipboard();
+    }
+
+    TkString System::getClipBoardAsText()
+    {
+        TkString result;
+        OpenClipboard(nullptr);
+        HANDLE hMem = GetClipboardData(CF_UNICODETEXT);
+        if (hMem)
+        {
+            wchar *data = static_cast<wchar *>(GlobalLock(hMem));
+            StringAsUTF8<> out{data};
+            result = out.get();
+            GlobalUnlock(data);
+        }
+        else
+        {
+            hMem = GetClipboardData(CF_TEXT);
+            if (hMem)
+            {
+                char *data = static_cast<char *>(GlobalLock(hMem));
+                result = data;
+                GlobalUnlock(data);
+            }
+        }
+        CloseClipboard();
+        return result;
+    }
+
+    TkArray<byte> System::getClipBoardAsData()
+    {
+        TkArray<byte> result;
+        OpenClipboard(nullptr);
+        HANDLE hMem = GetClipboardData(CF_PENDATA);
+        if (hMem)
+        {
+            auto data = GlobalLock(hMem);
+            auto size = static_cast<i32>(GlobalSize(hMem));
+
+            if (size > 0)
+            {
+                result.set(static_cast<byte *>(data), size);
+            }
+
+            GlobalUnlock(data);
+        }
+        CloseClipboard();
+        return result;
+    }
+
+    TkArray<TkString> System::getClipBoardAsFiles()
+    {
+        TkArray<TkString> result;
+        OpenClipboard(nullptr);
+        HANDLE hMem = GetClipboardData(CF_HDROP);
+        if (hMem)
+        {
+            auto data = (DROPFILES *)GlobalLock(hMem);
+            auto size = static_cast<i32>(GlobalSize(hMem));
+
+            if (size > 0)
+            {
+                if (data->fWide)
+                {
+                    wchar *ptr = (wchar *)(data + 1);
+                    while (*ptr)
+                    {
+                        i32 length = TkStringUtils::length(ptr);
+                        StringAsUTF8<> out{ptr, length};
+                        result.add(TkString{out.get(), out.length()});
+                        ptr += length + 1;
+                    }
+                }
+                else
+                {
+                    char *ptr = (char *)(data + 1);
+                    while (*ptr)
+                    {
+                        i32 length = TkStringUtils::length(ptr);
+                        result.add(TkString(ptr, length));
+                        ptr += length + 1;
+                    }
+                }
+            }
+
+            GlobalUnlock(data);
+        }
+        CloseClipboard();
         return result;
     }
 

@@ -359,6 +359,23 @@ namespace toolkit
         WaitForSingleObject(handle, INFINITE);
     }
 
+    void system_msgbox_show(const char* msg, const char* title, int icon) {
+#if !TK_HEADLESS
+        StringAsUTF16<MAX_PATH> oMsg {msg};
+        switch (icon)
+        {
+        case 1:
+            MessageBoxW(nullptr, oMsg.get(), L"Error", MB_OK | MB_ICONERROR);
+            break;
+        case 2:
+            MessageBoxW(nullptr, oMsg.get(), L"Error", MB_OK | MB_ICONINFORMATION);
+            break;
+        case 3:
+            MessageBoxW(nullptr, oMsg.get(), L"Error", MB_OK | MB_ICONMASK);
+            break;
+        }
+#endif
+    }
 }
 
 #endif

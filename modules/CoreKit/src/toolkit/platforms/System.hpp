@@ -9,6 +9,7 @@
 #pragma once
 
 #include <toolkit/common.hpp>
+#include <toolkit/base/Math.hpp>
 
 namespace toolkit
 {
@@ -128,7 +129,7 @@ namespace toolkit
         static MemoryStats getMemoryStats();
         // Get the process current memory stats.
         static ProcessMemoryStats getProcessMemoryStats();
-        /// Get the current process unique identifier.
+        // Get the current process unique identifier.
         static u64 getCurrentProcessId();
 
     public:
@@ -147,7 +148,7 @@ namespace toolkit
         static double getTimeSeconds();
         // Get the current time as CPU cycles counter
         static u64 getTimeCycles();
-        // Gets the system clock frequency
+        // Get the system clock frequency
         static u64 getClockFrequency();
         // Get current system time
         static void getSystemTime(TimeStats &time);
@@ -177,6 +178,21 @@ namespace toolkit
         // Get the primary monitor's DPI setting scale factor (1 is default). Includes custom DPI scale.
         static float getDpiScale();
 
+        // Get the mouse cursor position in screen-space coordinates.
+        static Pos getMousePos();
+        // Set the mouse cursor position in screen-space coordinates.
+        static void setMousePos(const Pos pos);
+
+        // Get the origin position and size of the monitor at the given screen-space location.
+        static Rect getMonitorBounds(const Pos pos);
+        // Get size of the primary desktop.
+        static Pos getDesktopSize();
+
+        // Get virtual bounds of the desktop made of all the monitors outputs attached.
+        static Rect getVDesktopBounds();
+        // Get virtual size of the desktop made of all the monitors outputs attached.
+        static Pos GetVDesktopSize();
+
         // Get the battery information.
         static BatteryInfo getBatteryStats();
         // Get the current network connection type.
@@ -191,10 +207,12 @@ namespace toolkit
         // Get the user name.
         static TkString getUserName();
 
-        // Returns true if app has user focus.
-        static bool getHasFocus();
-        // Returns true if app is paused, only basic service is updated until app end or resume.
-        static bool getIsPaused();
+        // TODO Move to WindowKit
+        //  Returns true if app has user focus.
+        //  static bool getHasFocus();
+        //
+        //  Returns true if app is paused, only basic service is updated until app end or resume.
+        //  static bool getIsPaused();
 
         // Create the unique identifier.
         static void createUuid(TkUuid &result);
@@ -209,9 +227,25 @@ namespace toolkit
 
     public:
         // Create the system mutex.
-        static bool createProcessMutex(const char* name);
+        static bool createProcessMutex(const char *name);
         // Release the system mutex.
         static void releaseProcessMutex();
+
+    public:
+        // Clear the clipboard contents.
+        static void clearClipBoard();
+        // Set text to the clipboard.
+        static void setClipBoard(const TkStringView text);
+        // Set the raw bytes data to the clipboard.
+        static void setClipBoard(const TkSpan<byte> data);
+        // Set the files to the clipboard.
+        static void setClipBoard(const TkArray<TkString> &files);
+        // Get the text from the clipboard.
+        static TkString getClipBoardAsText();
+        // Get the raw bytes data from the clipboard.
+        static TkArray<byte> getClipBoardAsData();
+        // Get the file paths from the clipboard.
+        static TkArray<TkString> getClipBoardAsFiles();
     };
 
 }

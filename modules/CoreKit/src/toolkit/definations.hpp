@@ -10,6 +10,7 @@
 #define TK_TRACY_ENABLE 0
 #define TK_CRASH_LOG    1
 #define TK_HEADLESS     0
+#define TK_CONSOLE_SUB  1
 
 #define TK_WINDOW_KIT   0
 

@@ -14,17 +14,17 @@ namespace toolkit
 	{
 	public:
 		// Common const values
-		inline static constexpr float PI              = 3.14159265358979323846f;
-		inline static constexpr float TWO_PI          = 6.28318530717958647692f;
-		inline static constexpr float PI_INV          = 0.31830988618379067154f;
-		inline static constexpr float PI_OVER_2        = 1.57079632679489661923f;
-		inline static constexpr float PI_OVER_4        = 0.78539816339744830962f;
-		inline static constexpr float PI_HALF          = PI_OVER_2;
-		inline static constexpr float GOLDEN_RATIO     = 1.61803398874989484820f;
+		inline static constexpr float PI = 3.14159265358979323846f;
+		inline static constexpr float TWO_PI = 6.28318530717958647692f;
+		inline static constexpr float PI_INV = 0.31830988618379067154f;
+		inline static constexpr float PI_OVER_2 = 1.57079632679489661923f;
+		inline static constexpr float PI_OVER_4 = 0.78539816339744830962f;
+		inline static constexpr float PI_HALF = PI_OVER_2;
+		inline static constexpr float GOLDEN_RATIO = 1.61803398874989484820f;
 
 		// Tolerances
-		inline static constexpr float  ZeroTolerance        = 1e-6f;
-		inline static constexpr f64 ZeroToleranceDouble  = 1e-16;
+		inline static constexpr float ZeroTolerance = 1e-6f;
+		inline static constexpr f64 ZeroToleranceDouble = 1e-16;
 
 		// Angle conversions
 		inline static constexpr float RadiansToDegrees = 180.0f / PI;
@@ -32,7 +32,7 @@ namespace toolkit
 
 	public:
 		// Computes the sine and cosine of a scalar float.
-		static void sinCos(f32 angle, float& sine, float& cosine);
+		static void sinCos(f32 angle, float &sine, float &cosine);
 		// Computes the base 2 logarithm for an integer value that is greater than 0. The result is rounded down to the nearest integer.
 		static u32 floorLog2(u32 value);
 
@@ -64,7 +64,8 @@ namespace toolkit
 
 		static TK_FORCE_INLINE f32 asin(f32 value)
 		{
-			return asinf(value < -1.f ? -1.f : value < 1.f ? value : 1.f);
+			return asinf(value < -1.f ? -1.f : value < 1.f ? value
+														   : 1.f);
 		}
 
 		static TK_FORCE_INLINE f32 sinh(f32 value)
@@ -79,7 +80,8 @@ namespace toolkit
 
 		static TK_FORCE_INLINE f32 acos(f32 value)
 		{
-			return acosf(value < -1.f ? -1.f : value < 1.f ? value : 1.f);
+			return acosf(value < -1.f ? -1.f : value < 1.f ? value
+														   : 1.f);
 		}
 
 		static TK_FORCE_INLINE f32 tan(f32 value)
@@ -163,7 +165,7 @@ namespace toolkit
 			return fmodf(a, b);
 		}
 
-		static TK_FORCE_INLINE f32 modF(const f32 a, float* b)
+		static TK_FORCE_INLINE f32 modF(const f32 a, float *b)
 		{
 			return modff(a, b);
 		}
@@ -207,26 +209,26 @@ namespace toolkit
 		static u64 roundUpToPowerOf2(u64 value);
 
 	public:
-		template<class T>
+		template <class T>
 		static TK_FORCE_INLINE T divideAndRoundUp(T dividend, T divisor)
 		{
 			return (dividend + divisor - 1) /
-				divisor;
+				   divisor;
 		}
 
-		template<class T>
+		template <class T>
 		static TK_FORCE_INLINE T divideAndRoundDown(T dividend, T divisor)
 		{
 			return dividend / divisor;
 		}
 
-		template<class T>
+		template <class T>
 		static bool isInRange(const T value, const T min, const T max)
 		{
 			return value >= min && value <= max;
 		}
 
-		template<class T>
+		template <class T>
 		static bool isOutOfRange(const T value, const T min, const T max)
 		{
 			return value < min || value > max;
@@ -234,66 +236,68 @@ namespace toolkit
 
 		static bool isPowerOfTwo(u32 value)
 		{
-			//FIX: calculate piority problem fix
+			// FIX: calculate piority problem fix
 			return value != 0 && ((value & (value - 1)) == 0);
 		}
 
-		template<class T>
+		template <class T>
 		static T clamp(const T value, const T min, const T max)
 		{
-			return value < min ? min : value < max ? value : max;
+			return value < min ? min : value < max ? value
+												   : max;
 		}
 
-		template<class T>
+		template <class T>
 		static T saturate(const T value)
 		{
-			return value < 0 ? 0 : value < 1 ? value : 1;
+			return value < 0 ? 0 : value < 1 ? value
+											 : 1;
 		}
 
-		template<class T>
+		template <class T>
 		static f32 averageArithmetic(const T a, const T b)
 		{
 			return (a + b) * 0.5f;
 		}
 
 	public:
-		template<class T>
+		template <class T>
 		static T max(const T a, const T b)
 		{
 			return a > b ? a : b;
 		}
 
-		template<class T>
+		template <class T>
 		static T min(const T a, const T b)
 		{
 			return a < b ? a : b;
 		}
 
-		template<class T>
+		template <class T>
 		static T max(const T a, const T b, const T c)
 		{
 			return max(max(a, b), c);
 		}
 
-		template<class T>
+		template <class T>
 		static T max(const T a, const T b, const T c, const T d)
 		{
 			return max(max(max(a, b), c), d);
 		}
 
-		template<class T>
+		template <class T>
 		static T min(const T a, const T b, const T c)
 		{
 			return min(min(a, b), c);
 		}
 
-		template<class T>
+		template <class T>
 		static T min(const T a, const T b, const T c, const T d)
 		{
 			return min(min(min(a, b), c), d);
 		}
 
-		template<class T>
+		template <class T>
 		static T moveTowards(const T current, const T target, const T maxDelta)
 		{
 			if (abs(target - current) <= maxDelta)
@@ -301,7 +305,7 @@ namespace toolkit
 			return current + Sign(target - current) * maxDelta;
 		}
 
-		template<class T>
+		template <class T>
 		static T moveTowardsAngle(const T current, const T target, const T maxDelta)
 		{
 			T delta = DeltaAngle(current, target);
@@ -311,7 +315,7 @@ namespace toolkit
 			return moveTowards(current, deltaTarget, maxDelta);
 		}
 
-		template<class T>
+		template <class T>
 		static T deltaAngle(const T current, const T target)
 		{
 			T t = repeat(target - current, (T)360);
@@ -320,38 +324,38 @@ namespace toolkit
 			return t;
 		}
 
-		template<class T>
+		template <class T>
 		static T repeat(const T t, const T length)
 		{
 			return t - floor(t / length) * length;
 		}
 
-		template<class T>
+		template <class T>
 		static T square(const T a)
 		{
 			return a * a;
 		}
 
-		template<class T, class U>
-		static T lerp(const T& a, const T& b, const U& alpha)
+		template <class T, class U>
+		static T lerp(const T &a, const T &b, const U &alpha)
 		{
 			return (T)(a + alpha * (b - a));
 		}
 
-		template<class T>
-		static T lerpStable(const T& a, const T& b, f64 alpha)
+		template <class T>
+		static T lerpStable(const T &a, const T &b, f64 alpha)
 		{
 			return (T)(a * (1.0 - alpha) + b * alpha);
 		}
 
-		template<class T>
-		static T lerpStable(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static T lerpStable(const T &a, const T &b, f32 alpha)
 		{
 			return (T)(a * (1.0f - alpha) + b * alpha);
 		}
 
-		template<class T, class U>
-		static T inverseLerp(const T& a, const T& b, const U& value)
+		template <class T, class U>
+		static T inverseLerp(const T &a, const T &b, const U &value)
 		{
 			if (a == b)
 				return (T)0;
@@ -361,12 +365,14 @@ namespace toolkit
 	public:
 		static f32 smoothStep(f32 amount)
 		{
-			return amount <= 0 ? 0 : amount >= 1 ? 1 : amount * amount * (3 - 2 * amount);
+			return amount <= 0 ? 0 : amount >= 1 ? 1
+												 : amount * amount * (3 - 2 * amount);
 		}
 
 		static f32 smootherStep(f32 amount)
 		{
-			return amount <= 0 ? 0 : amount >= 1 ? 1 : amount * amount * amount * (amount * (amount * 6 - 15) + 10);
+			return amount <= 0 ? 0 : amount >= 1 ? 1
+												 : amount * amount * amount * (amount * (amount * 6 - 15) + 10);
 		}
 
 		inline i32 isZero(i32 a)
@@ -391,7 +397,8 @@ namespace toolkit
 
 		inline f32 sign(f32 v)
 		{
-			return v > 0.0f ? 1.0f : v < 0.0f ? -1.0f : 0.0f;
+			return v > 0.0f ? 1.0f : v < 0.0f ? -1.0f
+											  : 0.0f;
 		}
 
 		inline bool sameSign(const f32 a, const f32 b)
@@ -420,40 +427,40 @@ namespace toolkit
 			return (value - frommin) / (frommax - frommin) * (tomax - tomin) + tomin;
 		}
 
-		template<typename T>
+		template <typename T>
 		static T alignUpWithMask(T value, T mask)
 		{
 			return (T)(value + mask & ~mask);
 		}
 
-		template<typename T>
+		template <typename T>
 		static T alignDownWithMask(T value, T mask)
 		{
 			return (T)(value & ~mask);
 		}
 
-		template<typename T>
+		template <typename T>
 		static T alignUp(T value, T alignment)
 		{
 			T mask = alignment - 1;
 			return (T)(value + mask & ~mask);
 		}
 
-		template<typename T>
+		template <typename T>
 		static T alignDown(T value, T alignment)
 		{
 			T mask = alignment - 1;
 			return (T)(value & ~mask);
 		}
 
-		template<typename T>
+		template <typename T>
 		static bool isAligned(T value, T alignment)
 		{
 			// FIX: piority problem
 			return (value & (alignment - 1)) == 0;
 		}
 
-		template<typename T>
+		template <typename T>
 		static T divideByMultiple(T value, T alignment)
 		{
 			return (T)((value + alignment - 1) / alignment);
@@ -486,7 +493,7 @@ namespace toolkit
 		}
 
 	public:
-		template<typename T>
+		template <typename T>
 		static T unwindRadians(T a)
 		{
 			while (a > PI)
@@ -496,7 +503,7 @@ namespace toolkit
 			return a;
 		}
 
-		template<typename T>
+		template <typename T>
 		static T unwindDegrees(T a)
 		{
 			while (a > 180)
@@ -521,112 +528,104 @@ namespace toolkit
 			return fraction * fraction * (3.0f - 2.0f * fraction);
 		}
 
-		template<class T, class U>
-		static TK_FORCE_INLINE T cubicInterp(const T& p0, const T& t0, const T& p1, const T& t1, const U& alpha)
+		template <class T, class U>
+		static TK_FORCE_INLINE T cubicInterp(const T &p0, const T &t0, const T &p1, const T &t1, const U &alpha)
 		{
 			const f32 alpha2 = alpha * alpha;
 			const f32 alpha3 = alpha2 * alpha;
-			return (T)((2 * alpha3 - 3 * alpha2 + 1) * p0) + (alpha3 - 2 * alpha2 + alpha) * t0 + (alpha3 - alpha2) * t1
-				+ (-2 * alpha3 + 3 * alpha2) * p1;
+			return (T)((2 * alpha3 - 3 * alpha2 + 1) * p0) + (alpha3 - 2 * alpha2 + alpha) * t0 + (alpha3 - alpha2) * t1 + (-2 * alpha3 + 3 * alpha2) * p1;
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpEaseIn(const T& a, const T& b, f32 alpha, f32 exponent)
+		template <class T>
+		static TK_FORCE_INLINE T interpEaseIn(const T &a, const T &b, f32 alpha, f32 exponent)
 		{
 			const f32 blend = pow(alpha, exponent);
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpEaseOut(const T& a, const T& b, f32 alpha, f32 exponent)
+		template <class T>
+		static TK_FORCE_INLINE T interpEaseOut(const T &a, const T &b, f32 alpha, f32 exponent)
 		{
 			const f32 blend = 1.f - pow(1.f - alpha, exponent);
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpEaseInOut(const T& a, const T& b, f32 alpha, f32 exponent)
+		template <class T>
+		static TK_FORCE_INLINE T interpEaseInOut(const T &a, const T &b, f32 alpha, f32 exponent)
 		{
-			return lerp<T>(a, b, alpha < 0.5f ? interpEaseIn(0.f, 1.f, alpha * 2.f, exponent) * 0.5f :
-			                     interpEaseOut(0.f, 1.f, alpha * 2.f - 1.f, exponent) * 0.5f + 0.5f);
+			return lerp<T>(a, b, alpha < 0.5f ? interpEaseIn(0.f, 1.f, alpha * 2.f, exponent) * 0.5f : interpEaseOut(0.f, 1.f, alpha * 2.f - 1.f, exponent) * 0.5f + 0.5f);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpSinIn(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpSinIn(const T &a, const T &b, f32 alpha)
 		{
 			const f32 blend = -1.f * cos(alpha * PI_HALF) + 1.f;
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpSinOut(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpSinOut(const T &a, const T &b, f32 alpha)
 		{
 			const f32 blend = sin(alpha * PI_HALF);
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpSinInOut(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpSinInOut(const T &a, const T &b, f32 alpha)
 		{
 			return lerp<T>(a, b,
-				alpha < 0.5f ? interpSinIn(0.f, 1.f, alpha * 2.f) * 0.5f :
-				interpSinOut(0.f, 1.f, alpha * 2.f - 1.f) * 0.5f
-					+ 0.5f);
+						   alpha < 0.5f ? interpSinIn(0.f, 1.f, alpha * 2.f) * 0.5f : interpSinOut(0.f, 1.f, alpha * 2.f - 1.f) * 0.5f + 0.5f);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpExpoIn(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpExpoIn(const T &a, const T &b, f32 alpha)
 		{
 			const f32 blend = alpha == 0.f ? 0.f : pow(2.f, 10.f * (alpha - 1.f));
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpExpoOut(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpExpoOut(const T &a, const T &b, f32 alpha)
 		{
 			const f32 blend = alpha == 1.f ? 1.f : -pow(2.f, -10.f * alpha) + 1.f;
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpExpoInOut(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpExpoInOut(const T &a, const T &b, f32 alpha)
 		{
 			return lerp<T>(a, b,
-				alpha < 0.5f ? interpExpoIn(0.f, 1.f, alpha * 2.f) * 0.5f :
-				interpExpoOut(0.f, 1.f, alpha * 2.f - 1.f) * 0.5f
-					+ 0.5f);
+						   alpha < 0.5f ? interpExpoIn(0.f, 1.f, alpha * 2.f) * 0.5f : interpExpoOut(0.f, 1.f, alpha * 2.f - 1.f) * 0.5f + 0.5f);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpCircularIn(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpCircularIn(const T &a, const T &b, f32 alpha)
 		{
 			const f32 blend = -1.f * (sqrt(1.f - alpha * alpha) - 1.f);
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpCircularOut(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpCircularOut(const T &a, const T &b, f32 alpha)
 		{
 			alpha -= 1.f;
 			const f32 blend = sqrt(1.f - alpha * alpha);
 			return lerp<T>(a, b, blend);
 		}
 
-		template<class T>
-		static TK_FORCE_INLINE T interpCircularInOut(const T& a, const T& b, f32 alpha)
+		template <class T>
+		static TK_FORCE_INLINE T interpCircularInOut(const T &a, const T &b, f32 alpha)
 		{
-			return lerp<T>(a, b, alpha < 0.5f ? interpCircularIn(0.f, 1.f, alpha * 2.f) * 0.5f :
-			                     interpCircularOut(0.f, 1.f, alpha * 2.f - 1.f) * 0.5f + 0.5f);
+			return lerp<T>(a, b, alpha < 0.5f ? interpCircularIn(0.f, 1.f, alpha * 2.f) * 0.5f : interpCircularOut(0.f, 1.f, alpha * 2.f - 1.f) * 0.5f + 0.5f);
 		}
 	};
-
 
 	// Double version of math util functions
 	class TkMathD final
 	{
 	public:
 		// Computes the sine and cosine of a scalar f64.
-		void sinCos(f64 angle, f64& sine, f64& cosine);
+		void sinCos(f64 angle, f64 &sine, f64 &cosine);
 
 	public:
 		static TK_FORCE_INLINE f64 trunc(f64 value)
@@ -656,7 +655,8 @@ namespace toolkit
 
 		static TK_FORCE_INLINE f64 asin(f64 value)
 		{
-			return ::asin(value < -1. ? -1. : value < 1. ? value : 1.);
+			return ::asin(value < -1. ? -1. : value < 1. ? value
+														 : 1.);
 		}
 
 		static TK_FORCE_INLINE f64 sinh(f64 value)
@@ -671,7 +671,8 @@ namespace toolkit
 
 		static TK_FORCE_INLINE f64 acos(f64 value)
 		{
-			return ::acos(value < -1. ? -1. : value < 1. ? value : 1.);
+			return ::acos(value < -1. ? -1. : value < 1. ? value
+														 : 1.);
 		}
 
 		static TK_FORCE_INLINE f64 tan(f64 value)
@@ -739,7 +740,7 @@ namespace toolkit
 			return ::fmod(a, b);
 		}
 
-		static TK_FORCE_INLINE f64 modF(f64 a, f64* b)
+		static TK_FORCE_INLINE f64 modF(f64 a, f64 *b)
 		{
 			return ::modf(a, b);
 		}
@@ -778,12 +779,14 @@ namespace toolkit
 	public:
 		static f64 smoothStep(f64 amount)
 		{
-			return amount <= 0. ? 0. : amount >= 1. ? 1. : amount * amount * (3. - 2. * amount);
+			return amount <= 0. ? 0. : amount >= 1. ? 1.
+													: amount * amount * (3. - 2. * amount);
 		}
 
 		static f64 smootherStep(f64 amount)
 		{
-			return amount <= 0. ? 0. : amount >= 1. ? 1. : amount * amount * amount * (amount * (amount * 6. - 15.) + 10.);
+			return amount <= 0. ? 0. : amount >= 1. ? 1.
+													: amount * amount * amount * (amount * (amount * 6. - 15.) + 10.);
 		}
 
 		inline bool isZero(f64 a)
@@ -798,7 +801,8 @@ namespace toolkit
 
 		inline f64 sign(f64 v)
 		{
-			return v > 0. ? 1. : v < 0. ? -1. : 0.;
+			return v > 0. ? 1. : v < 0. ? -1.
+										: 0.;
 		}
 
 		inline bool sameSign(const f64 a, const f64 b)
@@ -843,46 +847,54 @@ namespace toolkit
 		}
 	};
 
-    struct Pos
-    {
-        double x, y;
+	struct Pos
+	{
+		double x, y;
 
-        Pos operator+(const Pos &other) const
-        {
-            return {x + other.x, y + other.y};
-        }
-        Pos operator-(const Pos &other) const
-        {
-            return {x - other.x, y - other.y};
-        }
-        Pos operator*(double scalar) const
-        {
-            return {x * scalar, y * scalar};
-        }
-        friend Pos operator*(double scalar, const Pos &pos)
-        {
-            return pos * scalar;
-        }
-        Pos operator/(double scalar) const
-        {
-            if (scalar == 0)
-                TK_ASSERT(false);
-            return {x / scalar, y / scalar};
-        }
-        Pos &operator=(const Pos &other) = default;
-        bool operator==(const Pos &other) const
-        {
-            constexpr double epsilon = 1e-9;
-            return TkMathD::abs(x - other.x) < epsilon && TkMathD::abs(y - other.y) < epsilon;
-        }
-        bool operator!=(const Pos &other) const
-        {
-            return !(*this == other);
-        }
-    };
+		Pos operator+(const Pos &other) const
+		{
+			return {x + other.x, y + other.y};
+		}
+		Pos operator-(const Pos &other) const
+		{
+			return {x - other.x, y - other.y};
+		}
+		Pos operator*(double scalar) const
+		{
+			return {x * scalar, y * scalar};
+		}
+		friend Pos operator*(double scalar, const Pos &pos)
+		{
+			return pos * scalar;
+		}
+		Pos operator/(double scalar) const
+		{
+			if (scalar == 0)
+				TK_ASSERT(false);
+			return {x / scalar, y / scalar};
+		}
+		Pos &operator=(const Pos &other) = default;
+		bool operator==(const Pos &other) const
+		{
+			constexpr double epsilon = 1e-9;
+			return TkMathD::abs(x - other.x) < epsilon && TkMathD::abs(y - other.y) < epsilon;
+		}
+		bool operator!=(const Pos &other) const
+		{
+			return !(*this == other);
+		}
+	};
 
-    struct Rect
-    {
-        double x, y, w, h;
-    };
+	struct Rect
+	{
+		double x, y, w, h;
+		
+		bool contains(const Pos &p) const
+		{
+			return p.x >= x &&
+				   p.y >= y &&
+				   p.x < x + w &&
+				   p.y < y + h;
+		}
+	};
 }

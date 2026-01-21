@@ -227,8 +227,8 @@ TEST(TkString, Format_UTF8)
     TkString s = TkString::format("你好 %s", "世界");
     EXPECT_STREQ(*s, "你好 世界");
 
-    s = TkString::format("测试 %s", s);
-    EXPECT_STREQ(*s, "测试 你好 世界");
+    s = TkString::format("测试 ありがとうございます　%s", s);
+    EXPECT_STREQ(*s, "测试 ありがとうございます　你好 世界");
 }
 
 TEST(TkString, Format_Large)

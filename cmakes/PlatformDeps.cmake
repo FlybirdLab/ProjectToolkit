@@ -8,7 +8,7 @@ function(SetPlatformDeps incVar lnkVar)
                 "shell32"
                 "Ws2_32"
         )
-        add_compile_options(/utf-8)
+        add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
     ELSEIF(APPLE)
         list(APPEND ${lnkVar}
                 "-framework Foundation"

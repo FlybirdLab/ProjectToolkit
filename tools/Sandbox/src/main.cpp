@@ -3,6 +3,7 @@
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
+#include "toolkit/types/StringView.hpp"
 #include <iostream>
 
 #include <toolkit/common.hpp>
@@ -21,6 +22,8 @@
 #include <toolkit/collection/ChunkedArray.hpp>
 
 #include <toolkit/platforms/System.hpp>
+
+#include <toolkit/debug/Debug.hpp>
 
 using namespace toolkit::type;
 using namespace toolkit;
@@ -42,6 +45,8 @@ int main(int argc, char **argv)
 
 	TkLogger logger = TkLogger::getShared();
 	logger.info("Hello world");
+
+	Debug::crashNotImpl(0, "aaa.cpp", "Test");
 
 	toolkit::StackAllocator<100> alloc{TkMemory::getDefault()};
 	auto it = alloc.asInterface();

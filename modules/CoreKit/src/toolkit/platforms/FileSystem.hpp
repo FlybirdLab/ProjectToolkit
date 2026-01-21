@@ -128,7 +128,7 @@ namespace toolkit
         // Get current position of the file pointer.
         static u32 getFilePos(FileHandle);
         // Set new position of the file pointer.
-        static void SetFilePos(FileHandle, u32 seek);
+        static void setFilePos(FileHandle, u32 seek);
         // Return true if file is opened.
         static bool isFileOpened(FileHandle);
 

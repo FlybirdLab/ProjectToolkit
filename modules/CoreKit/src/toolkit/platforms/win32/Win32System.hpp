@@ -47,9 +47,7 @@ namespace toolkit
             i32 minor = 0;
             i32 build = 0;
         } version;
-#if TK_WINDOW_KIT
-        RECT virtualScreenBounds{0.0f, 0.0f, 0.0f, 0.0f};
-#endif
+        Rect virtualScreenBounds{0, 0, 0, 0};
 #if TK_CRASH_LOG
 #if TK_TRACY_ENABLE
         bool isSymInit = true;

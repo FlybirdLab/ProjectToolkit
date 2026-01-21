@@ -36,6 +36,7 @@ AddSpdlog(INCS LNKS)
 AddRpmalloc(INCS LNKS)
 AddXXHash(INCS LNKS)
 AddConcurrentQueue(INCS LNKS)
+AddTracy(INCS LNKS)
 
 #################################################################
 # project configurations

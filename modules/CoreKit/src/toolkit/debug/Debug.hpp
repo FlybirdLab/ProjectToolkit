@@ -3,8 +3,6 @@
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
-// Created by cubevlmu on 2025/8/5.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
 
 #pragma once
 
@@ -20,13 +18,23 @@ namespace toolkit
         i32 line;
         void *programCounter;
     };
-    typedef void(*symbol_fn)(StackFrame);
+    typedef void (*symbol_fn)(StackFrame);
 
     class Debug
     {
     public:
-        // Write log to system's default debug console. 
+        // Write log to system's default debug console.
         static void log(const TkStringView msg);
+        // Show the fatal error message to the user.
+        static void fatal(const TkStringView msg, void *context);
+        // Show the fatal error message to the user.
+        static void fatal(const TkStringView msg);
+        // Show the error message to the user.
+        static void error(const TkStringView msg);
+        // Show the warning message to the user.
+        static void warn(const TkStringView msg);
+        // Show the information message to the user.
+        static void info(const TkStringView msg);
 
     public:
         static bool isDebuggerPresent();
@@ -35,7 +43,7 @@ namespace toolkit
         static TkArray<StackFrame> getStackFrames(i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
         // Get current native stack trace information without heap-alloc.
         static void getStackFrames(symbol_fn fn, i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
-        /// Get current native stack trace information as string.
+        // Get current native stack trace information as string.
         static TkString getStackTrace(i32 skipCount = 0, i32 maxDepth = 60, void *context = nullptr);
         // Crash dump data handling
         static void collectCrashData(const TkString &crashDataFolder, void *context = nullptr);
