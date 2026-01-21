@@ -1,5 +1,9 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Test target: StringViewTest.cpp
+ */
 
 #pragma once
 
@@ -25,11 +29,11 @@ namespace toolkit
 			m_length = TkStringUtils::length(str);
 		}
 		constexpr TkStringView()
-			: m_data(nullptr), m_length(0)
+			: m_data {nullptr}, m_length {0}
 		{
 		}
 		constexpr TkStringView(const char *data, i32 length)
-			: m_data(data), m_length(length)
+			: m_data {data}, m_length {length}
 		{
 		}
 		constexpr TkStringView(const TkStringView &other)
@@ -128,11 +132,11 @@ namespace toolkit
 		// Searches the string for the last occurrence of a character.
 		i32 findLast(char c) const;
 
-		bool startsWith(char c, bool searchCase = false) const;
-		bool endsWith(char c, bool searchCase = false) const;
+		bool startsWith(char c, bool searchCase = true) const;
+		bool endsWith(char c, bool searchCase = true) const;
 
-		bool startsWith(const TkStringView &prefix, bool searchCase = false) const;
-		bool endsWith(const TkStringView &suffix, bool searchCase = false) const;
+		bool startsWith(const TkStringView prefix, bool searchCase = true) const;
+		bool endsWith(const TkStringView suffix, bool searchCase = true) const;
 
 	public:
 		// Gets the left most given number of characters.

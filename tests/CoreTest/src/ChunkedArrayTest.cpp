@@ -8,8 +8,6 @@
 
 #include "toolkit/collection/ChunkedArray.hpp"
 
-/* ================= Test Object ================= */
-
 struct TestObjA
 {
     static inline i32 ctorCount = 0;
@@ -52,8 +50,6 @@ struct TestObjA
     }
 };
 
-/* ================= Basic ================= */
-
 TEST(ChunkedArray, Basic)
 {
     TestObjA::reset();
@@ -84,8 +80,6 @@ TEST(ChunkedArray, Basic)
     EXPECT_EQ(expect, 10);
 }
 
-/* ================= Remove ================= */
-
 TEST(ChunkedArray, Remove)
 {
     TestObjA::reset();
@@ -115,8 +109,6 @@ TEST(ChunkedArray, Remove)
     }
 }
 
-/* ================= Resize ================= */
-
 TEST(ChunkedArray, Resize)
 {
     TestObjA::reset();
@@ -134,8 +126,6 @@ TEST(ChunkedArray, Resize)
     EXPECT_GE(arr.capacity(), 16);
 }
 
-/* ================= Lifetime ================= */
-
 TEST(ChunkedArray, Lifetime)
 {
     TestObjA::reset();
@@ -152,8 +142,6 @@ TEST(ChunkedArray, Lifetime)
     // All constructed objects should be destroyed
     EXPECT_GE(TestObjA::dtorCount, TestObjA::ctorCount);
 }
-
-/* ================= Iterator Edge ================= */
 
 TEST(ChunkedArray, IteratorEdge)
 {

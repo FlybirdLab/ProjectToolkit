@@ -1,5 +1,9 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: StringTest.cpp
+ */
 
 #pragma once
 
@@ -80,11 +84,11 @@ namespace toolkit
 		bool startsWith(char c, bool searchCase = true) const;
 		bool endsWith(char c, bool searchCase = true) const;
 
+		bool startsWith(TkStringView prefix, bool searchCase = true) const;
+		bool endsWith(TkStringView suffix, bool searchCase = true) const;
+
 		bool startsWith(const TkString &prefix, bool searchCase = true) const;
 		bool endsWith(const TkString &suffix, bool searchCase = true) const;
-
-		bool startsWith(const TkStringView &prefix, bool searchCase = true) const;
-		bool endsWith(const TkStringView &suffix, bool searchCase = true) const;
 
 		i32 replace(char searchwchar, char replacementwchar, bool searchCase = true);
 		i32 replace(const char *searchText, const char *replacementText, bool searchCase = true);
@@ -491,15 +495,10 @@ namespace toolkit
 		}
 	};
 
-}
-
-namespace toolkit
-{
-
-	template <typename T>
+	template <>
 	inline psize formatCustom(FormatBuffer &b, const TkString &v)
 	{
-		b.appendData((void *)v.get(), v.length() * sizeof(char));
+		b.appendCharData(v.get(), v.length() * sizeof(char));
 		return v.length();
 	}
 

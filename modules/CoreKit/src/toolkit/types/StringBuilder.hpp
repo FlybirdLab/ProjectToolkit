@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: StringBuilderTest.cpp
  */
 
 #pragma once
@@ -43,6 +44,11 @@ namespace toolkit
         {
             m_data.clear();
         }
+        // Gets pointer to the string.
+        TK_FORCE_INLINE const char* begin() const 
+        {
+            return m_data.count() > 0 ? m_data.get() : "";
+        }
 
         void toString(TkString &result) const;
 
@@ -70,11 +76,7 @@ namespace toolkit
         TkStringBuilder &appendLine(const TkString &str);
 
     public:
-        // Gets pointer to the string.
-        TK_FORCE_INLINE const char *operator*() const
-        {
-            return m_data.count() > 0 ? m_data.get() : "";
-        }
+        TK_FORCE_INLINE const char *operator*() const = delete;
         // Gets string buffer as array of wchars.
         TK_FORCE_INLINE TkArray<char> &getCharArray()
         {
@@ -102,15 +104,10 @@ namespace toolkit
         }
     };
 
-}
-
-namespace toolkit
-{
-
-    template <typename T>
+    template <>
     inline psize formatCustom(FormatBuffer &b, const TkStringBuilder &v)
     {
-        b.appendData((void *)v.getCharArray().get(), v.length() * sizeof(char));
+        b.appendCharData(v.getCharArray().get(), v.length() * sizeof(char));
         return v.length();
     }
 

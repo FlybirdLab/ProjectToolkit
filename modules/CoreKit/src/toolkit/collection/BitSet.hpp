@@ -1,7 +1,8 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target : BitSetTest.cpp
  */
 
 #pragma once
@@ -10,10 +11,11 @@
 #include <toolkit/common.hpp>
 #include <toolkit/collection/StaticArray.hpp>
 
-namespace toolkit {
-    
+namespace toolkit
+{
+
     // Easy bit manipulation.
-    template<u32 kBitCount, typename TChunkType = u8>
+    template <u32 kBitCount, typename TChunkType = u8>
     class TkBitSet
     {
     private:
@@ -32,31 +34,32 @@ namespace toolkit {
                 setAll();
         }
 
-        TkBitSet(const TkBitSet& b)
-            : m_chunks(b.m_chunks)
+        TkBitSet(const TkBitSet &b)
         {
+            TkMemory::memoryCopy(m_chunks, b.m_chunks, sizeof(m_chunks));
         }
 
         // Copy.
-        TkBitSet& operator=(const TkBitSet& b)
+        TkBitSet &operator=(const TkBitSet &b)
         {
-            m_chunks = b.m_chunks;
+            if (this == &b)
+                return *this;
+
+            TkMemory::memoryCopy(m_chunks, b.m_chunks, sizeof(m_chunks));
             return *this;
         }
 
         // Bitwise or between this and @a b sets.
-        TkBitSet operator|(const TkBitSet& b) const
+        TkBitSet operator|(const TkBitSet &b) const
         {
-            TkBitSet out;
+            TkBitSet out(false);
             for (u32 i = 0; i < kChunkCount; ++i)
-            {
                 out.m_chunks[i] = m_chunks[i] | b.m_chunks[i];
-            }
             return out;
         }
 
         // Bitwise or between this and @a b sets.
-        TkBitSet& operator|=(const TkBitSet& b)
+        TkBitSet &operator|=(const TkBitSet &b)
         {
             for (u32 i = 0; i < kChunkCount; ++i)
             {
@@ -66,18 +69,16 @@ namespace toolkit {
         }
 
         // Bitwise and between this and @a b sets.
-        TkBitSet operator&(const TkBitSet& b) const
+        TkBitSet operator&(const TkBitSet &b) const
         {
-            TkBitSet out;
+            TkBitSet out {false};
             for (u32 i = 0; i < kChunkCount; ++i)
-            {
                 out.m_chunks[i] = m_chunks[i] & b.m_chunks[i];
-            }
             return out;
         }
 
         // Bitwise and between this and @a b sets.
-        TkBitSet& operator&=(const TkBitSet& b)
+        TkBitSet &operator&=(const TkBitSet &b)
         {
             for (u32 i = 0; i < kChunkCount; ++i)
             {
@@ -87,7 +88,7 @@ namespace toolkit {
         }
 
         // Bitwise xor between this and @a b sets.
-        TkBitSet operator^(const TkBitSet& b) const
+        TkBitSet operator^(const TkBitSet &b) const
         {
             TkBitSet out;
             for (u32 i = 0; i < kChunkCount; ++i)
@@ -98,7 +99,7 @@ namespace toolkit {
         }
 
         // Bitwise xor between this and @a b sets.
-        TkBitSet& operator^=(const TkBitSet& b)
+        TkBitSet &operator^=(const TkBitSet &b)
         {
             for (u32 i = 0; i < kChunkCount; ++i)
             {
@@ -119,7 +120,7 @@ namespace toolkit {
             return out;
         }
 
-        bool operator==(const TkBitSet& b) const
+        bool operator==(const TkBitSet &b) const
         {
             bool same = m_chunks[0] == b.m_chunks[0];
             for (u32 i = 1; i < kChunkCount; ++i)
@@ -129,7 +130,7 @@ namespace toolkit {
             return same;
         }
 
-        bool operator!=(const TkBitSet& b) const
+        bool operator!=(const TkBitSet &b) const
         {
             return !(*this == b);
         }
@@ -145,8 +146,8 @@ namespace toolkit {
         }
 
         // Set or unset a bit at the given position.
-        template<typename TInt>
-        TkBitSet& set(TInt pos, bool setBit = true)
+        template <typename TInt>
+        TkBitSet &set(TInt pos, bool setBit = true)
         {
             u32 high, low;
             position(u32(pos), high, low);
@@ -156,8 +157,8 @@ namespace toolkit {
         }
 
         // Set multiple bits.
-        template<typename TInt>
-        TkBitSet& set(std::initializer_list<TInt> list, bool setBits = true)
+        template <typename TInt>
+        TkBitSet &set(std::initializer_list<TInt> list, bool setBits = true)
         {
             for (auto it : list)
             {
@@ -167,37 +168,40 @@ namespace toolkit {
         }
 
         // Set all bits.
-        TkBitSet& setAll()
+        TkBitSet &setAll()
         {
-            memset(&m_chunks[0], 0xFF, sizeof(m_chunks));
+            for (u32 i = 0; i < kChunkCount; ++i)
+                m_chunks[i] = TChunkType(~TChunkType(0));
+
             zeroUnusedBits();
             return *this;
         }
 
         // Unset a bit (set to zero) at the given position.
-        template<typename TInt>
-        TkBitSet& unset(TInt pos)
+        template <typename TInt>
+        TkBitSet &unset(TInt pos)
         {
-            return set(pos, false);
+            return set(pos, false); // FIX
         }
 
         // Unset multiple bits.
-        template<typename TInt>
-        TkBitSet& unset(std::initializer_list<TInt> list)
+        template <typename TInt>
+        TkBitSet &unset(std::initializer_list<TInt> list)
         {
             return set(list, false);
         }
 
         // Unset all bits.
-        TkBitSet& unsetAll()
+        TkBitSet &unsetAll()
         {
-            memset(&m_chunks[0], 0, sizeof(m_chunks));
+            for (u32 i = 0; i < kChunkCount; ++i)
+                m_chunks[i] = TChunkType(0);
             return *this;
         }
 
         // Flip the bits at the given position. It will go from 1 to 0 or from 0 to 1.
-        template<typename TInt>
-        TkBitSet& flip(TInt pos)
+        template <typename TInt>
+        TkBitSet &flip(TInt pos)
         {
             u32 high, low;
             position(u32(pos), high, low);
@@ -207,7 +211,7 @@ namespace toolkit {
         }
 
         // Return true if the bit is set or false if it's not.
-        template<typename TInt>
+        template <typename TInt>
         bool get(TInt pos) const
         {
             u32 high, low;
@@ -219,8 +223,10 @@ namespace toolkit {
         // Any are enabled.
         bool getAnySet() const
         {
-            const TkBitSet kZero(false);
-            return *this != kZero;
+            for (u32 i = 0; i < kChunkCount; ++i)
+                if (m_chunks[i] != 0)
+                    return true;
+            return false;
         }
 
         // Count bits.
@@ -229,7 +235,12 @@ namespace toolkit {
             u32 count = 0;
             for (u32 i = 0; i < kChunkCount; ++i)
             {
-                count += __builtin_popcountl(m_chunks[i]);
+                const u64 bits = u64(m_chunks[i]);
+#if TK_COMPILER_MSVC
+                count += u32(__popcnt64(bits));
+#else
+                count += u32(__builtin_popcountll(bits));
+#endif
             }
             return count;
         }
@@ -243,8 +254,14 @@ namespace toolkit {
                 const u64 bits = m_chunks[i];
                 if (bits != 0)
                 {
+#if TK_COMPILER_MSVC
+                    unsigned long index;
+                    _BitScanReverse64(&index, bits);
+                    return u32(index + i * kChunkBitCount);
+#else
                     const u32 msb = u32(__builtin_clzll(bits));
-                    return (63 - msb) + (i * kChunkBitCount);
+                    return u32((63 - msb) + i * kChunkBitCount);
+#endif
                 }
             }
 
@@ -259,8 +276,13 @@ namespace toolkit {
                 const u64 bits = m_chunks[i];
                 if (bits != 0)
                 {
-                    const u32 lsb = u32(__builtin_ctzll(bits));
-                    return lsb + (i * kChunkBitCount);
+#if TK_COMPILER_MSVC
+                    unsigned long index;
+                    _BitScanForward64(&index, bits);
+                    return u32(index + i * kChunkBitCount);
+#else
+                    return u32(__builtin_ctzll(bits) + i * kChunkBitCount);
+#endif
                 }
             }
 
@@ -273,7 +295,7 @@ namespace toolkit {
         }
 
         // Unset the N least significant bits of the bitset.
-        TkBitSet& unsetNLeastSignificantBits(u32 n)
+        TkBitSet &unsetNLeastSignificantBits(u32 n)
         {
             TK_ASSERT(n);
             u32 high, low;
@@ -295,9 +317,12 @@ namespace toolkit {
         }
 
     private:
-        TkBitSet() = default;
+        TkBitSet()
+        {
+            unsetAll();
+        }
 
-        static void position(u32 bit, u32& high, u32& low)
+        static void position(u32 bit, u32 &high, u32 &low)
         {
             TK_ASSERT(bit < kBitCount);
             high = bit / kChunkBitCount;
@@ -316,10 +341,9 @@ namespace toolkit {
                 m_chunks[kChunkCount - 1] &= kUsedBitmask;
             }
         }
-        
-    private:
-        TkStaticArray<TChunkType, kChunkCount> m_chunks;
 
+    private:
+        TChunkType m_chunks[kChunkCount];
     };
-    
+
 }

@@ -3,8 +3,6 @@
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
-// Created by cubevlmu on 2025/8/4.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
 
 #pragma once
 

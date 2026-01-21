@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: BitArrayTest.cpp
  */
 
 #pragma once
@@ -22,12 +23,12 @@ namespace toolkit
 
     public:
         TK_FORCE_INLINE TkBitArray(IAllocator &alloc = TkMemory::getDefault())
-            : m_count(0), m_capacity(0), m_alloc{alloc}, m_data{nullptr}
+            : m_alloc{alloc}
         {
         }
         explicit TkBitArray(const i32 capacity, IAllocator &alloc = TkMemory::getDefault());
         TkBitArray(const TkBitArray &other, IAllocator &alloc = TkMemory::getDefault()) noexcept;
-        TK_FORCE_INLINE TkBitArray(TkBitArray &&other) noexcept;
+        TkBitArray(TkBitArray &&other) noexcept;
         // The assignment operator that deletes the current collection of items and the copies items from the other array.
         TkBitArray& operator=(const TkBitArray &other) noexcept;
         // The move assignment operator that deletes the current collection of items and the moves items from the other array.
@@ -133,9 +134,9 @@ namespace toolkit
         }
 
     private:
-        i32 m_count;
-        i32 m_capacity;
+        i32 m_count = 0;
+        i32 m_capacity = 0;
         IAllocator &m_alloc;
-        u64 *m_data;
+        u64 *m_data = nullptr;
     };
 }

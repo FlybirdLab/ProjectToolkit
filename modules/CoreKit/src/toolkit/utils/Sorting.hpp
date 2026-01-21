@@ -16,7 +16,7 @@
 namespace toolkit {
     
     // Util for sorting data collections
-    class TkSorting
+    class TkSorting final
     {
     public:
         // Implements stack using single linear allocation with variable capacity.

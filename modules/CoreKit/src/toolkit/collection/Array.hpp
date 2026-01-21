@@ -1,5 +1,9 @@
-// Created by cubevlmu on 2025/8/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: ArrayTest.cpp
+ */
 
 #pragma once
 
@@ -13,8 +17,6 @@ namespace toolkit
 	template <typename T>
 	class TkArray final
 	{
-		friend class TkArray;
-
 	public:
 		TK_FORCE_INLINE TkArray(IAllocator &alloc = TkMemory::getDefault())
 			: m_count{0}, m_capacity{0}, m_data{nullptr}, m_alloc{alloc}
@@ -25,7 +27,7 @@ namespace toolkit
 			: m_count{0}, m_capacity{capacity}, m_alloc{alloc}
 		{
 			if (capacity > 0)
-				m_data = (T*)TkMemory::allocate(alloc, capacity * sizeof(T), alignof(T));
+				m_data = (T *)TkMemory::allocate(alloc, capacity * sizeof(T), alignof(T));
 			else
 				m_data = nullptr;
 		}
@@ -36,7 +38,7 @@ namespace toolkit
 			m_count = m_capacity = static_cast<i32>(initList.size());
 			if (m_count > 0)
 			{
-				m_data = TkMemory::allocate(m_alloc, m_count * sizeof(T), alignof(T));
+				m_data = (T *)TkMemory::allocate(m_alloc, m_count * sizeof(T), alignof(T));
 				TkMemory::constructItems(m_data, initList.begin(), m_count);
 			}
 		}
@@ -48,7 +50,7 @@ namespace toolkit
 			m_count = m_capacity = length;
 			if (length > 0)
 			{
-				m_data = TkMemory::allocate(alloc, length * sizeof(T), alignof(T));
+				m_data = (T *)TkMemory::allocate(alloc, length * sizeof(T), alignof(T));
 				TkMemory::constructItems(m_data, data, length);
 			}
 		}
@@ -60,7 +62,7 @@ namespace toolkit
 			m_count = m_capacity = other.m_count;
 			if (m_capacity > 0)
 			{
-				m_data = TkMemory::allocate(m_alloc, m_capacity * sizeof(T), alignof(T));
+				m_data = (T *)TkMemory::allocate(m_alloc, m_capacity * sizeof(T), alignof(T));
 				TkMemory::constructItems(m_data, other.get(), other.m_count);
 			}
 		}
@@ -92,14 +94,16 @@ namespace toolkit
 		}
 
 		// Move constructor
+		// Move constructor
 		TkArray(TkArray &&other) noexcept
-			: m_alloc{other.m_alloc}
+			: m_count(other.m_count),
+			  m_capacity(other.m_capacity),
+			  m_data(other.m_data),
+			  m_alloc(other.m_alloc)
 		{
-			m_count = other.m_count;
-			m_capacity = other.m_capacity;
 			other.m_count = 0;
 			other.m_capacity = 0;
-			moveToEmpty(m_alloc, m_data, other.m_data, m_count, m_capacity);
+			other.m_data = nullptr;
 		}
 
 		TkArray &operator=(std::initializer_list<T> initList) noexcept
@@ -137,12 +141,15 @@ namespace toolkit
 			{
 				TkMemory::destructItems(m_data, m_count);
 				TkMemory::free(m_alloc, m_data);
+
 				m_count = other.m_count;
 				m_capacity = other.m_capacity;
+				m_data = other.m_data;
 				m_alloc = other.m_alloc;
+
 				other.m_count = 0;
 				other.m_capacity = 0;
-				moveToEmpty(m_data, other.m_data, m_count, m_capacity);
+				other.m_data = nullptr;
 			}
 			return *this;
 		}
@@ -409,7 +416,11 @@ namespace toolkit
 
 		void addZeroed(const i32 count = 1)
 		{
+#if TK_WINDOWS
+			static_assert(toolkit::TIsTriviallyConstructible<T>::Value, "addZeroed requires trivial type");
+#else
 			static_assert(toolkit::TIsTriviallyConstructible<T>(), "addZeroed requires trivial type");
+#endif
 			ensureCapacity(m_count + count);
 			memset(m_data + m_count, 0, count * sizeof(T));
 			m_count += count;

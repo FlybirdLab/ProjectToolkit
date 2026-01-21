@@ -8,10 +8,7 @@
 
 #include "toolkit/collection/HashSet.hpp"
 
-// ------------------------------------------------------------
-// Basic add / contains
-// ------------------------------------------------------------
-TEST(HashSetTest, Basic)
+TEST(TkHashSet, Basic)
 {
     TkHashSet<int> s;
     EXPECT_TRUE(s.isEmpty());
@@ -27,10 +24,7 @@ TEST(HashSetTest, Basic)
     EXPECT_FALSE(s.contains(4));
 }
 
-// ------------------------------------------------------------
-// Duplicate insert
-// ------------------------------------------------------------
-TEST(HashSetTest, Duplicate)
+TEST(TkHashSet, Duplicate)
 {
     TkHashSet<int> s;
 
@@ -39,10 +33,7 @@ TEST(HashSetTest, Duplicate)
     EXPECT_EQ(s.count(), 1);
 }
 
-// ------------------------------------------------------------
-// Remove
-// ------------------------------------------------------------
-TEST(HashSetTest, Remove)
+TEST(TkHashSet, Remove)
 {
     TkHashSet<int> s;
 
@@ -61,10 +52,7 @@ TEST(HashSetTest, Remove)
     EXPECT_EQ(s.count(), 50);
 }
 
-// ------------------------------------------------------------
-// Rehash / large volume
-// ------------------------------------------------------------
-TEST(HashSetTest, Rehash)
+TEST(TkHashSet, Rehash)
 {
     TkHashSet<int> s;
 
@@ -84,9 +72,6 @@ TEST(HashSetTest, Rehash)
         EXPECT_TRUE(s.contains(i));
 }
 
-// ------------------------------------------------------------
-// Object lifetime
-// ------------------------------------------------------------
 struct TestObjB
 {
     static int Alive;
@@ -113,7 +98,7 @@ namespace toolkit
 
 int TestObjB::Alive = 0;
 
-TEST(HashSetTest, Lifetime)
+TEST(TkHashSet, Lifetime)
 {
     {
         TkHashSet<TestObjB> s;

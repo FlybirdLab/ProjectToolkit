@@ -9,10 +9,7 @@
 #include "toolkit/types/Path.hpp"
 #include "toolkit/types/Span.hpp"
 
-// ------------------------------------------------------------
-// Normalize
-// ------------------------------------------------------------
-TEST(PathTest, Normalize)
+TEST(TkPath, Normalize)
 {
     char buf[128];
 
@@ -43,14 +40,10 @@ TEST(PathTest, Normalize)
 #endif
 }
 
-// ------------------------------------------------------------
-// Normalize + buffer boundary
-// ------------------------------------------------------------
-TEST(PathTest, Normalize_Buffer)
+TEST(TkPath, Normalize_Buffer)
 {
     const char* src = "C:/Users/Test";
 
-    // 普通
     {
         char buf[32];
         char* end = TkPath::normalize(src, TkSpan(buf));
@@ -58,7 +51,6 @@ TEST(PathTest, Normalize_Buffer)
         EXPECT_EQ(buf[end - buf], '\0');
     }
 
-    // 刚好卡边界
     {
         char buf[15];
         char* end = TkPath::normalize(src, TkSpan(buf));
@@ -69,7 +61,6 @@ TEST(PathTest, Normalize_Buffer)
         EXPECT_STREQ(buf, "C:/Users/Test");
     }
 
-    // 强制截断
     {
         char buf[8];
         char* end = TkPath::normalize(src, TkSpan(buf));
@@ -78,10 +69,7 @@ TEST(PathTest, Normalize_Buffer)
     }
 }
 
-// ------------------------------------------------------------
-// Normalize in-place
-// ------------------------------------------------------------
-TEST(PathTest, Normalize_InPlace)
+TEST(TkPath, Normalize_InPlace)
 {
     {
         char path[] = "a//b///c";
@@ -108,10 +96,7 @@ TEST(PathTest, Normalize_InPlace)
     }
 }
 
-// ------------------------------------------------------------
-// getDir
-// ------------------------------------------------------------
-TEST(PathTest, GetDir)
+TEST(TkPath, GetDir)
 {
     EXPECT_EQ(TkPath::getDir("a/b/c"), "a/b");
     EXPECT_EQ(TkPath::getDir("a/b"), "a");
@@ -121,10 +106,7 @@ TEST(PathTest, GetDir)
     EXPECT_EQ(TkPath::getDir("C:/a/b"), "C:/a");
 }
 
-// ------------------------------------------------------------
-// getFileName
-// ------------------------------------------------------------
-TEST(PathTest, GetFileName)
+TEST(TkPath, GetFileName)
 {
     EXPECT_EQ(TkPath::getFileName("a/b/c.txt"), "c.txt");
     EXPECT_EQ(TkPath::getFileName("c.txt"), "c.txt");
@@ -132,20 +114,14 @@ TEST(PathTest, GetFileName)
     EXPECT_EQ(TkPath::getFileName("C:/a/b"), "b");
 }
 
-// ------------------------------------------------------------
-// getBaseName
-// ------------------------------------------------------------
-TEST(PathTest, GetBaseName)
+TEST(TkPath, GetBaseName)
 {
     EXPECT_EQ(TkPath::getBaseName("a/b/c.txt"), "c");
     EXPECT_EQ(TkPath::getBaseName("a/b/archive.tar.gz"), "archive.tar");
     EXPECT_EQ(TkPath::getBaseName("file"), "file");
 }
 
-// ------------------------------------------------------------
-// getExtension
-// ------------------------------------------------------------
-TEST(PathTest, GetExtension)
+TEST(TkPath, GetExtension)
 {
     EXPECT_EQ(TkPath::getExtension("a.txt"), "txt");
     EXPECT_EQ(TkPath::getExtension("a.b.c"), "c");
@@ -155,10 +131,7 @@ TEST(PathTest, GetExtension)
     EXPECT_EQ(TkPath::getExtension(".gitignore"), "gitignore");
 }
 
-// ------------------------------------------------------------
-// isRelative
-// ------------------------------------------------------------
-TEST(PathTest, IsRelative)
+TEST(TkPath, IsRelative)
 {
     EXPECT_TRUE(TkPath::isRelative("a/b"));
     EXPECT_TRUE(TkPath::isRelative("./a/b"));
@@ -170,10 +143,7 @@ TEST(PathTest, IsRelative)
 #endif
 }
 
-// ------------------------------------------------------------
-// isSame
-// ------------------------------------------------------------
-TEST(PathTest, IsSame)
+TEST(TkPath, IsSame)
 {
     EXPECT_TRUE(TkPath::isSame("a/b", "a/b"));
     EXPECT_TRUE(TkPath::isSame("a/b/", "a/b"));
@@ -185,10 +155,7 @@ TEST(PathTest, IsSame)
 #endif
 }
 
-// ------------------------------------------------------------
-// replaceExtension
-// ------------------------------------------------------------
-TEST(PathTest, ReplaceExtension)
+TEST(TkPath, ReplaceExtension)
 {
     {
         char path[64] = "a/b/c.txt";
@@ -211,10 +178,7 @@ TEST(PathTest, ReplaceExtension)
     }
 }
 
-// ------------------------------------------------------------
-// pathWithoutRelative
-// ------------------------------------------------------------
-TEST(PathTest, PathWithoutRelative)
+TEST(TkPath, PathWithoutRelative)
 {
     TkString path;
 
@@ -277,10 +241,7 @@ TEST(PathTest, PathWithoutRelative)
 #endif
 }
 
-// ------------------------------------------------------------
-// No crash / minimal buffer
-// ------------------------------------------------------------
-TEST(PathTest, NoCrash)
+TEST(TkPath, NoCrash)
 {
     char buf[4];
     TkPath::normalize("////", TkSpan(buf));

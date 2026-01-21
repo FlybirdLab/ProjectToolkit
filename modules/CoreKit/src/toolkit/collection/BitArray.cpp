@@ -10,7 +10,7 @@ namespace toolkit
 {
 
     TkBitArray::TkBitArray(const i32 capacity, IAllocator &alloc)
-        : m_count(0), m_capacity(capacity), m_alloc{alloc}
+        : m_capacity(capacity), m_alloc{alloc}
     {
         if (capacity > 0)
             m_data = (u64 *)TkMemory::allocate(alloc, toItemCapacity(capacity));
@@ -29,7 +29,7 @@ namespace toolkit
     }
 
     TkBitArray::TkBitArray(TkBitArray &&other) noexcept
-        : m_data{nullptr}, m_alloc{other.m_alloc}
+        : m_alloc{other.m_alloc}
     {
         m_count = other.m_count;
         m_capacity = other.m_capacity;
@@ -209,7 +209,26 @@ namespace toolkit
         if (m_count != other.m_count)
             return false;
 
-        const i32 words = toItemCount(m_count);
-        return std::memcmp(m_data, other.m_data, words * sizeof(u64)) == 0;
+        const i32 fullWords = m_count / kBitsPerItem;
+        const i32 tailBits = m_count % kBitsPerItem;
+
+        // FIX: compare full i64
+        if (fullWords > 0)
+        {
+            if (std::memcmp(
+                    m_data,
+                    other.m_data,
+                    fullWords * sizeof(u64)) != 0)
+                return false;
+        }
+
+        // FIX: compare last bit at the tail
+        if (tailBits > 0)
+        {
+            const u64 mask = (u64(1) << tailBits) - 1;
+            return (m_data[fullWords] & mask) == (other.m_data[fullWords] & mask);
+        }
+
+        return true;
     }
 }

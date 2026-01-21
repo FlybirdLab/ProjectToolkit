@@ -1,33 +1,37 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
 #include <toolkit/common.hpp>
 #include <toolkit/base/TypeTraits.hpp>
+#include <toolkit/platforms/System.hpp>
 
 namespace toolkit
 {
 
 	// High-resolution performance counter based on Platform::getTimeSeconds.
-	class TTimer
+	class TkTimer
 	{
 	public:
-		TTimer()
+		TkTimer()
 		{
-			m_start = m_end = platform::getTimeSeconds();
+			m_start = m_end = System::getTimeSeconds();
 		}
 
 		// Starts the counter.
 		void start()
 		{
-			m_start = platform::getTimeSeconds();
+			m_start = System::getTimeSeconds();
 		}
 
 		// Stops the counter.
 		void stop()
 		{
-			m_end = platform::getTimeSeconds();
+			m_end = System::getTimeSeconds();
 		}
 
 		// Gets the milliseconds time.
@@ -53,7 +57,7 @@ namespace toolkit
 	};
 
 	template<>
-	struct TIsPODType<TTimer>
+	struct TIsPODType<TkTimer>
 	{
 		enum
 		{

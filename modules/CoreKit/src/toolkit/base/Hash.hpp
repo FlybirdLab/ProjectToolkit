@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: HashModelTest.cpp
  */
 
 #pragma once
@@ -10,6 +11,7 @@
 
 namespace toolkit
 {
+	
 	// use if you want fast hash with low probability of collisions and size (8 bytes) is not an issue
 	// can change in future, do not serialize
 	struct RuntimeHash
@@ -206,7 +208,7 @@ namespace toolkit
 	{
 		static u32 get(const f64 &k)
 		{
-			return HashFunc::get(*(u64 *)&k);
+			return HashFunc<u64>::get(*(u64 *)&k);
 		}
 	};
 
@@ -239,6 +241,6 @@ namespace toolkit
 	template <typename T>
 	inline void combineHash(u32 &hash, const T *value)
 	{
-		combineHash(hash, HashFunc<T>::get(value));
+		combineHash(hash, HashFunc<void*>::get(value)); //FIX
 	}
 }

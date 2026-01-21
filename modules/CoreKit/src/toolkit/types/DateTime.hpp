@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: DateTimeTest.cpp
  */
 
 #pragma once
@@ -147,6 +148,6 @@ namespace toolkit
     {
         i32 year, month, day;
         t.getDate(year, month, day);
-        return Formatter ::formatRaw(buf, "%s_%02d_%02d_%02d_%02d_%02d", year, month, day, t.getHour(), t.getMinute(), t.getSecond());
+        return Formatter::formatRaw(buf, "%04d_%02d_%02d_%02d_%02d_%02d", year, month, day, t.getHour(), t.getMinute(), t.getSecond());
     }
 };

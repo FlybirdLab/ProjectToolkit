@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #include "common.hpp"
@@ -85,7 +85,7 @@ TEST(TkUuid, ParseValid)
 {
     TkUuid u;
 
-    EXPECT_FALSE(TkUuid::parse(
+    EXPECT_TRUE(TkUuid::parse(
         "112233445566778899aabbccddeeff00", u));
 
     EXPECT_EQ(u.a, 0x11223344u);
@@ -93,13 +93,13 @@ TEST(TkUuid, ParseValid)
     EXPECT_EQ(u.c, 0x99aabbccu);
     EXPECT_EQ(u.d, 0xddeeff00u);
 
-    EXPECT_FALSE(TkUuid::parse(
+    EXPECT_TRUE(TkUuid::parse(
         "11223344-5566-7788-99aa-bbccddeeff00", u));
 
-    EXPECT_FALSE(TkUuid::parse(
+    EXPECT_TRUE(TkUuid::parse(
         "{11223344-5566-7788-99aa-bbccddeeff00}", u));
 
-    EXPECT_FALSE(TkUuid::parse(
+    EXPECT_TRUE(TkUuid::parse(
         "(11223344-5566-7788-99aa-bbccddeeff00)", u));
 }
 
@@ -107,10 +107,10 @@ TEST(TkUuid, ParseInvalid)
 {
     TkUuid u;
 
-    EXPECT_TRUE(TkUuid::parse("", u));
-    EXPECT_TRUE(TkUuid::parse("xyz", u));
-    EXPECT_TRUE(TkUuid::parse("11223344", u));
-    EXPECT_TRUE(TkUuid::parse(
+    EXPECT_FALSE(TkUuid::parse("", u));
+    EXPECT_FALSE(TkUuid::parse("xyz", u));
+    EXPECT_FALSE(TkUuid::parse("11223344", u));
+    EXPECT_FALSE(TkUuid::parse(
         "11223344-xxxx-xxxx-xxxx-xxxxxxxxxxxx", u));
 }
 

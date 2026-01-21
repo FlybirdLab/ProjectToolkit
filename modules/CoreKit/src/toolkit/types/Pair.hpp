@@ -37,8 +37,8 @@ namespace toolkit
         {
             if (this != &other)
             {
-                first = MoveTemp(other.first);
-                second = MoveTemp(other.second);
+                first = moveTemp(other.first);
+                second = moveTemp(other.second);
             }
             return *this;
         }

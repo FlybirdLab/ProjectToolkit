@@ -8,8 +8,6 @@
 
 #include "toolkit/collection/DataCollection.hpp"
 
-/* ---------------- Base ---------------- */
-
 TEST(DataCollection, Base)
 {
     int src[4] = {1, 2, 3, 4};
@@ -29,8 +27,6 @@ TEST(DataCollection, Base)
     EXPECT_EQ(b[3], 4);
 }
 
-/* ---------------- Copy ---------------- */
-
 TEST(DataCollection, Copy)
 {
     int src[2] = {10, 20};
@@ -45,8 +41,6 @@ TEST(DataCollection, Copy)
     EXPECT_EQ(b[0], 10);
 }
 
-/* ---------------- Move ---------------- */
-
 TEST(DataCollection, Move)
 {
     int src[3] = {1, 2, 3};
@@ -60,8 +54,6 @@ TEST(DataCollection, Move)
     EXPECT_EQ(b.length(), 3);
     EXPECT_EQ(b[1], 2);
 }
-
-/* ---------------- Append ---------------- */
 
 TEST(DataCollection, Append)
 {
@@ -78,8 +70,6 @@ TEST(DataCollection, Append)
     EXPECT_EQ(c[3], 4);
 }
 
-/* ---------------- AppendChain ---------------- */
-
 TEST(DataCollection, AppendChain)
 {
     TkDataCollection<int> c;
@@ -95,8 +85,6 @@ TEST(DataCollection, AppendChain)
     EXPECT_EQ(c.length(), 3);
     EXPECT_EQ(c[2], 3);
 }
-
-/* ---------------- Stream ---------------- */
 
 struct MockStream
 {

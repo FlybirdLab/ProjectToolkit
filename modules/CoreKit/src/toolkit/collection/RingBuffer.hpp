@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by Flybim_rdGames, All Rights Reserved.
+ * Test target: RingBufferTest.cpp
  */
 
 #pragma once

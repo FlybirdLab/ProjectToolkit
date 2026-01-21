@@ -87,17 +87,17 @@ namespace toolkit
 	i32 TkStringUtils::compareIStrings(const char *str1, const char *str2)
 	{
 #if TK_COMPILER_MSVC
-		return _stricmp(str1, str2) == 0;
+		return _stricmp(str1, str2);
 #else
-		return strcasecmp(str1, str2) == 0;
+		return strcasecmp(str1, str2);
 #endif
 	}
 	i32 TkStringUtils::compareIStrings(const char *str1, const char *str2, i32 maxCount)
 	{
 #if TK_COMPILER_MSVC
-		return _strnicmp(str1, str2, maxCount) == 0;
+		return _strnicmp(str1, str2, maxCount);
 #else
-		return strncasecmp(str1, str2, maxCount) == 0;
+		return strncasecmp(str1, str2, maxCount);
 #endif
 	}
 
@@ -831,7 +831,7 @@ namespace toolkit
 		if (str.length() < prefix.length())
 			return false;
 		TkStringView pfx(str.begin(), prefix.length());
-		return equalStrings(pfx, prefix);
+		return equalStrings(pfx, prefix, prefix.length());
 	}
 
 	bool TkStringUtils::startsWithInsensitive(TkStringView str, TkStringView prefix)
@@ -839,7 +839,7 @@ namespace toolkit
 		if (str.length() < prefix.length())
 			return false;
 		TkStringView pfx(str.begin(), prefix.length());
-		return equalIStrings(pfx, prefix);
+		return equalIStrings(pfx, prefix, prefix.length());
 	}
 
 	char TkStringUtils::toLower(char c)

@@ -1,5 +1,9 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: FunctionTest.cpp
+ */
 
 #pragma once
 
@@ -7,6 +11,7 @@
 #include <toolkit/threading/Sync.hpp>
 #include <toolkit/base/Hash.hpp>
 #include <toolkit/collection/HashSet.hpp>
+#include <toolkit/memory/Memory.hpp>
 
 namespace toolkit
 {
@@ -47,35 +52,29 @@ namespace toolkit
 
 		struct Lambda
 		{
-			i64 Refs;
-			void (*Dtor)(void *);
+			i64 refs;
+			void (*dtor)(void *);
 		};
 
-		void *m_callee;
-		StubSignature m_function;
-		Lambda *m_lambda;
+		void *m_callee = nullptr;
+		StubSignature m_function = nullptr;
+		Lambda *m_lambda = nullptr;
 
 		TK_FORCE_INLINE void lambdaCtor() const
 		{
-			TSync::interlockedIncrement((i64 volatile *)&m_lambda->Refs);
+			TSync::interlockedIncrement((i64 volatile *)&m_lambda->refs);
 		}
 		TK_FORCE_INLINE void lambdaDtor()
 		{
-			if (TSync::interlockedDecrement(&m_lambda->Refs) == 0)
+			if (TSync::interlockedDecrement(&m_lambda->refs) == 0)
 			{
-				((Lambda *)m_lambda)->Dtor(m_callee);
-				// TODO fix allocation DefaultPool::free(m_lambda);
-				::free(m_lambda);
+				((Lambda *)m_lambda)->dtor(m_callee);
+				TkMemory::free(TkMemory::getDefault(), m_lambda);
 			}
 		}
 
 	public:
-		TkFunc()
-		{
-			m_callee = nullptr;
-			m_function = nullptr;
-			m_lambda = nullptr;
-		}
+		TkFunc() = default;
 		TkFunc(Signature method)
 		{
 			m_callee = (void *)method;
@@ -96,8 +95,14 @@ namespace toolkit
 				lambdaCtor();
 		}
 		TkFunc(TkFunc &&other) noexcept
-			: m_callee(other.m_callee), m_function(other.m_function), m_lambda(other.m_lambda)
 		{
+			m_callee = other.m_callee;
+			m_function = other.m_function;
+			m_lambda = other.m_lambda;
+
+			// FIX:
+			other.m_callee = nullptr;
+			other.m_function = nullptr;
 			other.m_lambda = nullptr;
 		}
 
@@ -127,6 +132,15 @@ namespace toolkit
 			m_function = &classMethodStub<T, Method>;
 			m_lambda = nullptr;
 		}
+		template <class T, ReturnType (T::*Method)(Params...) const>
+		void bind(const T *callee)
+		{
+			if (m_lambda)
+				lambdaDtor();
+			m_callee = const_cast<T *>(callee);
+			m_function = &classMethodStub<T, Method>;
+			m_lambda = nullptr;
+		}
 		void bind(Signature method)
 		{
 			if (m_lambda)
@@ -140,11 +154,10 @@ namespace toolkit
 		{
 			if (m_lambda)
 				lambdaDtor();
-			// TODO fix allocation m_lambda = (Lambda*)DefaultPool::allocate(sizeof(Lambda) + sizeof(T));
-			m_lambda = (Lambda *)::malloc(sizeof(Lambda) + sizeof(T));
+			m_lambda = (Lambda *)TkMemory::allocate(TkMemory::getDefault(), sizeof(Lambda) + sizeof(T));
 
-			m_lambda->Refs = 1;
-			m_lambda->Dtor = [](void *callee) -> void
+			m_lambda->refs = 1;
+			m_lambda->dtor = [](void *callee) -> void
 			{
 				static_cast<T *>(callee)->~T();
 			};
@@ -198,14 +211,22 @@ namespace toolkit
 
 		TkFunc &operator=(TkFunc &&other) noexcept
 		{
-			if (this == &other)
-				return *this;
-			m_callee = other.m_callee;
-			m_function = other.m_function;
-			m_lambda = other.m_lambda;
-			other.m_callee = nullptr;
-			other.m_function = nullptr;
-			other.m_lambda = nullptr;
+			if (this != &other)
+			{
+				// FIX:
+				// release self
+				if (m_lambda)
+					lambdaDtor();
+
+				m_callee = other.m_callee;
+				m_function = other.m_function;
+				m_lambda = other.m_lambda;
+
+				// FIX:
+				other.m_callee = nullptr;
+				other.m_function = nullptr;
+				other.m_lambda = nullptr;
+			}
 			return *this;
 		}
 
@@ -252,7 +273,7 @@ namespace toolkit
 			if (otherData == nullptr)
 				return;
 			TkMutexGuard lock(otherData->locker);
-			for (auto i = otherData->funcs.Begin(); i.IsNotEnd(); ++i)
+			for (auto i = otherData->funcs.Begin(); i.isNotEnd(); ++i)
 				bind(i->Item);
 		}
 
@@ -282,7 +303,7 @@ namespace toolkit
 				if (otherData != nullptr)
 				{
 					TkMutexGuard lock(otherData->locker);
-					for (auto i = otherData->funcs.Begin(); i.IsNotEnd(); ++i)
+					for (auto i = otherData->funcs.Begin(); i.isNotEnd(); ++i)
 						bind(i->Item);
 				}
 			}

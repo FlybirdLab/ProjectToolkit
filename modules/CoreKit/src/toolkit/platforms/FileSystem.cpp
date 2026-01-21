@@ -159,7 +159,7 @@ namespace toolkit
 
     bool TkFileSystem::writeText(FileHandle handle, const TkStringBuilder &data, Encoding encoding)
     {
-        return writeText(handle, *data, data.length(), encoding);
+        return writeText(handle, data.begin(), data.length(), encoding);
     }
 
     bool TkFileSystem::writeText(FileHandle handle, const char *data, i32 length, Encoding encoding)

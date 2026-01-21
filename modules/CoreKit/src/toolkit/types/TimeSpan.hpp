@@ -1,5 +1,9 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Test target: TimeSpanTest.cpp
+ */
 
 #pragma once
 
@@ -28,12 +32,12 @@ namespace toolkit
 
 	public:
 		// Time span in 100 nanoseconds resolution.
-		i64 ticks;
+		i64 ticks = 0;
 
 	public:
 		TkTimeSpan() = default;
 		TkTimeSpan(i64 ticks)
-			: ticks(ticks)
+			: ticks {ticks}
 		{
 		}
 		TkTimeSpan(i32 days, i32 hours, i32 minutes)

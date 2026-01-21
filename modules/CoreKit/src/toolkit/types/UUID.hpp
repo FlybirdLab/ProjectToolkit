@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target: UuidTest.cpp
  */
 
 #pragma once
@@ -44,9 +45,10 @@ namespace toolkit
         static TkUuid Empty;
 
     public:
-        TkUuid() = default;
+        TkUuid()
+            : values{0,0,0,0} {}
         TkUuid(u32 a, u32 b, u32 c, u32 d)
-            : a(a), b(b), c(c), d(d) {}
+            : a{a}, b{b}, c{c}, d{d} {}
 
     public:
         bool operator==(const TkUuid &other) const
@@ -75,7 +77,7 @@ namespace toolkit
         }
         explicit operator bool() const
         {
-            return (a | b | c | d) != 0;
+            return isValid();
         }
 
     public:

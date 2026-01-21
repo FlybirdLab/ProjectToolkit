@@ -200,14 +200,14 @@ namespace toolkit {
 
     TkString TkDateTime::toString() const
     {
-        return TkString::format("{}", *this);
+        return TkString::format("%s", *this);
     }
 
     TkString TkDateTime::toFileNameString() const
     {
         i32 year, month, day;
         getDate(year, month, day);
-        return TkString::format("%s_%02d_%02d_%02d_%02d_%02d", year, month, day, getHour(), getMinute(), getSecond());
+        return TkString::format("%04d_%02d_%02d_%02d_%02d_%02d", year, month, day, getHour(), getMinute(), getSecond());
     }
 
     TkDateTime TkDateTime::operator+(const TkTimeSpan& other) const

@@ -26,13 +26,13 @@ namespace toolkit
         switch (format)
         {
         case UuidFormatType::kN:
-            return TkString::format("{:0>8x}{:0>8x}{:0>8x}{:0>8x}", a, b, c, d);
+            return TkString::format("%08x%08x%08x%08x", a, b, c, d);
         case UuidFormatType::kB:
-            return TkString::format("{{{:0>8x}-{:0>4x}-{:0>4x}-{:0>4x}-{:0>4x}{:0>8x}}}", a, b >> 16, b & 0xFFFF, c >> 16, c & 0xFFFF, d);
+            return TkString::format("{%08x-%04x-%04x-%04x-%04x%08x}", a, b >> 16, b & 0xFFFF, c >> 16, c & 0xFFFF, d);
         case UuidFormatType::kP:
-            return TkString::format("({:0>8x}-{:0>4x}-{:0>4x}-{:0>4x}-{:0>4x}{:0>8x})", a, b >> 16, b & 0xFFFF, c >> 16, c & 0xFFFF, d);
+            return TkString::format("(%08x-%04x-%04x-%04x-%04x%08x)", a, b >> 16, b & 0xFFFF, c >> 16, c & 0xFFFF, d);
         default:
-            return TkString::format("{:0>8x}-{:0>4x}-{:0>4x}-{:0>4x}-{:0>4x}{:0>8x}", a, b >> 16, b & 0xFFFF, c >> 16, c & 0xFFFF, d);
+            return TkString::format("%08x-%04x-%04x-%04x-%04x%08x", a, b >> 16, b & 0xFFFF, c >> 16, c & 0xFFFF, d);
         }
     }
 
@@ -52,7 +52,7 @@ namespace toolkit
             {
                 *p-- = cachedTkUuidDigits[(i32)(n & 0xf)];
             } while ((n >>= 4) != 0);
-            n = value.a;
+            n = value.b;
             p = buffer + 15;
             do
             {
@@ -89,16 +89,16 @@ namespace toolkit
     }
 
     template <typename TkStringType, typename TkStringViewType>
-    TK_FORCE_INLINE bool guidParse(const TkStringViewType &text, TkUuid &value)
+    TK_FORCE_INLINE bool uuidParse(const TkStringViewType &text, TkUuid &value)
     {
         switch (text.length())
         {
             // UuidFormatType::kN
         case 32:
         {
-            return TkStringUtils::fromHexString(*text + 0, 8, value.a) ||
-                   TkStringUtils::fromHexString(*text + 8, 8, value.b) ||
-                   TkStringUtils::fromHexString(*text + 16, 8, value.c) ||
+            return TkStringUtils::fromHexString(*text + 0, 8, value.a) &&
+                   TkStringUtils::fromHexString(*text + 8, 8, value.b) &&
+                   TkStringUtils::fromHexString(*text + 16, 8, value.c) &&
                    TkStringUtils::fromHexString(*text + 24, 8, value.d);
         }
         // UuidFormatType::kD
@@ -106,9 +106,9 @@ namespace toolkit
         {
             TkStringType b = TkStringType(text.substring(9, 4)) + text.substring(14, 4);
             TkStringType c = TkStringType(text.substring(19, 4)) + text.substring(24, 4);
-            return TkStringUtils::fromHexString(*text + 0, 8, value.a) ||
-                   TkStringUtils::fromHexString(*b, value.b) ||
-                   TkStringUtils::fromHexString(*c, value.c) ||
+            return TkStringUtils::fromHexString(*text + 0, 8, value.a) &&
+                   TkStringUtils::fromHexString(*b, value.b) &&
+                   TkStringUtils::fromHexString(*c, value.c) &&
                    TkStringUtils::fromHexString(*text + 28, 8, value.d);
         }
         // UuidFormatType::kB
@@ -117,10 +117,10 @@ namespace toolkit
         {
             TkStringType b = TkStringType(text.substring(10, 4)) + text.substring(15, 4);
             TkStringType c = TkStringType(text.substring(20, 4)) + text.substring(25, 4);
-            return text[0] != text[text.length() - 1] ||
-                   TkStringUtils::fromHexString(*text + 1, 8, value.a) ||
-                   TkStringUtils::fromHexString(*b, value.b) ||
-                   TkStringUtils::fromHexString(*c, value.c) ||
+            return text[0] != text[text.length() - 1] &&
+                   TkStringUtils::fromHexString(*text + 1, 8, value.a) &&
+                   TkStringUtils::fromHexString(*b, value.b) &&
+                   TkStringUtils::fromHexString(*c, value.c) &&
                    TkStringUtils::fromHexString(*text + 29, 8, value.d);
         }
         default:
@@ -130,7 +130,7 @@ namespace toolkit
 
     bool TkUuid::parse(const TkStringView &text, TkUuid &value)
     {
-        return guidParse<TkString, TkStringView>(text, value);
+        return uuidParse<TkString, TkStringView>(text, value);
     }
 
     TkUuid TkUuid::create()

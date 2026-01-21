@@ -21,10 +21,7 @@ struct TestValue
     }
 };
 
-// ------------------------------------------------------------
-// Basic insert / find / at
-// ------------------------------------------------------------
-TEST(HashMapTest, BasicInsertFind)
+TEST(TkHashMap, BasicInsertFind)
 {
     TkHashMap<i32, TestValue> map;
 
@@ -43,10 +40,7 @@ TEST(HashMapTest, BasicInsertFind)
     EXPECT_EQ(map.at(3).x, 30);
 }
 
-// ------------------------------------------------------------
-// operator[] + at
-// ------------------------------------------------------------
-TEST(HashMapTest, AtAndOperator)
+TEST(TkHashMap, AtAndOperator)
 {
     TkHashMap<i32, i32> map;
 
@@ -58,10 +52,7 @@ TEST(HashMapTest, AtAndOperator)
     EXPECT_EQ(map.at(20), 200);
 }
 
-// ------------------------------------------------------------
-// remove + compact
-// ------------------------------------------------------------
-TEST(HashMapTest, RemoveAndCompact)
+TEST(TkHashMap, RemoveAndCompact)
 {
     TkHashMap<i32, i32> map;
 
@@ -83,10 +74,7 @@ TEST(HashMapTest, RemoveAndCompact)
         EXPECT_FALSE(map.containsKey(i));
 }
 
-// ------------------------------------------------------------
-// rehash / grow
-// ------------------------------------------------------------
-TEST(HashMapTest, Rehash)
+TEST(TkHashMap, Rehash)
 {
     TkHashMap<i32, i32> map;
 
@@ -101,10 +89,7 @@ TEST(HashMapTest, Rehash)
         ASSERT_EQ(map.at(i), i);
 }
 
-// ------------------------------------------------------------
-// iterator
-// ------------------------------------------------------------
-TEST(HashMapTest, Iterator)
+TEST(TkHashMap, Iterator)
 {
     TkHashMap<i32, i32> map;
 
@@ -118,10 +103,7 @@ TEST(HashMapTest, Iterator)
     EXPECT_EQ(sum, 2 * (0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9));
 }
 
-// ------------------------------------------------------------
-// copy / move
-// ------------------------------------------------------------
-TEST(HashMapTest, CopyAndMove)
+TEST(TkHashMap, CopyAndMove)
 {
     TkHashMap<i32, i32> a;
     for (i32 i = 0; i < 16; ++i)
@@ -143,11 +125,8 @@ TEST(HashMapTest, CopyAndMove)
     EXPECT_EQ(d.count(), 16);
 }
 
-// ------------------------------------------------------------
-// clone with different allocator
-// ------------------------------------------------------------
 #if 0
-TEST(HashMapTest, CloneDifferentAllocator)
+TEST(TkHashMap, CloneDifferentAllocator)
 {
     ArenaAllocator arenaA(...);
     ArenaAllocator arenaB(...);
