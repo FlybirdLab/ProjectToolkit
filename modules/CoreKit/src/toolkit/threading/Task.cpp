@@ -103,7 +103,7 @@ namespace toolkit {
     }
 
 
-    TkTask* TkTask::continueWith(const TkFunc<bool()>& action, void* target)
+    TkTask* TkTask::continueWithFailable(const TkFunc<bool()>& action, void* target)
     {
         TK_ASSERT(action.isBinded());
         return continueWith(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
@@ -122,19 +122,10 @@ namespace toolkit {
         return startNew(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
     }
 
-    TkTask* TkTask::startNew(const TkFunc<void()>::Signature action, void* target)
+   
+    TkTask* TkTask::startNewFailable(const TkFunc<bool()>& action, void* target)
     {
-        return startNew(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
-    }
-
-    TkTask* TkTask::startNew(const TkFunc<bool()>& action, void* target)
-    {
-        return startNew(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
-    }
-
-    TkTask* TkTask::startNew(TkFunc<bool()>::Signature& action, void* target)
-    {
-        return startNew(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
+        return startNewFailable(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
     }
 
     void TkTask::execute()
@@ -257,16 +248,21 @@ namespace toolkit {
 
     bool MainThreadActionTask::run()
     {
-        if (m_action1.isBinded())
+        if (m_action.isBinded())
         {
-            m_action1();
-            return false;
+            m_action();
+            return true;
         }
-        if (m_action2.isBinded())
+        return false;
+    }
+
+    bool MainThreadBoolActionTask::run()
+    {
+        if (m_action.isBinded())
         {
-            return m_action2();
+            return m_action();
         }
-        return true;
+        return false;
     }
 
 }

@@ -129,7 +129,8 @@ TEST(TkStringBuilder, ClearAndReuse)
     EXPECT_STREQ(b.begin(), "");
 
     b.append("world");
-    EXPECT_EQ(b.toString(), "world");
+    auto r = b.toString();
+    EXPECT_EQ(r, "world");
 }
 
 TEST(TkStringBuilder, ToStringView)

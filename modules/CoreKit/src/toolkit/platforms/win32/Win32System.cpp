@@ -85,13 +85,18 @@ namespace toolkit
     }
 
 #if TK_USE_RPMALLOC
+
     void *System::alloc(psize size)
     {
-        return rpmalloc(size);
+        // return ::_aligned_malloc(size, 16);
+        // return ::malloc(size);
+        // return rpmalloc(size);
+        return rpaligned_alloc(16, size);
     }
 
     void *System::allocAligned(psize size, psize alignment)
     {
+        // return ::_aligned_malloc(size, alignment);
         return rpaligned_alloc(alignment, size);
     }
 
@@ -99,18 +104,33 @@ namespace toolkit
     {
         if (!ptr)
             return;
+        // ::free(ptr);
+        // _aligned_free(ptr);
         rpfree(ptr);
     }
 
     void *System::realloc(void *ptr, psize size)
     {
+        TK_ASSERT(false);
+        // return ::_aligned_realloc(ptr, size, 16);
+        // return ::realloc(ptr, size);
         return rprealloc(ptr, size);
     }
 
     void *System::reallocAligned(void *ptr, psize size, psize newSize, psize align)
     {
+        // return ::_aligned_realloc(ptr, size, align);
         return rpaligned_realloc(ptr, align, size, newSize, 0);
     }
+
+    static struct RpLifetime {
+        RpLifetime() {
+            rpmalloc_initialize(nullptr);
+        }
+        ~RpLifetime() {
+            rpmalloc_finalize();
+        }
+    } s_lifeTime;
 
 #endif
 
@@ -1478,23 +1498,32 @@ namespace toolkit
 
     void System::clearClipBoard()
     {
-        OpenClipboard(nullptr);
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return;
+        }
         EmptyClipboard();
         CloseClipboard();
     }
 
     void System::setClipBoard(const TkStringView text)
     {
-        const i32 sizeWithoutNull = text.length() * sizeof(char);
+        StringAsUTF16<> out{text.get(), text.length()};
+        const i32 sizeWithoutNull = out.length() * sizeof(wchar);
         const HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, sizeWithoutNull + sizeof(wchar));
 
         wchar *pMem = static_cast<wchar *>(GlobalLock(hMem));
-        StringAsUTF16<> out{text.get()};
         TkMemory::memoryCopy(pMem, out.get(), sizeWithoutNull);
-        TkMemory::memorySet(pMem + out.length(), sizeof(wchar), 0);
+        // TkMemory::memorySet(pMem + out.length(), sizeof(wchar), 0);
+        pMem[out.length()] = L'\0';
         GlobalUnlock(hMem);
 
-        OpenClipboard(nullptr);
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return;
+        }
         EmptyClipboard();
         SetClipboardData(CF_UNICODETEXT, hMem);
         CloseClipboard();
@@ -1506,7 +1535,11 @@ namespace toolkit
         TkMemory::memoryCopy(GlobalLock(hMem), data.get(), data.length());
         GlobalUnlock(hMem);
 
-        OpenClipboard(nullptr);
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return;
+        }
         EmptyClipboard();
         SetClipboardData(CF_PENDATA, hMem);
         CloseClipboard();
@@ -1517,7 +1550,9 @@ namespace toolkit
         i32 size = sizeof(DROPFILES);
         for (i32 i = 0; i < files.count(); i++)
         {
-            size += (files[i].length() + 1) * sizeof(char);
+            auto r = files[i].getText();
+            StringAsUTF16<> out{r, TkStringUtils::length(r)};
+            size += (out.length() + 1) * sizeof(wchar);
         }
         size += 2 * sizeof(char);
 
@@ -1537,7 +1572,11 @@ namespace toolkit
         *ptr = 0;
         GlobalUnlock(hMem);
 
-        OpenClipboard(nullptr);
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return;
+        }
         EmptyClipboard();
         SetClipboardData(CF_HDROP, hMem);
         CloseClipboard();
@@ -1545,15 +1584,20 @@ namespace toolkit
 
     TkString System::getClipBoardAsText()
     {
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return TkString::Empty;
+        }
+
         TkString result;
-        OpenClipboard(nullptr);
         HANDLE hMem = GetClipboardData(CF_UNICODETEXT);
         if (hMem)
         {
             wchar *data = static_cast<wchar *>(GlobalLock(hMem));
             StringAsUTF8<> out{data};
             result = out.get();
-            GlobalUnlock(data);
+            GlobalUnlock(hMem);
         }
         else
         {
@@ -1562,17 +1606,22 @@ namespace toolkit
             {
                 char *data = static_cast<char *>(GlobalLock(hMem));
                 result = data;
-                GlobalUnlock(data);
+                GlobalUnlock(hMem);
             }
         }
         CloseClipboard();
-        return result;
+        return TkString{result};
     }
 
     TkArray<byte> System::getClipBoardAsData()
     {
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return {};
+        }
+
         TkArray<byte> result;
-        OpenClipboard(nullptr);
         HANDLE hMem = GetClipboardData(CF_PENDATA);
         if (hMem)
         {
@@ -1584,7 +1633,7 @@ namespace toolkit
                 result.set(static_cast<byte *>(data), size);
             }
 
-            GlobalUnlock(data);
+            GlobalUnlock(hMem);
         }
         CloseClipboard();
         return result;
@@ -1592,8 +1641,13 @@ namespace toolkit
 
     TkArray<TkString> System::getClipBoardAsFiles()
     {
+        if (!OpenClipboard(nullptr))
+        {
+            LogError("[System] Clipboard occupaid by other process!");
+            return {};
+        }
+
         TkArray<TkString> result;
-        OpenClipboard(nullptr);
         HANDLE hMem = GetClipboardData(CF_HDROP);
         if (hMem)
         {
@@ -1604,7 +1658,9 @@ namespace toolkit
             {
                 if (data->fWide)
                 {
-                    wchar *ptr = (wchar *)(data + 1);
+                    BYTE *base = reinterpret_cast<BYTE *>(data);
+                    wchar *ptr = reinterpret_cast<wchar *>(base + data->pFiles);
+
                     while (*ptr)
                     {
                         i32 length = TkStringUtils::length(ptr);
@@ -1625,7 +1681,7 @@ namespace toolkit
                 }
             }
 
-            GlobalUnlock(data);
+            GlobalUnlock(hMem);
         }
         CloseClipboard();
         return result;

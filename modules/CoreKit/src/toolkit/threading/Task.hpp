@@ -2,6 +2,7 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * Test target : ThreadPoolTest.cpp
  */
 
 #pragma once
@@ -108,12 +109,11 @@ namespace toolkit
         // Continues that task execution with a given action (will spawn new async action).
         TkTask *continueWith(const TkFunc<void()> &action, void *target = nullptr);
         // Continues that task execution with a given action (will spawn new async action).
-        TkTask *continueWith(const TkFunc<bool()> &action, void *target = nullptr);
+        TkTask *continueWithFailable(const TkFunc<bool()> &action, void *target = nullptr);
 
     public:
         static TkTask *startNew(TkTask *task);
         static TkTask *startNew(const TkFunc<void()> &action, void *target = nullptr);
-        static TkTask *startNew(TkFunc<void()>::Signature action, void *target = nullptr);
         template <class T, void (T::*Method)()>
         static TkTask *startNew(T *callee)
         {
@@ -121,14 +121,13 @@ namespace toolkit
             action.bind<T, Method>(callee);
             return startNew(action, dynamic_cast<void *>(callee));
         }
-        static TkTask *startNew(const TkFunc<bool()> &action, void *target = nullptr);
-        static TkTask *startNew(TkFunc<bool()>::Signature &action, void *target = nullptr);
+        static TkTask *startNewFailable(const TkFunc<bool()> &action, void *target = nullptr);
         template <class T, bool (T::*Method)()>
-        static TkTask *startNew(T *callee)
+        static TkTask *startNewFailable(T *callee)
         {
             TkFunc<bool()> action;
             action.bind<T, Method>(callee);
-            return startNew(action, dynamic_cast<void *>(callee));
+            return startNewFailable(action, dynamic_cast<void *>(callee));
         }
 
         // Cancels all the tasks from the list and clears it.
@@ -231,11 +230,10 @@ namespace toolkit
     // General purpose task executed on Main Thread in the beginning of the next frame.
     class MainThreadTask : public TkTask
     {
-    private:
-        static void runAll(float dt);
-
     public:
         float initialDelay = 0.0f;
+
+        static void runAll(float dt);
 
     protected:
         void enqueue() override;
@@ -245,19 +243,27 @@ namespace toolkit
     class MainThreadActionTask : public MainThreadTask
     {
     protected:
-        TkFunc<void()> m_action1;
-        TkFunc<bool()> m_action2;
+        TkFunc<void()> m_action;
         void *m_target;
 
     public:
         MainThreadActionTask(const TkFunc<void()> &action, void *target = nullptr)
-            : MainThreadTask(), m_action1(action), m_target(target) {}
-        MainThreadActionTask(TkFunc<void()>::Signature action, void *target = nullptr)
-            : MainThreadTask(), m_action1(action), m_target(target) {}
-        MainThreadActionTask(const TkFunc<bool()> &action, void *target = nullptr)
-            : MainThreadTask(), m_action2(action), m_target(target) {}
-        MainThreadActionTask(TkFunc<bool()>::Signature action, void *target = nullptr)
-            : MainThreadTask(), m_action2(action), m_target(target) {}
+            : MainThreadTask(), m_action(action), m_target(target) {}
+
+    protected:
+        bool run() override;
+    };
+
+    // General purpose task executing custom action using Main Thread in the beginning of the next frame.
+    class MainThreadBoolActionTask  : public MainThreadTask
+    {
+    protected:
+        TkFunc<bool()> m_action;
+        void *m_target;
+
+    public:
+        MainThreadBoolActionTask(const TkFunc<bool()> &action, void *target = nullptr)
+            : MainThreadTask(), m_action(action), m_target(target) {}
 
     protected:
         bool run() override;

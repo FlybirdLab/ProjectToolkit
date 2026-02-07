@@ -141,6 +141,11 @@ namespace toolkit
             return m_data;
         }
 
+        TK_FORCE_INLINE TkSpan<T> asSpan()
+        {
+            return TkSpan<T>(get(), count());
+        }
+
         TK_FORCE_INLINE const T *get() const
         {
             return m_data;
@@ -235,10 +240,10 @@ namespace toolkit
             m_count = size;
         }
 
-        TK_FORCE_INLINE void reserve(u32 capacity)
-        {
-            TK_ASSERT(capacity <= Capacity && "TkStaticArray overflow");
-        }
+        // TK_FORCE_INLINE void reserve(u32 capacity)
+        // {
+        //     TK_ASSERT(capacity <= Capacity && "TkStaticArray overflow");
+        // }
 
         void setAll(const T &value)
         {
@@ -328,16 +333,16 @@ namespace toolkit
             ++m_count;
             data[index] = moveTemp(item);
         }
-        void insert(const i32 index)
-        {
-            TK_ASSERT(index >= 0 && index <= m_count);
-            TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
-            T *data = m_data;
-            TkMemory::constructItems(data + m_count, 1);
-            for (i32 i = m_count - 1; i >= index; i--)
-                data[i + 1] = data[i];
-            ++m_count;
-        }
+        // void insert(const i32 index)
+        // {
+        //     TK_ASSERT(index >= 0 && index <= m_count);
+        //     TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
+        //     T *data = m_data;
+        //     TkMemory::constructItems(data + m_count, 1);
+        //     for (i32 i = m_count - 1; i >= index; i--)
+        //         data[i + 1] = data[i];
+        //     ++m_count;
+        // }
 
         template <typename TComparableType>
         bool contains(const TComparableType &item) const

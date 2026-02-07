@@ -4,6 +4,7 @@
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  * References:
  *     https://stackoverflow.com/questions/109023/how-to-count-the-number-of-set-bits-in-a-32-bit-integer
+ * Test target: ConvertorTest.cpp
  */
 
 #pragma once
@@ -128,10 +129,13 @@ namespace toolkit
 
         void base64Decode(const char *encoded, i32 length, TkArray<byte> &output);
         void base64Decode(const char *encoded, i32 length, byte *output);
-        
+
         void encryptBytes(byte *data, u64 size);
         void decryptBytes(byte *data, u64 size);
     };
+
+    constexpr i32 kUtf8MaxPerUtf16 = 4;
+    constexpr i32 kUtf16MaxPerUtf8 = 1;
 
     template <typename CharType, int InlinedSize = 128>
     class StringAsBase
@@ -139,7 +143,8 @@ namespace toolkit
     public:
         ~StringAsBase()
         {
-            TkMemory::free(TkMemory::getDefault(), m_dynamic);
+            if (m_dynamic)
+                TkMemory::free(TkMemory::getDefault(), m_dynamic);
         }
 
     public:
@@ -175,16 +180,15 @@ namespace toolkit
 
         StringAsANSI(const wchar *text, i32 length)
         {
-            if (length + 1 < InlinedSize)
+            // i32 requiredBytes = (length * 4) + 1;
+            if (length * kUtf8MaxPerUtf16 + 1 <= InlinedSize)
             {
-                TkConvertor::utf16ToAnsi(text, this->m_inlined, length);
-                this->m_inlined[length] = 0;
+                TkConvertor::utf16ToAnsi(text, this->m_inlined, InlinedSize);
             }
             else
             {
-                this->m_dynamic = (CharType *)TkMemory::allocate(TkMemory::getDefault(), (length + 1) * sizeof(CharType));
-                TkConvertor::utf16ToAnsi(text, this->m_dynamic, length);
-                this->m_dynamic[length] = 0;
+                this->m_dynamic = (CharType *)TkMemory::allocate(TkMemory::getDefault(), length * kUtf8MaxPerUtf16 + 1);
+                TkConvertor::utf16ToAnsi(text, this->m_dynamic, length + 1);
             }
         }
 
@@ -240,14 +244,15 @@ namespace toolkit
         {
             if (length + 1 < InlinedSize)
             {
-                TkConvertor::ansiToUtf16(text, this->m_inlined, length, length);
-                this->m_inlined[length] = 0;
+                i32 outLen;
+                TkConvertor::utf8ToUtf16(text, this->m_inlined, length, outLen);
+                this->m_inlined[outLen] = 0;
             }
             else
             {
-                this->m_dynamic = (CharType *)TkMemory::allocate(TkMemory::getDefault(), (length + 1) * sizeof(CharType));
-                TkConvertor::ansiToUtf16(text, this->m_dynamic, length, length);
-                this->m_dynamic[length] = 0;
+                i32 outLen;
+                this->m_dynamic = TkConvertor::utf8ToUtf16(text, length, outLen);
+                this->m_dynamic[outLen] = 0;
             }
         }
 

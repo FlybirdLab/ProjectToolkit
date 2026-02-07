@@ -53,7 +53,9 @@ namespace toolkit
 		TkString(const TkStringView &str, IAllocator &alloc = TkMemory::getDefault());
 		~TkString()
 		{
+			if (!m_data) return;
 			TkMemory::free(m_alloc, m_data);
+			m_data = nullptr;
 		}
 
 	public:

@@ -105,8 +105,13 @@ namespace toolkit
 	{
 		return str ? static_cast<i32>(strlen(str)) : 0;
 	}
-	i32 TkStringUtils::length(const wchar *str)
-	{
+    i32 TkStringUtils::length(const char8_t *str)
+    {
+		static_assert(sizeof(char8_t) == sizeof(char));
+		return TkStringUtils::length((const char*)str);
+    }
+    i32 TkStringUtils::length(const wchar *str)
+    {
 		return str ? static_cast<i32>(wcslen(str)) : 0;
 	}
 

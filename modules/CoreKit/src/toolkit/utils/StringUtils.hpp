@@ -16,10 +16,9 @@ namespace toolkit
 	class TkStringUtils
 	{
 	public:
-		// --- Misc ---
 		static i32 length(const char *str);
+		static i32 length(const char8_t *str);
 		static i32 length(const wchar *str);
-		// skip '\0' until found real '\0'
 		static TkString skipZeroToZero(const char *str);
 		static i32 hexDigit(char c);
 
@@ -98,7 +97,6 @@ namespace toolkit
 		static TkString toString(i64 value);
 		static TkString toString(u32 value);
 		static TkString toString(u64 value);
-		// TODO need test
 		static TkString toString(f32 value);
 		static TkString toString(f64 value);
 

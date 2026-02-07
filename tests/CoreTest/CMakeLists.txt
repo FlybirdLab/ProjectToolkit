@@ -50,3 +50,6 @@ target_link_libraries(CoreTest PRIVATE
 target_compile_definitions(CoreTest PRIVATE
         ${HEAD}
 )
+target_compile_options(CoreTest PRIVATE 
+        "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
+)

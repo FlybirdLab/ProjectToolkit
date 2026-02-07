@@ -11,6 +11,7 @@
 #include <toolkit/types/StringView.hpp>
 #include <toolkit/debug/Logger.hpp>
 
+#define GTEST_HAS_SEH 0
 #include <gtest/gtest.h>
 
 using namespace toolkit;

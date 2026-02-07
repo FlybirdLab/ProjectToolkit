@@ -21,13 +21,17 @@
 #include <cstring>
 #include <stdlib.h>
 
+#else
+
+#include <Windows.h>
+
 #endif
 
 namespace toolkit
 {
 
-    TkSpan<const char *> TkConvertor::Private::BytesSizes {};
-    TkSpan<const char *> TkConvertor::Private::HertzSizes {};
+    TkSpan<const char *> TkConvertor::Private::BytesSizes{};
+    TkSpan<const char *> TkConvertor::Private::HertzSizes{};
 
 #if TK_POSIX
 
@@ -250,21 +254,23 @@ namespace toolkit
                 emitConvertError(from, fromLength);
                 return;
             }
-            else if (i + 1 == fromLength)
+            else if (i >= fromLength)
             {
                 emitConvertError(from, fromLength);
                 return;
             }
-            else if (i < fromLength)
+            else
             {
-                uni = (uni & 0x3FFU) << 10;
-                if ((from[i] < 0xDC00U) || (from[i] > 0xDFFFU))
+                u32 low = from[i];
+                if (low < 0xDC00U || low > 0xDFFFU)
                 {
                     emitConvertError(from, fromLength);
                     return;
                 }
-                uni |= from[i++] & 0x3FFU;
+
+                uni = ((uni - 0xD800U) << 10) | (low - 0xDC00U);
                 uni += 0x10000U;
+                ++i;
             }
 
             unicode.add(uni);
@@ -281,10 +287,14 @@ namespace toolkit
     void TkConvertor::ansiToUtf16(const char *from, wchar *to, i32 fromLength, i32 &toLength)
     {
 #if TK_WINDOWS
-        if (fromLength)
-            toLength = (i32)mbstowcs(to, from, fromLength);
-        else
+        if (fromLength <= 0)
+        {
             toLength = 0;
+            return;
+        }
+        toLength = MultiByteToWideChar(CP_UTF8, 0, from, fromLength, to, fromLength);
+        if (toLength > 0)
+            to[toLength] = 0;
 #else
         const char *const u8end = from + fromLength;
         const char *u8cur = from;
@@ -316,8 +326,11 @@ namespace toolkit
     void TkConvertor::utf16ToAnsi(const wchar *from, char *to, i32 len)
     {
 #if TK_WINDOWS
-        if (len)
-            wcstombs(to, from, len);
+        if (len <= 0)
+            return;
+        int res = WideCharToMultiByte(CP_UTF8, 0, from, len, to, len * 4, NULL, NULL);
+        if (res > 0)
+            to[res] = 0;
 #else
         if (from == nullptr || len == 0 || to == nullptr)
             return;
@@ -354,20 +367,22 @@ namespace toolkit
     {
         TkArray<u32> unicode;
         utf8ToUtf16Helper(unicode, from, fromLength, toLength);
-        for (i32 i = 0, j = 0; j < unicode.count(); i++, j++)
+        i32 writePos = 0;
+        for (i32 j = 0; j < unicode.count(); j++)
         {
             u32 uni = unicode[j];
             if (uni <= 0xFFFF)
             {
-                to[i] = (wchar)uni;
+                to[writePos++] = (wchar)uni;
             }
             else
             {
                 uni -= 0x10000;
-                to[i++] += (wchar)((uni >> 10) + 0xD800);
-                to[i] += (wchar)((uni & 0x3FF) + 0xDC00);
+                to[writePos++] = (wchar)((uni >> 10) + 0xD800);
+                to[writePos++] = (wchar)((uni & 0x3FF) + 0xDC00);
             }
         }
+        to[writePos] = 0;
     }
 
     wchar *TkConvertor::utf8ToUtf16(const char *from, i32 fromLength, i32 &toLength)
@@ -376,42 +391,73 @@ namespace toolkit
         utf8ToUtf16Helper(unicode, from, fromLength, toLength);
         if (toLength == 0)
             return nullptr;
-        wchar *to = (wchar *)TkMemory::allocate(TkMemory::getDefault(), (toLength + 1) * sizeof(wchar)); // TODO
-        for (i32 i = 0, j = 0; j < unicode.count(); i++, j++)
+        wchar *to = (wchar *)TkMemory::allocate(TkMemory::getDefault(), (toLength + 1) * sizeof(wchar));
+        i32 writePos = 0;
+        for (i32 j = 0; j < unicode.count(); j++)
         {
             u32 uni = unicode[j];
             if (uni <= 0xFFFF)
             {
-                to[i] = (wchar)uni;
+                to[writePos++] = (wchar)uni;
             }
             else
             {
                 uni -= 0x10000;
-                to[i++] += (wchar)((uni >> 10) + 0xD800);
-                to[i] += (wchar)((uni & 0x3FF) + 0xDC00);
+                to[writePos++] = (wchar)((uni >> 10) + 0xD800);
+                to[writePos++] = (wchar)((uni & 0x3FF) + 0xDC00);
             }
         }
         to[toLength] = 0;
         return to;
     }
 
+    static inline i32 utf8Length(u32 cp)
+    {
+        if (cp <= 0x7F)
+            return 1;
+        if (cp <= 0x7FF)
+            return 2;
+        if (cp <= 0xFFFF)
+            return 3;
+        return 4;
+    }
+
+    static inline void writeUtf8(char *out, u32 cp, i32 &i)
+    {
+        if (cp <= 0x7F)
+        {
+            out[i++] = (char)cp;
+        }
+        else if (cp <= 0x7FF)
+        {
+            out[i++] = (char)(0xC0 | (cp >> 6));
+            out[i++] = (char)(0x80 | (cp & 0x3F));
+        }
+        else if (cp <= 0xFFFF)
+        {
+            out[i++] = (char)(0xE0 | (cp >> 12));
+            out[i++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+            out[i++] = (char)(0x80 | (cp & 0x3F));
+        }
+        else
+        {
+            out[i++] = (char)(0xF0 | (cp >> 18));
+            out[i++] = (char)(0x80 | ((cp >> 12) & 0x3F));
+            out[i++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+            out[i++] = (char)(0x80 | (cp & 0x3F));
+        }
+    }
+
     void TkConvertor::utf16ToUtf8(const wchar *from, char *to, i32 fromLength, i32 &toLength)
     {
         TkArray<u32> unicode;
         utf16ToUtf8Helper(unicode, from, fromLength, toLength);
-        for (i32 i = 0, j = 0; j < unicode.count(); j++)
-        {
-            const u32 uni = unicode[j];
-            const u32 count = uni <= 0x7FU ? 1 : uni <= 0x7FFU    ? 2
-                                             : uni <= 0xFFFFU     ? 3
-                                             : uni <= 0x1FFFFFU   ? 4
-                                             : uni <= 0x3FFFFFFU  ? 5
-                                             : uni <= 0x7FFFFFFFU ? 6
-                                                                  : 7;
-            to[i++] = (char)(count <= 1 ? (byte)uni : ((byte(0xFFU) << (8 - count)) | byte(uni >> (6 * (count - 1)))));
-            for (u32 k = 1; k < count; k++)
-                to[i++] = char(byte(0x80U | (byte(0x3FU) & byte(uni >> (6 * (count - 1 - k))))));
-        }
+        i32 i = 0;
+        for (u32 cp : unicode)
+            writeUtf8(to, cp, i);
+
+        toLength = i;
+        to[i] = 0;
     }
 
     char *TkConvertor::utf16ToUtf8(const wchar *from, i32 fromLength, i32 &toLength)
@@ -420,21 +466,14 @@ namespace toolkit
         utf16ToUtf8Helper(unicode, from, fromLength, toLength);
         if (toLength == 0)
             return nullptr;
-        char *to = (char *)TkMemory::allocate(TkMemory::getDefault(), toLength + 1); // TODO
-        for (i32 i = 0, j = 0; j < unicode.count(); j++)
-        {
-            const u32 uni = unicode[j];
-            const u32 count = uni <= 0x7FU ? 1 : uni <= 0x7FFU    ? 2
-                                             : uni <= 0xFFFFU     ? 3
-                                             : uni <= 0x1FFFFFU   ? 4
-                                             : uni <= 0x3FFFFFFU  ? 5
-                                             : uni <= 0x7FFFFFFFU ? 6
-                                                                  : 7;
-            to[i++] = (char)(count <= 1 ? (byte)uni : ((byte(0xFFU) << (8 - count)) | byte(uni >> (6 * (count - 1)))));
-            for (u32 k = 1; k < count; k++)
-                to[i++] = char(byte(0x80U | (byte(0x3FU) & byte(uni >> (6 * (count - 1 - k))))));
-        }
-        to[toLength] = 0;
+        char *to = (char *)TkMemory::allocate(TkMemory::getDefault(), toLength + 1);
+        i32 i = 0;
+        for (u32 cp : unicode)
+            writeUtf8(to, cp, i);
+
+        toLength = i;
+        to[i] = 0;
+
         return to;
     }
 

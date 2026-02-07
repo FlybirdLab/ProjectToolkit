@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <toolkit/common.hpp>
 #include <toolkit/base/Assert.hpp>
 
@@ -34,6 +35,10 @@ namespace toolkit {
             : m_data {value}
             , m_length {N} 
         { }
+        TkSpan(std::initializer_list<T> items)
+            : m_data {(T*)items.begin()}
+            , m_length {static_cast<i64>(items.end() - items.begin())} 
+        {}
 
     public:
         TK_FORCE_INLINE bool isValid() const

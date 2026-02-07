@@ -17,6 +17,10 @@
 #include <Windows.h>
 #include <process.h>
 
+#if TK_USE_RPMALLOC
+#include <rpmalloc/rpmalloc.h>
+#endif
+
 namespace toolkit
 {
     bool TkThread::isInMainThread()
@@ -148,6 +152,11 @@ namespace toolkit
 
     unsigned __stdcall ThreadImpl::threadProc(void *pThis)
     {
+#if TK_USE_RPMALLOC
+        // FIX: Rpmalloc need initlize thread local storage on each thread.
+        rpmalloc_thread_initialize();
+#endif
+
         auto *thread = static_cast<ThreadImpl *>(pThis);
 
         StringAsUTF16<128> to{thread->m_name.get()};

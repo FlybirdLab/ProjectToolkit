@@ -179,9 +179,14 @@ namespace toolkit
 			m_lambda = nullptr;
 		}
 
-		operator Signature()
+		// operator Signature()
+		// {
+		// 	return (Signature)m_callee;
+		// }
+		operator Signature() = delete;
+		Signature get() const
 		{
-			return (Signature)m_callee;
+			return reinterpret_cast<Signature>(m_callee);
 		}
 
 	public:
@@ -528,5 +533,30 @@ namespace toolkit
 			return hash;
 		}
 	};
+
+	// template <typename F>
+	// TkFunc(F) -> TkFunc<
+	// 	typename decltype(&F::operator())::result_type(
+	// 		typename decltype(&F::operator())::argument_type)>;
+
+	template <typename>
+	struct TkFuncTraits;
+
+	// free function
+	template <typename R, typename... Args>
+	struct TkFuncTraits<R (*)(Args...)>
+	{
+		using Signature = R(Args...);
+	};
+
+	// member function
+	template <typename C, typename R, typename... Args>
+	struct TkFuncTraits<R (C::*)(Args...) const>
+	{
+		using Signature = R(Args...);
+	};
+
+	// template <typename F>
+	// TkFunc(F) -> TkFunc<typename TkFuncTraits<decltype(&F::operator())>::Signature>;
 
 }

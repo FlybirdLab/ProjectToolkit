@@ -8,6 +8,10 @@
 
 #if TK_POSIX
 
+#if TK_USE_RPMALLOC
+#include <rpmalloc/rpmalloc.h>
+#endif
+
 #include <toolkit/base/Function.hpp>
 #include <toolkit/memory/Memory.hpp>
 #include <toolkit/threading/ThreadRegistry.hpp>
@@ -64,6 +68,12 @@ namespace toolkit {
         // Setup
         TK_ASSERT(m_runnable);
         m_id = getCurrentThreadID();
+        
+#if TK_USE_RPMALLOC
+        // FIX: Rpmalloc need initlize thread local storage on each thread.
+        rpmalloc_thread_initialize();
+#endif
+
 #if TRACY_ENABLE
         char threadName[100];
         const i32 threadNameLength = math::min<i32>(ARRAY_COUNT(threadName) - 1, m_name.length());

@@ -70,7 +70,7 @@ namespace toolkit
 
     static ThreadHandle s_thds[TK_PLATFORM_THREADS_LIMIT / 2] = {};
     static i32 s_thdsCount = 0;
-    static bool s_jobStartOnDispatch = true;
+    static TkAtomic<bool> s_jobStartOnDispatch{true};
     static volatile i64 s_exitFlag = 0;
     static volatile i64 s_jobLabel = 0;
     static TkHashMap<i64, JobContext> s_jobCtxs;
@@ -90,10 +90,10 @@ namespace toolkit
             runnable->index = (u64)i;
             auto thread = TkThread::newThread(runnable, TkString::format("Job System %i", i), TkMemory::getDefault(), ThreadPriority::kAboveNormal, 0);
             if (thread == nullptr)
-                return true;
+                return false;
             s_thds[i] = thread;
         }
-        return false;
+        return true;
     }
 
     void TkJobSys::beforeExit()
@@ -131,6 +131,15 @@ namespace toolkit
         bool attachCSharpThread = true;
         while (TSync::atomicRead(&s_exitFlag) == 0)
         {
+            // FIX: 
+            if (!s_jobStartOnDispatch.load(AtomicMemOrder::kAcquire))
+            {
+                s_jobsMtx.lock();
+                s_jobsSig.wait(s_jobsMtx);
+                s_jobsMtx.unlock();
+                continue;
+            }
+
             // Try to get a job
             s_JobsMtx.lock();
             if (s_jobs.count() != 0)
@@ -188,7 +197,6 @@ namespace toolkit
         return 0;
     }
 
-
     void TkJobSys::execute(const TkFunc<void(i32)> &job, i32 jobCount)
     {
         // TODO: disable async if called on job thread? or maybe Wait should handle waiting in job thread to do the processing?
@@ -227,7 +235,7 @@ namespace toolkit
             s_jobs.pushBack(data);
         s_JobsMtx.unlock();
 
-        if (s_jobStartOnDispatch)
+        if (s_jobStartOnDispatch.load(AtomicMemOrder::kAcquire))
         {
             if (jobCount == 1)
                 s_jobsSig.notifyOne();
@@ -257,8 +265,9 @@ namespace toolkit
         for (i64 dependency : dependencies)
         {
             JobContext *dependencyContext = nullptr;
-            if (s_jobCtxs.tryGet(dependency, *dependencyContext))
+            if (s_jobCtxs.containsKey(dependency))
             {
+                dependencyContext = &s_jobCtxs[dependency];
                 context.depsLeft++;
                 dependencyContext->deps.add(label);
             }
@@ -272,7 +281,7 @@ namespace toolkit
         }
         s_JobsMtx.unlock();
 
-        if (context.depsLeft == 0 && s_jobStartOnDispatch)
+        if (context.depsLeft == 0 && s_jobStartOnDispatch.load(AtomicMemOrder::kAcquire))
         {
             if (jobCount == 1)
                 s_jobsSig.notifyOne();
@@ -309,8 +318,9 @@ namespace toolkit
         {
             s_JobsMtx.lock();
             JobContext *context = nullptr;
-            if (!s_jobCtxs.tryGet(label, *context)) {
-                //TODO
+            if (s_jobCtxs.containsKey(label))
+            {
+                context = &s_jobCtxs[label];
             }
             s_JobsMtx.unlock();
 
@@ -327,15 +337,17 @@ namespace toolkit
             s_jobsSig.notifyOne();
         }
     }
-
     void TkJobSys::setJobStartingOnDispatch(bool value)
     {
-        s_jobStartOnDispatch = value;
-        if (value)
+        bool old = s_jobStartOnDispatch.exchange(value, AtomicMemOrder::kAcquire);
+
+        // FIX: only arouse on manually dispatch
+        if (!old && value)
         {
             s_JobsMtx.lock();
             const i32 count = s_jobs.count();
             s_JobsMtx.unlock();
+
             if (count == 1)
                 s_jobsSig.notifyOne();
             else if (count != 0)

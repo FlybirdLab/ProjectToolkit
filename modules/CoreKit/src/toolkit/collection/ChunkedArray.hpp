@@ -30,11 +30,9 @@ namespace toolkit
 		{
 			for (auto *ptr : m_chunks)
 			{
-				if (ptr)
-				{
-					TkMemory::destructItem(ptr);
-					TkMemory::deletePtr(m_alloc, ptr);
-				}
+				if (!ptr)
+					continue;
+				TkMemory::deletePtr(m_alloc, ptr);
 			}
 			// FIX: Manually delete pointer instead of stack-array's clear. m_chunks.clear();
 		}
@@ -51,15 +49,12 @@ namespace toolkit
 
 			for (auto *ptr : m_chunks)
 			{
-				if (ptr)
-				{
-					TkMemory::destructItem(ptr);
-					TkMemory::deletePtr(m_alloc, ptr);
-				}
+				if (!ptr)
+					continue;
+				TkMemory::deletePtr(m_alloc, ptr);
 			}
 			m_chunks.clear();
 
-			// steal
 			m_count = other.m_count;
 			m_chunks = std::move(other.m_chunks);
 

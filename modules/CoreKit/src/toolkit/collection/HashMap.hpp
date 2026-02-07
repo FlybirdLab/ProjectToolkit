@@ -378,20 +378,6 @@ namespace toolkit
             return at(key);
         }
 
-        // Tries to get element with given key.
-        template <typename KeyComparableType>
-        bool tryGet(const KeyComparableType &key, ValueType &result) const
-        {
-            if (isEmpty())
-                return false;
-            FindPositionResult pos;
-            findPosition(key, pos);
-            if (pos.ObjectIndex == -1)
-                return false;
-            result = m_data[pos.ObjectIndex].Value;
-            return true;
-        }
-
     public:
         // Clears the collection but without changing its capacity (all inserted elements: keys and values will be removed).
         void clear()

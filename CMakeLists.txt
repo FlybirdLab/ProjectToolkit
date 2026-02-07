@@ -4,6 +4,11 @@ cmake_minimum_required(VERSION 3.31)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
 set(USE_TEST ON)
 
+if (MSVC)
+    add_compile_options(/utf-8)
+    add_compile_options(/Zc:char8_t-)
+endif()
+
 ##########################################################
 # dependencies
 ##########################################################

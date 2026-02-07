@@ -6,6 +6,7 @@
 
 #include "Logger.hpp"
 #include "toolkit/memory/Memory.hpp"
+#include "toolkit/threading/Sync.hpp"
 #include "toolkit/types/String.hpp"
 #include "toolkit/collection/Array.hpp"
 
@@ -15,44 +16,38 @@
 
 namespace toolkit
 {
-    static TkLogger *setupLogger()
-    {
-        LoggerInitParams params{
-            .name = TK_SHARED_LOGGER_NAME,
-            .useFileRecord = TK_SHARED_LOGGER_RECORD,
-            .alloc = TkMemory::getDefault()};
-        return TkMemory::newObject<TkLogger>(TkMemory::getDefault(), params);
-    }
+    static TkLogger s_logger{{.name = TK_SHARED_LOGGER_NAME,
+                              .useFileRecord = TK_SHARED_LOGGER_RECORD,
+                              .alloc = TkMemory::getDefault()}};
 
-    TkLogger* TkLogger::getShared()
+    TkLogger *TkLogger::getShared()
     {
-        static TkLogger *s_logger = setupLogger();
-        return s_logger;
+        return &s_logger;
     }
 
     void TkLogger::emitLog(const char *msg, LogLevel level)
     {
-        switch(level)
-		{
-		case LogLevel::kWarn:
-			m_logger->warn(msg);
-			break;
-		case LogLevel::kError:
-			m_logger->error(msg);
-			break;
-		case LogLevel::kDebug:
-			m_logger->debug(msg);
-			break;
-		case LogLevel::kInfo:
-			m_logger->info(msg);
-			break;
-		case LogLevel::kTrace:
-			m_logger->trace(msg);
-			break;
+        switch (level)
+        {
+        case LogLevel::kWarn:
+            m_logger->warn(msg);
+            break;
+        case LogLevel::kError:
+            m_logger->error(msg);
+            break;
+        case LogLevel::kDebug:
+            m_logger->debug(msg);
+            break;
+        case LogLevel::kInfo:
+            m_logger->info(msg);
+            break;
+        case LogLevel::kTrace:
+            m_logger->trace(msg);
+            break;
         case LogLevel::kNone:
         default:
             break;
-		}
+        }
     }
 
     void TkLogger::setup(LoggerInitParams &params)
@@ -62,7 +57,7 @@ namespace toolkit
             TkMemory::deletePtr(m_alloc, m_logger);
 
         // setup logger sinks
-        TkArray<spdlog::sink_ptr> sinks {m_alloc};
+        TkArray<spdlog::sink_ptr> sinks{m_alloc};
         sinks.reserve(2);
 
         auto colorSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();

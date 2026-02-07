@@ -25,8 +25,8 @@ namespace toolkit {
     }
 
     bool TkMutex::tryLock() {
-        const BOOL enter = TryEnterCriticalSection(&m_handle);
-        return enter != 0;
+        return TryEnterCriticalSection(&m_handle);
+        // return enter != 0;
     }
 
     void TkMutex::unlock() {

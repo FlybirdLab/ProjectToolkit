@@ -157,7 +157,8 @@ namespace toolkit
 		~TkArray()
 		{
 			TkMemory::destructItems(m_data, m_count);
-			TkMemory::free(m_alloc, m_data);
+			if (m_data)
+			    TkMemory::free(m_alloc, m_data);
 		}
 
 	public:
@@ -563,6 +564,10 @@ namespace toolkit
 			const i32 count = m_count / 2;
 			for (i32 i = 0; i < count; ++i)
 				::toolkit::swap(data[i], data[m_count - i - 1]);
+		}
+
+		TK_FORCE_INLINE TkSpan<T> asSpan() {
+			return TkSpan<T>(get(), count());
 		}
 
 	public:

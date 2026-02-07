@@ -39,7 +39,7 @@ namespace toolkit
     struct LoggerInitParams
     {
         // Spdlog format pattern
-        static constexpr const char *sDefaultFormat = "[%^%L%$] %v";
+        static constexpr const char *sDefaultFormat = "[%L] %v"; //%^%$
 
         const char *name = "Anonmous";
         const char *format = sDefaultFormat;
@@ -140,7 +140,7 @@ namespace toolkit
 
     private:
         IAllocator &m_alloc;
-        spdlog::logger *m_logger;
+        spdlog::logger *m_logger = nullptr;
         bool m_isShared : 1 = false;
     };
 
