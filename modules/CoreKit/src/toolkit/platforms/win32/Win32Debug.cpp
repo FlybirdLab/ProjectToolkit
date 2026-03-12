@@ -1,6 +1,6 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
- * @LastEditors: cubevlmu khfahqp@gmail.com
+ * @LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
@@ -163,7 +163,8 @@ namespace toolkit
             frame.programCounter = backtrace[i];
 
             // Get function name
-            alignas(IMAGEHLP_SYMBOL64) byte symbolData[sizeof(IMAGEHLP_SYMBOL64) + lengthOf(frame.func)];
+            //TODO: sizeof(IMAGEHLP_SYMBOL64) + lengthOf(frame.func)
+            alignas(IMAGEHLP_SYMBOL64) byte symbolData[1024];
             IMAGEHLP_SYMBOL64 *symbol = (IMAGEHLP_SYMBOL64 *)symbolData;
             symbol->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL64);
             symbol->MaxNameLength = lengthOf(frame.func) - 1;

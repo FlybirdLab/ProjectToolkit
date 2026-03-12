@@ -435,7 +435,7 @@ namespace toolkit
 
         void swap(TkStaticArray &other)
         {
-            static_assert(std::is_move_constructible_v<T>);
+            static_assert(TMoveConstructibleType<T>);
 
             const i32 max = m_count > other.m_count ? m_count : other.m_count;
 

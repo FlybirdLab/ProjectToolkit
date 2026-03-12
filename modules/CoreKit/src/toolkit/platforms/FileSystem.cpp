@@ -130,7 +130,7 @@ namespace toolkit
         break;
         }
 
-        return false;
+        return true;
     }
 
     bool TkFileSystem::writeBytes(FileHandle handle, const byte *data, i32 length)
@@ -143,8 +143,10 @@ namespace toolkit
         if (length == 0)
             return true;
 
-        const i32 written = writeFile(handle, data, length);
-        return written == length;
+        u32 written = 0;
+        if (!writeFile(handle, data, length, &written))
+            return false;
+        return written == (u32)length;
     }
 
     bool TkFileSystem::writeBytes(FileHandle handle, const TkArray<byte> &data)

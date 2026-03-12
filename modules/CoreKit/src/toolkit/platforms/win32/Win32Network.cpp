@@ -179,7 +179,7 @@ namespace toolkit
         i32 optlvl = 0;
         i32 optnme = 0;
         convertSockOptToNative(option, &optlvl, &optnme);
-        i32 size;
+        i32 size = sizeof(value);
         if (getsockopt(*(SOCKET *)socket->data, optlvl, optnme, (char *)&value, &size) == SOCKET_ERROR)
         {
             LogWarn("Unable to get socket option ! Socket : %v Error : %s", *(SOCKET *)socket->data, getLastErrorMessage());
@@ -366,7 +366,7 @@ namespace toolkit
         SOCKET s = ((pollfd *)&group->data[index * SOCKGROUP_ITEMSIZE])->fd;
         TkMemory::memoryCopy(socket->data, &s, sizeof(s));
         i32 value;
-        if (getOption(socket, NetSocketOption::kType, value))
+        if (!getOption(socket, NetSocketOption::kType, value))
             return false;
         if (value == SOCK_DGRAM)
             socket->protocol = NetProtocol::kUdp;

@@ -222,8 +222,8 @@ namespace toolkit
 		}
 	};
 
-	template <typename T>
-	struct HashFunc<T, typename TEnableIf<TIsEnum<T>::Value>::Type>
+	template <TEnumType T>
+	struct HashFunc<T, void>
 	{
 		static u32 get(T v)
 		{

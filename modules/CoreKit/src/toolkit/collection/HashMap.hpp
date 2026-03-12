@@ -395,7 +395,7 @@ namespace toolkit
 
         void clearDelete() 
 #if TK_COMPILER_MSVC
-            requires(TIsPointer<ValueType>::Value)
+            requires(TPointerType<ValueType>)
 #endif
         {
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
@@ -407,7 +407,7 @@ namespace toolkit
         }
 
 #if TK_COMPILER_MSVC
-        void clearDelete() requires(!TIsPointer<ValueType>::Value)
+        void clearDelete() requires(!TPointerType<ValueType>)
         {
             clear();
         }

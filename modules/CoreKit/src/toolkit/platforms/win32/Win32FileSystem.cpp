@@ -122,32 +122,12 @@ namespace toolkit
     {
         StringAsUTF16<MAX_PATH> pathU16{path.get()};
         StringAsTerminated<> buffer(pathU16.get(), pathU16.length());
-
-        // If the specified directory name doesn't exist, do our thing
         const DWORD fileAttributes = GetFileAttributesW(buffer);
-        if (fileAttributes == INVALID_FILE_ATTRIBUTES)
-        {
-            const auto error = GetLastError();
-            if (error == ERROR_ACCESS_DENIED)
-                return false;
+        if (fileAttributes != INVALID_FILE_ATTRIBUTES)
+            return (fileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 || (fileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 
-            // Recursively do it all again for the parent directory, if any
-            const i32 slashIndex = path.findLast('/');
-            if (slashIndex != -1)
-                if (makeDir(path.substring(0, slashIndex)))
-                    return false;
-
-            // Create the last directory on the path (the recursive calls will have taken care of the parent directories by now)
-            return ::CreateDirectoryW(buffer, nullptr);
-        }
-        else
-        {
-            // Special case if directory name already exists as a file or directory
-            if (!((fileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 || (fileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0))
-                return false;
-        }
-
-        return true;
+        const int result = SHCreateDirectoryExW(nullptr, buffer, nullptr);
+        return result == ERROR_SUCCESS || result == ERROR_FILE_EXISTS || result == ERROR_ALREADY_EXISTS;
     }
 
     bool TkFileSystem::deleteDir(const TkStringView path, bool deleteContents)
@@ -436,12 +416,24 @@ namespace toolkit
     bool TkFileSystem::copyDir(const TkStringView dst, const TkStringView src, bool recursive)
     {
         if (!isDirExist(src))
+        {
+            LogError("[FileSys] copyDir source does not exist. src=%s", src.get());
             return false;
+        }
+
+        if (TkPath::isSame(dst, src))
+        {
+            LogError("[FileSys] copyDir source and destination are the same. path=%s", src.get());
+            return false;
+        }
 
         if (!isDirExist(dst))
         {
             if (!TkFileSystem::makeDir(dst))
+            {
+                LogError("[FileSys] copyDir failed to create destination directory. dst=%s", dst.get());
                 return false;
+            }
         }
 
         ::WIN32_FIND_DATAW info;
@@ -471,6 +463,7 @@ namespace toolkit
                 {
                     if (!copyDir(dstPath, srcPath, true))
                     {
+                        LogError("[FileSys] copyDir failed to copy child directory. src=%s dst=%s", srcPath.get(), dstPath.get());
                         ::FindClose(hFind);
                         return false;
                     }
@@ -480,6 +473,7 @@ namespace toolkit
             {
                 if (!copyFile(dstPath, srcPath))
                 {
+                    LogError("[FileSys] copyDir failed to copy file. src=%s dst=%s err=%s", srcPath.get(), dstPath.get(), Win32System::getLastErrMsg());
                     ::FindClose(hFind);
                     return false;
                 }
@@ -686,6 +680,8 @@ namespace toolkit
             Win32FileWatcher::s_ioHandle = INVALID_HANDLE_VALUE;
         }
         Win32FileWatcher::s_mtx.unlock();
+
+        TkMemory::deletePtr(TkMemory::getDefault(), ptr);
     }
 
     TkAction<const TkString &, FileAction> &TkFileSystem::getEvent(FileWatcherHandle handle)

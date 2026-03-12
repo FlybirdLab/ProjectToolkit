@@ -8,14 +8,13 @@
 
 #include <toolkit/common.hpp>
 #include <toolkit/base/Assert.hpp>
-
-#include <type_traits>
+#include <toolkit/base/TypeTraits.hpp>
 
 namespace toolkit
 {
 
     // This is a template where the Type will be I64 if the T is any unsigned integer and U64 otherwise
-    template <typename T, bool = std::is_unsigned<T>::value>
+    template <typename T, bool = TIsUnsigned<T>::Value>
     struct EnumSafeIntegerType
     {
         using Type = i64;

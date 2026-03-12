@@ -273,7 +273,7 @@ namespace toolkit
 
 		void clearDelete()
 #if TK_COMPILER_MSVC
-			requires(bool(TIsPointer<T>::Value))
+			requires(TPointerType<T>)
 #endif
 		{
 			T *data = get();
@@ -287,7 +287,7 @@ namespace toolkit
 
 #if TK_COMPILER_MSVC
 		void clearDelete()
-			requires(!bool(TIsPointer<T>::Value))
+			requires(!TPointerType<T>)
 		{
 			clear();
 		}
@@ -420,7 +420,7 @@ namespace toolkit
 #if TK_WINDOWS
 			static_assert(toolkit::TIsTriviallyConstructible<T>::Value, "addZeroed requires trivial type");
 #else
-			static_assert(toolkit::TIsTriviallyConstructible<T>(), "addZeroed requires trivial type");
+			static_assert(toolkit::TTriviallyConstructibleType<T>, "addZeroed requires trivial type");
 #endif
 			ensureCapacity(m_count + count);
 			memset(m_data + m_count, 0, count * sizeof(T));

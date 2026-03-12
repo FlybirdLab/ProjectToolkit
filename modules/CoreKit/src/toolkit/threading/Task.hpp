@@ -114,10 +114,19 @@ namespace toolkit
     public:
         static TkTask *startNew(TkTask *task);
         static TkTask *startNew(const TkFunc<void()> &action, void *target = nullptr);
+        static TkTask *startNew(const TkFunc<bool()> &action, void *target = nullptr);
+        static void disposePendingMainThreadTasks();
         template <class T, void (T::*Method)()>
         static TkTask *startNew(T *callee)
         {
             TkFunc<void()> action;
+            action.bind<T, Method>(callee);
+            return startNew(action, dynamic_cast<void *>(callee));
+        }
+        template <class T, bool (T::*Method)()>
+        static TkTask *startNew(T *callee)
+        {
+            TkFunc<bool()> action;
             action.bind<T, Method>(callee);
             return startNew(action, dynamic_cast<void *>(callee));
         }

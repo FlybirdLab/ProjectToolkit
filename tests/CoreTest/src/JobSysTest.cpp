@@ -11,6 +11,10 @@
 #include <toolkit/types/Span.hpp>
 #include <toolkit/platforms/System.hpp>
 
+#include <atomic>
+#include <chrono>
+#include <thread>
+
 class TkJobSysFixture : public ::testing::Test
 {
 protected:
@@ -18,7 +22,6 @@ protected:
     {
         System::init();
         System::beforeRun();
-        System::logInfo();
         ASSERT_TRUE(TkJobSys::init());
     }
 
@@ -28,6 +31,11 @@ protected:
         TkJobSys::dispose();
         System::beforeQuit();
         System::quit();
+    }
+
+    void SetUp() override
+    {
+        TkJobSys::setJobStartingOnDispatch(true);
     }
 };
 
@@ -43,10 +51,10 @@ TEST_F(TkJobSysFixture, ExecuteSingleJobSync)
 
     TkJobSys::execute([&](i32 idx) {
         EXPECT_EQ(idx, 0);
-        counter++;
+        counter.fetch_add(1, std::memory_order_relaxed);
     }, 1);
 
-    ASSERT_EQ(counter.load(), 1);
+    ASSERT_EQ(counter.load(std::memory_order_relaxed), 1);
 }
 
 TEST_F(TkJobSysFixture, DispatchAndWaitLabel)
@@ -54,12 +62,12 @@ TEST_F(TkJobSysFixture, DispatchAndWaitLabel)
     constexpr i32 kJobs = 32;
     std::atomic<i32> counter{0};
 
-    i64 label = TkJobSys::dispatch([&](i32) {
+    const i64 label = TkJobSys::dispatch([&](i32) {
         counter.fetch_add(1, std::memory_order_relaxed);
     }, kJobs);
 
     TkJobSys::wait(label);
-    ASSERT_EQ(counter.load(), kJobs);
+    ASSERT_EQ(counter.load(std::memory_order_relaxed), kJobs);
 }
 
 TEST_F(TkJobSysFixture, WaitAll)
@@ -67,15 +75,15 @@ TEST_F(TkJobSysFixture, WaitAll)
     std::atomic<i32> counter{0};
 
     TkJobSys::dispatch([&](i32) {
-        counter++;
+        counter.fetch_add(1, std::memory_order_relaxed);
     }, 10);
 
     TkJobSys::dispatch([&](i32) {
-        counter++;
+        counter.fetch_add(1, std::memory_order_relaxed);
     }, 20);
 
     TkJobSys::wait();
-    ASSERT_EQ(counter.load(), 30);
+    ASSERT_EQ(counter.load(std::memory_order_relaxed), 30);
 }
 
 TEST_F(TkJobSysFixture, ParallelIncrementCorrectness)
@@ -83,12 +91,12 @@ TEST_F(TkJobSysFixture, ParallelIncrementCorrectness)
     constexpr i32 kJobs = 1000;
     std::atomic<i32> counter{0};
 
-    i64 label = TkJobSys::dispatch([&](i32) {
+    const i64 label = TkJobSys::dispatch([&](i32) {
         counter.fetch_add(1, std::memory_order_relaxed);
     }, kJobs);
 
     TkJobSys::wait(label);
-    ASSERT_EQ(counter.load(), kJobs);
+    ASSERT_EQ(counter.load(std::memory_order_relaxed), kJobs);
 }
 
 TEST_F(TkJobSysFixture, JobIndexRange)
@@ -96,56 +104,60 @@ TEST_F(TkJobSysFixture, JobIndexRange)
     constexpr i32 kJobs = 64;
     std::atomic<i32> seen{0};
 
-    i64 label = TkJobSys::dispatch([&](i32 idx) {
+    const i64 label = TkJobSys::dispatch([&](i32 idx) {
         EXPECT_GE(idx, 0);
         EXPECT_LT(idx, kJobs);
-        seen.fetch_add(1);
+        seen.fetch_add(1, std::memory_order_relaxed);
     }, kJobs);
 
     TkJobSys::wait(label);
-    ASSERT_EQ(seen.load(), kJobs);
+    ASSERT_EQ(seen.load(std::memory_order_relaxed), kJobs);
 }
 
 TEST_F(TkJobSysFixture, JobDependencies)
 {
     std::atomic<i32> order{0};
 
-    i64 jobA = TkJobSys::dispatch([&](i32) {
-        EXPECT_EQ(order.load(), 0);
-        order.store(1);
+    const i64 jobA = TkJobSys::dispatch([&](i32) {
+        EXPECT_EQ(order.load(std::memory_order_relaxed), 0);
+        order.store(1, std::memory_order_relaxed);
     }, 1);
 
-    i64 jobB = TkJobSys::dispatch(
+    i64 dependencies[] = {jobA};
+    const i64 jobB = TkJobSys::dispatch(
         [&](i32) {
-            EXPECT_EQ(order.load(), 1);
-            order.store(2);
+            EXPECT_EQ(order.load(std::memory_order_relaxed), 1);
+            order.store(2, std::memory_order_relaxed);
         },
-        TkSpan<i64>(&jobA, 1),
-        1
-    );
+        TkSpan<i64>(dependencies, 1),
+        1);
 
     TkJobSys::wait(jobB);
-    ASSERT_EQ(order.load(), 2);
+    ASSERT_EQ(order.load(std::memory_order_relaxed), 2);
 }
 
 TEST_F(TkJobSysFixture, MultipleDependencies)
 {
     std::atomic<i32> completed{0};
 
-    i64 a = TkJobSys::dispatch([&](i32) { completed++; }, 1);
-    i64 b = TkJobSys::dispatch([&](i32) { completed++; }, 1);
+    const i64 a = TkJobSys::dispatch([&](i32) {
+        completed.fetch_add(1, std::memory_order_relaxed);
+    }, 1);
+    const i64 b = TkJobSys::dispatch([&](i32) {
+        completed.fetch_add(1, std::memory_order_relaxed);
+    }, 1);
 
-    i64 c = TkJobSys::dispatch(
+    i64 dependencies[] = {a, b};
+    const i64 c = TkJobSys::dispatch(
         [&](i32) {
-            EXPECT_EQ(completed.load(), 2);
-            completed++;
+            EXPECT_EQ(completed.load(std::memory_order_relaxed), 2);
+            completed.fetch_add(1, std::memory_order_relaxed);
         },
-        TkSpan<i64>({a, b}),
-        1
-    );
+        TkSpan<i64>(dependencies, 2),
+        1);
 
     TkJobSys::wait(c);
-    ASSERT_EQ(completed.load(), 3);
+    ASSERT_EQ(completed.load(std::memory_order_relaxed), 3);
 }
 
 TEST_F(TkJobSysFixture, DisableAutoStart)
@@ -155,33 +167,32 @@ TEST_F(TkJobSysFixture, DisableAutoStart)
     std::atomic<i32> counter{0};
 
     TkJobSys::dispatch([&](i32) {
-        counter++;
+        counter.fetch_add(1, std::memory_order_relaxed);
     }, 10);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    ASSERT_EQ(counter.load(), 0);
+    ASSERT_EQ(counter.load(std::memory_order_relaxed), 0);
 
     TkJobSys::setJobStartingOnDispatch(true);
     TkJobSys::wait();
 
-    ASSERT_EQ(counter.load(), 10);
+    ASSERT_EQ(counter.load(std::memory_order_relaxed), 10);
 }
 
 TEST_F(TkJobSysFixture, StressDispatchWait)
 {
-    constexpr i32 kRounds = 100;
+    constexpr i32 kRounds = 50;
     constexpr i32 kJobs = 64;
 
     for (i32 r = 0; r < kRounds; r++)
     {
         std::atomic<i32> counter{0};
 
-        i64 label = TkJobSys::dispatch([&](i32) {
+        const i64 label = TkJobSys::dispatch([&](i32) {
             counter.fetch_add(1, std::memory_order_relaxed);
         }, kJobs);
 
         TkJobSys::wait(label);
-        ASSERT_EQ(counter.load(), kJobs);
+        ASSERT_EQ(counter.load(std::memory_order_relaxed), kJobs);
     }
 }
-

@@ -39,7 +39,7 @@ namespace toolkit {
     bool TkTask::wait(double timeoutMilliseconds) const
     {
         PROFILE();
-        double startTime = System::getTimeSeconds() * 0.001;
+        double startTime = System::getTimeSeconds() * 1000.0;
 
         // TODO: no active waiting! use a semaphore!
 
@@ -53,7 +53,7 @@ namespace toolkit {
                 // Wait for child if has
                 if (m_continueWith)
                 {
-                    auto spendTime = System::getTimeSeconds() * 0.001 - startTime;
+                    auto spendTime = System::getTimeSeconds() * 1000.0 - startTime;
                     return m_continueWith->wait(timeoutMilliseconds - spendTime);
                 }
 
@@ -65,7 +65,7 @@ namespace toolkit {
                 return true;
 
             TkThread::sleep(1);
-        } while (timeoutMilliseconds <= 0.0 || System::getTimeSeconds() * 0.001 - startTime < timeoutMilliseconds);
+        } while (timeoutMilliseconds <= 0.0 || System::getTimeSeconds() * 1000.0 - startTime < timeoutMilliseconds);
 
         // Timeout reached!
         LogWarn("\'%s\' has timed out. Wait time: %i ms", m_name, timeoutMilliseconds);
@@ -122,10 +122,15 @@ namespace toolkit {
         return startNew(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
     }
 
+    TkTask* TkTask::startNew(const TkFunc<bool()>& action, void* target)
+    {
+        return startNewFailable(action, target);
+    }
+
    
     TkTask* TkTask::startNewFailable(const TkFunc<bool()>& action, void* target)
     {
-        return startNewFailable(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
+        return startNew(TkMemory::newObject<ThreadPoolActionTask>(TkMemory::getDefault(), action, target));
     }
 
     void TkTask::execute()
@@ -214,6 +219,22 @@ namespace toolkit {
     static TkArray<MainThreadTask*> s_waiting;
     static TkArray<MainThreadTask*> s_queue;
 
+    void TkTask::disposePendingMainThreadTasks()
+    {
+        s_mtx.lock();
+        for (i32 i = 0; i < s_waiting.count(); i++)
+        {
+            s_waiting[i]->cancel();
+        }
+        for (i32 i = 0; i < s_queue.count(); i++)
+        {
+            s_queue[i]->cancel();
+        }
+        s_waiting.clear();
+        s_queue.clear();
+        s_mtx.unlock();
+    }
+
     void MainThreadTask::runAll(float dt)
     {
         PROFILE();
@@ -251,7 +272,7 @@ namespace toolkit {
         if (m_action.isBinded())
         {
             m_action();
-            return true;
+            return false;
         }
         return false;
     }

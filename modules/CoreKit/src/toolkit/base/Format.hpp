@@ -96,9 +96,9 @@ namespace toolkit
 	public:
 		template <typename T>
 		static constexpr bool needs_custom_format =
-			!(std::is_arithmetic_v<std::decay_t<T>> ||
-			  std::is_same_v<std::decay_t<T>, const char *> ||
-			  std::is_same_v<std::decay_t<T>, char *>);
+			!(TArithmeticType<TDecayT<T>> ||
+			  TSameAs<TDecayT<T>, const char *> ||
+			  TSameAs<TDecayT<T>, char *>);
 
 	public:
 		static psize formatRaw(FormatBuffer &buf, const char *fmt, ...);

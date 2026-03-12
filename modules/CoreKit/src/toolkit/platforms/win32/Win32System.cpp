@@ -25,6 +25,7 @@
 #include <toolkit/utils/Convertor.hpp>
 #include "toolkit/platforms/ProcessInitArgs.hpp"
 #include "toolkit/debug/Profiler.hpp"
+#include "toolkit/threading/Task.hpp"
 #include "toolkit/types/Path.hpp"
 #include "toolkit/platforms/FileSystem.hpp"
 
@@ -614,7 +615,7 @@ namespace toolkit
         if (WSAStartup(MAKEWORD(2, 0), &s_global.wsaData) != 0)
             LogError("Unable to initializes native network! Error : %s", Win32System::getLastErrMsg());
 
-        TkFileSystem::getDirPath(SpecialFolder::kAppData, s_global.tempDir);
+        TkFileSystem::getDirPath(SpecialFolder::kTemporary, s_global.tempDir);
 
         // Init console output (engine is linked with /SUBSYSTEM:WINDOWS so it lacks of proper console output on Windows)
 #if TK_CONSOLE_SUB
@@ -683,6 +684,10 @@ namespace toolkit
 
     void System::beforeQuit()
     {
+        TkTask::disposePendingMainThreadTasks();
+#if TK_DEBUG
+        TkProfiler::dispose();
+#endif
     }
 
     void System::quit()
@@ -731,7 +736,7 @@ namespace toolkit
     bool System::setWorkDir(const TkString &path)
     {
         StringAsUTF16<MAX_PATH> u16{path.get()};
-        return !SetCurrentDirectoryW(u16.get());
+        return SetCurrentDirectoryW(u16.get()) != 0;
     }
 
     void System::freeLib(LibHandle handle)

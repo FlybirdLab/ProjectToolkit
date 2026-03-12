@@ -76,7 +76,7 @@ namespace toolkit
         {
             T *tasks[16];
             std::size_t count;
-            while ((count = ConcurrentQueue<T *>::try_dequeue_bulk(tasks, ARRAY_COUNT(tasks))) != 0)
+            while ((count = ConcurrentQueue<T *>::try_dequeue_bulk(tasks, lengthOf(tasks))) != 0)
             {
                 for (std::size_t i = 0; i != count; i++)
                 {
@@ -144,6 +144,7 @@ namespace toolkit
             s_threads[i]->kill(true);
         }
         s_threads.clearDelete();
+        s_jobs.cancelAll();
     }
 
     i32 TkThreadPool::threadProc()

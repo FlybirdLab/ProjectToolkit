@@ -14,7 +14,7 @@
 namespace toolkit {
     
     TK_THREAD_LOCAL DebugThread* DebugThread::Current = nullptr;
-    TkStaticArray<DebugThread*, 64> DebugThreads;
+    TkStaticArray<DebugThread*, 64> TkProfiler::Threads;
     bool TkProfiler::Enabled = false;
 
     DebugEventBuffer::DebugEventBuffer()
@@ -224,7 +224,12 @@ namespace toolkit {
     void TkProfiler::dispose()
     {
         Enabled = false;
+        for (i32 i = 0; i < Threads.count(); i++)
+        {
+            TkMemory::deletePtr(TkMemory::getDefault(), Threads[i]);
+        }
         Threads.clear();
+        DebugThread::Current = nullptr;
 
         // Cleanup memory, note: calls to profiler after this point will end up with a crash (DebugThread::Current is invalid)
     }

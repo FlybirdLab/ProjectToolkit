@@ -101,18 +101,21 @@ namespace toolkit
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyConstructible<T>::Value>::Type constructItem(T *dst)
+		TK_FORCE_INLINE static void constructItem(T *dst)
+			requires(!TTriviallyConstructibleType<T>)
 		{
 			new (dst) T();
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyConstructible<T>::Value>::Type constructItem(T *)
+		TK_FORCE_INLINE static void constructItem(T *)
+			requires(TTriviallyConstructibleType<T>)
 		{
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyConstructible<T>::Value>::Type constructItems(T *dst, i32 count)
+		TK_FORCE_INLINE static void constructItems(T *dst, i32 count)
+			requires(!TTriviallyConstructibleType<T>)
 		{
 			while (count--)
 			{
@@ -122,12 +125,14 @@ namespace toolkit
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyConstructible<T>::Value>::Type constructItems(T *, i32)
+		TK_FORCE_INLINE static void constructItems(T *, i32)
+			requires(TTriviallyConstructibleType<T>)
 		{
 		}
 
 		template <typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsBitwiseConstructible<T, U>::Value>::Type constructItems(T *dst, const U *src, i32 count)
+		TK_FORCE_INLINE static void constructItems(T *dst, const U *src, i32 count)
+			requires(!TIsBitwiseConstructible<T, U>::Value)
 		{
 			while (count--)
 			{
@@ -138,24 +143,28 @@ namespace toolkit
 		}
 
 		template <typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<TIsBitwiseConstructible<T, U>::Value>::Type constructItems(T *dst, const U *src, i32 count)
+		TK_FORCE_INLINE static void constructItems(T *dst, const U *src, i32 count)
+			requires(TIsBitwiseConstructible<T, U>::Value)
 		{
 			memoryCopy((void *)dst, (void *)src, count * sizeof(U));
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyDestructible<T>::Value>::Type destructItem(T *dst)
+		TK_FORCE_INLINE static void destructItem(T *dst)
+			requires(!TTriviallyDestructibleType<T>)
 		{
 			dst->~T();
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyDestructible<T>::Value>::Type destructItem(T *)
+		TK_FORCE_INLINE static void destructItem(T *)
+			requires(TTriviallyDestructibleType<T>)
 		{
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyDestructible<T>::Value>::Type destructItems(T *dst, i32 count)
+		TK_FORCE_INLINE static void destructItems(T *dst, i32 count)
+			requires(!TTriviallyDestructibleType<T>)
 		{
 			while (count--)
 			{
@@ -165,12 +174,14 @@ namespace toolkit
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyDestructible<T>::Value>::Type destructItems(T *, i32)
+		TK_FORCE_INLINE static void destructItems(T *, i32)
+			requires(TTriviallyDestructibleType<T>)
 		{
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsTriviallyCopyAssignable<T>::Value>::Type copyItems(T *dst, const T *src, i32 count)
+		TK_FORCE_INLINE static void copyItems(T *dst, const T *src, i32 count)
+			requires(!TTriviallyCopyAssignableType<T>)
 		{
 			while (count--)
 			{
@@ -181,13 +192,15 @@ namespace toolkit
 		}
 
 		template <typename T>
-		TK_FORCE_INLINE static typename TEnableIf<TIsTriviallyCopyAssignable<T>::Value>::Type copyItems(T *dst, const T *src, i32 count)
+		TK_FORCE_INLINE static void copyItems(T *dst, const T *src, i32 count)
+			requires(TTriviallyCopyAssignableType<T>)
 		{
 			memoryCopy(dst, src, count * sizeof(T));
 		}
 
 		template <typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<!TIsBitwiseConstructible<T, U>::Value>::Type moveItems(T *dst, const U *src, i32 count)
+		TK_FORCE_INLINE static void moveItems(T *dst, const U *src, i32 count)
+			requires(!TIsBitwiseConstructible<T, U>::Value)
 		{
 			while (count--)
 			{
@@ -198,7 +211,8 @@ namespace toolkit
 		}
 
 		template <typename T, typename U>
-		TK_FORCE_INLINE static typename TEnableIf<TIsBitwiseConstructible<T, U>::Value>::Type moveItems(T *dst, const U *src, i32 count)
+		TK_FORCE_INLINE static void moveItems(T *dst, const U *src, i32 count)
+			requires(TIsBitwiseConstructible<T, U>::Value)
 		{
 			memoryCopy((void *)dst, (void *)src, count * sizeof(U));
 		}

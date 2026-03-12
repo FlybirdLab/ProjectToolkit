@@ -88,10 +88,13 @@ TEST_F(ThreadPoolTest, ContinueWithChain)
 {
     std::atomic<int> value{0};
 
-    auto t1 = TkTask::startNew([&]()
-                               {
-        EXPECT_EQ(value.load(), 0);
-        value.store(1); });
+    auto t1 = TkMemory::newObject<ThreadPoolActionTask>(
+        TkMemory::getDefault(),
+        [&]()
+        {
+            EXPECT_EQ(value.load(), 0);
+            value.store(1);
+        });
 
     auto t2 = t1->continueWith([&]()
                                {
@@ -103,7 +106,12 @@ TEST_F(ThreadPoolTest, ContinueWithChain)
         EXPECT_EQ(value.load(), 2);
         value.store(3); });
 
-    EXPECT_FALSE(t3->wait(2000));
+    t1->start();
+
+    const double startTime = System::getTimeSeconds() * 1000.0;
+    while (value.load() != 3 && System::getTimeSeconds() * 1000.0 - startTime < 2000.0)
+        TkThread::sleep(1);
+
     EXPECT_EQ(value.load(), 3);
 }
 

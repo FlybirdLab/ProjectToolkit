@@ -90,7 +90,19 @@ namespace toolkit
             runnable->index = (u64)i;
             auto thread = TkThread::newThread(runnable, TkString::format("Job System %i", i), TkMemory::getDefault(), ThreadPriority::kAboveNormal, 0);
             if (thread == nullptr)
+            {
+                for (i32 j = 0; j < i; j++)
+                {
+                    if (s_thds[j])
+                    {
+                        s_thds[j]->kill(true);
+                        TkMemory::deletePtr(TkMemory::getDefault(), s_thds[j]);
+                        s_thds[j] = nullptr;
+                    }
+                }
+                s_thdsCount = 0;
                 return false;
+            }
             s_thds[i] = thread;
         }
         return true;

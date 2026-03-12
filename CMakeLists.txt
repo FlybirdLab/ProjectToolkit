@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.31)
 #set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
 set(USE_TEST ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (MSVC)
     add_compile_options(/utf-8)

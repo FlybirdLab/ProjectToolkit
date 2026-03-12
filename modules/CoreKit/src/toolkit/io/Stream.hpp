@@ -154,7 +154,8 @@ namespace toolkit {
         void read(TkString& data, i16 lock);
 
         template<typename T>
-        TK_FORCE_INLINE typename TEnableIf<TIsPODType<T>::Value>::Type read(T& data)
+        TK_FORCE_INLINE void read(T& data)
+            requires(TPODType<T>)
         {
             readBytes((void*)&data, sizeof(T));
         }
@@ -168,7 +169,7 @@ namespace toolkit {
             data.resize(size, false);
             if (size > 0)
             {
-                if (TIsPODType<T>::Value && !TIsPointer<T>::Value)
+                if constexpr (TPODType<T> && !TPointerType<T>)
                     readBytes(data.get(), size * sizeof(T));
                 else
                 {
@@ -279,7 +280,8 @@ namespace toolkit {
         void write(const TkStringView& data, i16 lock);
 
         template<typename T>
-        TK_FORCE_INLINE typename TEnableIf<TAnd<TIsPODType<T>, TNot<TIsPointer<T>>>::Value>::Type write(const T& data)
+        TK_FORCE_INLINE void write(const T& data)
+            requires(TPODType<T> && !TPointerType<T>)
         {
             writeBytes((const void*)&data, sizeof(T));
         }
@@ -291,7 +293,7 @@ namespace toolkit {
             writeI32(size);
             if (size > 0)
             {
-                if (TIsPODType<T>::Value && !TIsPointer<T>::Value)
+                if constexpr (TPODType<T> && !TPointerType<T>)
                     writeBytes(data.get(), size * sizeof(T));
                 else
                 {
