@@ -15,15 +15,25 @@
 namespace toolkit
 {
 
-    // Template for dynamic array with variable capacity that stores the bit values
-    class TkBitArray
+    /// @brief Dynamic packed bit array backed by 64-bit storage words.
+    class TkBitArray : protected TLinearContainerBase<u64>
     {
+        using Base = TLinearContainerBase<u64>;
+        using Base::m_alloc;
+        using Base::m_capacity;
+        using Base::m_data;
+        using Base::allocateStorage;
+        using Base::freeStorage;
+        using Base::stealStorageFrom;
+        using Base::growCapacity;
+
     public:
         static constexpr i32 kBitsPerItem = 64;
 
     public:
+        /// @brief Creates an empty bit array.
         TK_FORCE_INLINE TkBitArray(IAllocator &alloc = TkMemory::getDefault())
-            : m_alloc{alloc}
+            : Base{alloc}
         {
         }
         explicit TkBitArray(const i32 capacity, IAllocator &alloc = TkMemory::getDefault());
@@ -36,7 +46,7 @@ namespace toolkit
         ~TkBitArray();
 
     public:
-        // Gets the pointer to the bits storage data (linear allocation).
+        /// @brief Returns the raw word storage pointer.
         TK_FORCE_INLINE u64 *get()
         {
             return m_data;
@@ -48,13 +58,13 @@ namespace toolkit
             return m_data;
         }
 
-        // Gets the amount of the items in the collection.
+        /// @brief Returns the number of bits stored in the array.
         TK_FORCE_INLINE i32 count() const
         {
             return m_count;
         }
 
-        // Gets the amount of the items that can be contained by collection without resizing.
+        /// @brief Returns the number of bits available without growing storage.
         TK_FORCE_INLINE i32 capacity() const
         {
             return m_capacity;
@@ -78,31 +88,31 @@ namespace toolkit
             return get(index);
         }
 
-        // Gets the item at the given index.
+        /// @brief Returns the bit value at `index`.
         bool get(const i32 index) const;
-        // Sets the item at the given index.
+        /// @brief Sets the bit value at `index`.
         void set(const i32 index, const bool value);
 
     public:
-        // Clear the collection without changing its capacity.
+        /// @brief Clears all bits while preserving allocated storage.
         TK_FORCE_INLINE void clear()
         {
             m_count = 0;
         }
 
-        // Changes the capacity of the collection.
+        /// @brief Changes the bit capacity and optionally preserves contents.
         void setCapacity(const i32 capacity, const bool preserveContents = true);
 
-        // Resizes the collection to the specified size. If the size is equal or less to the current capacity no additional memory reallocation in performed.
+        /// @brief Resizes the bit count and initializes new bits when growing.
         void resize(const i32 size, const bool preserveContents = true);
         
-        // Ensures the collection has given capacity (or more).
+        /// @brief Ensures storage for at least `minCapacity` bits.
         void ensureCapacity(const i32 minCapacity, const bool preserveContents = true);
 
-        // Sets all items to the given value
+        /// @brief Sets every stored bit to the same value.
         void setAll(const bool value);
 
-        // Adds the specified item to the collection.
+        /// @brief Appends one bit to the end of the array.
         void add(const bool item);
 
         // Adds the specified item to the collection.
@@ -110,7 +120,7 @@ namespace toolkit
         // Adds the other collection to the collection.
         void add(const TkBitArray &other);
 
-        // Swaps the contents of collection with the other object without copy operation. Performs fast internal data exchange.
+        /// @brief Exchanges storage with another bit array that uses the same allocator.
         void swap(TkBitArray &other);
 
     public:
@@ -135,8 +145,5 @@ namespace toolkit
 
     private:
         i32 m_count = 0;
-        i32 m_capacity = 0;
-        IAllocator &m_alloc;
-        u64 *m_data = nullptr;
     };
 }

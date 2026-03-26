@@ -34,13 +34,13 @@ namespace toolkit
     }
 
 
-    // Cache container that holds a list of cached collections to allow reuse and reduced memory allocation amount. Helps with sharing data across code and usages. It's thread-safe
+    /// @brief Thread-safe cache that reuses collection objects to reduce heap churn.
     template <typename T, ClearCallback<T> ClearCallback = defaultClearCallback<T>, CreateCallback<T> CreateCallback = defaultCreateCallback<T>>
     class CollectionPoolCache
     {
     public:
     public:
-        // Helper object used to access the pooled collection and return it to the pool after usage (on code scope execution end).
+        /// @brief RAII handle that returns a pooled object back to the cache on destruction.
         struct ScopeCache
         {
         public:
@@ -59,7 +59,8 @@ namespace toolkit
 
             ~ScopeCache()
             {
-                m_pool->put(value);
+                if (m_pool && value)
+                    m_pool->put(value);
             }
 
             T *operator->()
@@ -88,7 +89,7 @@ namespace toolkit
             TK_FORCE_INLINE ScopeCache(CollectionPoolCache *pool, T *value)
             {
                 m_pool = pool;
-                value = value;
+                this->value = value;
             }
         };
 
@@ -99,17 +100,17 @@ namespace toolkit
     public:
         ~CollectionPoolCache()
         {
-            m_pool.clear();
+            release();
         }
 
     public:
-        // Gets the collection instance from the pool. Can reuse the object from the pool or create a new one. Returns collection is always cleared and ready to use.
+        /// @brief Returns a scoped pooled object that is cleared before use.
         TK_FORCE_INLINE ScopeCache get()
         {
             return ScopeCache(this, getUnscoped());
         }
 
-        // Gets the collection instance from the pool. Can reuse the object from the pool or create a new one. Returns collection is always cleared and ready to use.
+        /// @brief Returns a cleared pooled object without wrapping it in RAII.
         T *getUnscoped()
         {
             T *result;
@@ -123,7 +124,7 @@ namespace toolkit
             return result;
         }
 
-        // Puts the collection value back to the pool.
+        /// @brief Returns an object back to the cache for later reuse.
         void put(T *value)
         {
             m_locker.lock();
@@ -131,12 +132,16 @@ namespace toolkit
             m_locker.unlock();
         }
 
-        // Releases all the allocated resources (existing in the pool that are not during usage).
+        /// @brief Destroys all currently cached objects held by the pool.
         void release()
         {
             m_locker.lock();
+            for (i32 i = 0; i < m_pool.count(); ++i)
+            {
+                if (m_pool[i])
+                    TkMemory::deletePtr(m_pool[i]);
+            }
             m_pool.clear();
-            m_pool.resize(0);
             m_locker.unlock();
         }
     };

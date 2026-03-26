@@ -132,7 +132,7 @@ namespace toolkit
 
 		template <typename T, typename U>
 		TK_FORCE_INLINE static void constructItems(T *dst, const U *src, i32 count)
-			requires(!TIsBitwiseConstructible<T, U>::Value)
+			requires(!TBitwiseConstructibleFrom<T, U>)
 		{
 			while (count--)
 			{
@@ -144,7 +144,7 @@ namespace toolkit
 
 		template <typename T, typename U>
 		TK_FORCE_INLINE static void constructItems(T *dst, const U *src, i32 count)
-			requires(TIsBitwiseConstructible<T, U>::Value)
+			requires(TBitwiseConstructibleFrom<T, U>)
 		{
 			memoryCopy((void *)dst, (void *)src, count * sizeof(U));
 		}
@@ -200,7 +200,7 @@ namespace toolkit
 
 		template <typename T, typename U>
 		TK_FORCE_INLINE static void moveItems(T *dst, const U *src, i32 count)
-			requires(!TIsBitwiseConstructible<T, U>::Value)
+			requires(!TBitwiseConstructibleFrom<T, U>)
 		{
 			while (count--)
 			{
@@ -212,7 +212,7 @@ namespace toolkit
 
 		template <typename T, typename U>
 		TK_FORCE_INLINE static void moveItems(T *dst, const U *src, i32 count)
-			requires(TIsBitwiseConstructible<T, U>::Value)
+			requires(TBitwiseConstructibleFrom<T, U>)
 		{
 			memoryCopy((void *)dst, (void *)src, count * sizeof(U));
 		}

@@ -14,16 +14,17 @@
 namespace toolkit
 {
 
-    // The concurrent data buffer allows to implement asynchronous data writing to the linear buffer by more than one worker thread at once.
-    // Supports only value types that don't require constructor/destructor invocation.
+    /// @brief Thread-safe append-only linear buffer for trivially managed value types.
     template <typename T>
     class TkConcurrentBuffer
     {
     public:
+        /// @brief Creates an empty concurrent buffer.
         TkConcurrentBuffer(IAllocator &alloc = TkMemory::getDefault())
             : m_alloc{alloc}, m_data(nullptr)
         {
         }
+        /// @brief Creates a buffer with preallocated storage for `capacity` items.
         TkConcurrentBuffer(i32 capacity, IAllocator &alloc = TkMemory::getDefault())
             : m_alloc{alloc}, m_capacity(capacity)
         {
@@ -35,18 +36,19 @@ namespace toolkit
 
         ~TkConcurrentBuffer()
         {
-            if (m_data)
-                TkMemory::free(m_alloc, m_data);
+            release();
         }
 
     public:
         // Gets the amount of the elements in the collection.
+        /// @brief Returns the number of committed items.
         TK_FORCE_INLINE i64 count()
         {
             return TSync::atomicRead(&m_count);
         }
 
         // Get amount of the elements that can be holed by collection without resizing.
+        /// @brief Returns the current storage capacity.
         TK_FORCE_INLINE i64 capacity() const
         {
             return m_capacity;
@@ -65,6 +67,7 @@ namespace toolkit
         }
 
         // Gets the pointer to the first element in the collection.
+        /// @brief Returns the raw storage pointer.
         TK_FORCE_INLINE T *get()
         {
             return m_data;
@@ -120,12 +123,14 @@ namespace toolkit
 
     public:
         // Clear the collection but without changing its capacity.
+        /// @brief Resets the logical item count without releasing storage.
         TK_FORCE_INLINE void clear()
         {
             TSync::interlockedExchange(&m_count, 0);
         }
 
         // Releases this buffer data.
+        /// @brief Releases the backing storage and resets buffer state.
         void release()
         {
             m_resizeLocker.lock();
@@ -144,13 +149,13 @@ namespace toolkit
             m_count = size;
         }
 
-        // Adds the single item to the collection. Handles automatic buffer resizing. Thread-safe function that can be called from many threads at once.
+        /// @brief Appends one item and returns its insertion index.
         TK_FORCE_INLINE i64 add(const T &item)
         {
             return add(&item, 1);
         }
 
-        // Adds the array of items to the collection. Handles automatic buffer resizing. Thread-safe function that can be called from many threads at once.
+        /// @brief Appends `count` items and returns the starting index.
         i64 add(const T *items, i32 count)
         {
             const i64 index = TSync::interlockedAdd(&m_count, (i64)count);
@@ -167,38 +172,37 @@ namespace toolkit
             add(collection.get(), collection.count());
         }
 
-        // Adds the given amount of items to the collection.
+        /// @brief Appends `count` default-constructed items and returns the starting index.
         i64 addDefault(i32 count = 1)
         {
             const i64 index = TSync::interlockedAdd(&m_count, (i64)count);
             const i64 newCount = index + (i64)count;
             ensureCapacity(newCount);
-            TkMemory::constructItems(m_data + newCount, count);
+            TkMemory::constructItems(m_data + index, count);
             return index;
         }
 
-        // Adds the one item to the collection and returns the reference to it.
+        /// @brief Appends one default-constructed item and returns it.
         TK_FORCE_INLINE T &addOne()
         {
             const i64 index = TSync::interlockedAdd(&m_count, 1);
             const i64 newCount = index + 1;
             ensureCapacity(newCount);
             TkMemory::constructItems(m_data + index, 1);
-            return m_data[index - 1];
+            return m_data[index];
         }
 
-        // Adds the new items to the end of the collection, possibly reallocating the whole collection to fit. The new items will be zeroed.
-        // Warning! AddZeroed() will create items without calling the constructor and this is not appropriate for item types that require a constructor to function properly.
+        /// @brief Appends zeroed storage for `count` items and returns the starting index.
         i64 addZeroed(i32 count = 1)
         {
-            const i64 index = TSync::interlockedAdd(&m_count, 1);
-            const i64 newCount = index + 1;
+            const i64 index = TSync::interlockedAdd(&m_count, (i64)count);
+            const i64 newCount = index + (i64)count;
             ensureCapacity(newCount);
             ZERO_MEMORY(get() + index, count * sizeof(T));
-            return m_data[index - 1];
+            return index;
         }
 
-        // Ensures that the buffer has the given the capacity (equal or more). Preserves the existing items by copy operation.
+        /// @brief Ensures the backing storage can hold at least `minCapacity` items.
         void ensureCapacity(i64 minCapacity)
         {
             // Early out
@@ -235,7 +239,7 @@ namespace toolkit
                 // Check if preserve contents
                 if (newData && m_count > 0)
                 {
-                    TkMemory::memoryCopy(newData, m_data, m_capacity * sizeof(T));
+                    TkMemory::memoryCopy(newData, m_data, static_cast<psize>(m_count) * sizeof(T));
                 }
 
                 // Delete old data

@@ -17,7 +17,7 @@
 namespace toolkit
 {
 
-    // Template for unordered dictionary with mapped key with value pairs
+    /// @brief Open-addressing hash map that stores key/value pairs in contiguous buckets.
     template <typename KeyType, typename ValueType>
     class TkHashMap
     {
@@ -98,6 +98,7 @@ namespace toolkit
         };
 
     public:
+        /// @brief Creates an empty hash map.
         TkHashMap(IAllocator &alloc = TkMemory::getDefault())
             : m_alloc{alloc}
         {
@@ -169,11 +170,13 @@ namespace toolkit
         }
 
     public:
+        /// @brief Returns the number of occupied entries.
         TK_FORCE_INLINE i32 count() const
         {
             return m_elementsCount;
         }
 
+        /// @brief Returns the bucket table size.
         TK_FORCE_INLINE i32 capacity() const
         {
             return m_size;
@@ -380,6 +383,7 @@ namespace toolkit
 
     public:
         // Clears the collection but without changing its capacity (all inserted elements: keys and values will be removed).
+        /// @brief Removes all entries while keeping the bucket table allocated.
         void clear()
         {
             if (!m_data)
@@ -393,6 +397,7 @@ namespace toolkit
             }
         }
 
+        /// @brief Deletes pointer values and then clears the map.
         void clearDelete() 
 #if TK_COMPILER_MSVC
             requires(TPointerType<ValueType>)
@@ -401,7 +406,7 @@ namespace toolkit
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
             {
                 if (i->Value)
-                    TkMemory::free(m_alloc, i->Value);
+                    TkMemory::deletePtr(m_alloc, i->Value);
             }
             clear();
         }
@@ -414,6 +419,7 @@ namespace toolkit
 #endif
 
         // Changes the capacity of the collection.
+        /// @brief Rebuilds the bucket table to the requested capacity.
         void setCapacity(i32 capacity, const bool preserveContents = true)
         {
             if (capacity == this->capacity())
@@ -467,9 +473,12 @@ namespace toolkit
                 for (i32 i = 0; i < oldSize; i++)
                     oldData[i].free();
             }
+            if (needFree && oldAllocation)
+                TkMemory::free(m_alloc, oldAllocation);
         }
 
         // Ensures that collection has given capacity.
+        /// @brief Ensures the table can hold at least `minCapacity` buckets.
         void ensureCapacity(i32 minCapacity, const bool preserveContents = true)
         {
             if (m_size >= minCapacity)
@@ -481,6 +490,7 @@ namespace toolkit
         }
 
         // Swaps the contents of collection with the other object without copy operation. Performs fast internal data exchange.
+        /// @brief Exchanges contents with another map that uses a compatible allocator.
         void swap(TkHashMap &other)
         {
             if (m_alloc.getTypeId() != AllocatorType::kStack)
@@ -498,6 +508,7 @@ namespace toolkit
 
     public:
         // Add pair element to the collection.
+        /// @brief Inserts a key/value pair and returns the occupied bucket.
         template <typename KeyComparableType>
         TK_FORCE_INLINE Bucket *add(const KeyComparableType &key, const ValueType &value)
         {
@@ -524,6 +535,7 @@ namespace toolkit
         }
 
         // Removes element with a specified key.
+        /// @brief Removes the entry for `key` if it exists.
         template <typename KeyComparableType>
         bool remove(const KeyComparableType &key)
         {
@@ -573,6 +585,7 @@ namespace toolkit
 
     public:
         // Finds the element with given key in the collection.
+        /// @brief Finds an entry by key and returns an iterator to it.
         template <typename KeyComparableType>
         Iterator find(const KeyComparableType &key) const
         {
@@ -630,6 +643,7 @@ namespace toolkit
 
     public:
         // Clones other collection into this.
+        /// @brief Replaces this map with a copy of `other`.
         void clone(const TkHashMap &other)
         {
             // TODO: if both key and value are POD types then use raw memory copy for buckets
@@ -836,6 +850,8 @@ namespace toolkit
                 to = (Bucket*)TkMemory::allocate(alloc, fromSize * sizeof(Bucket));
                 Bucket *toData = to;
                 Bucket *fromData = from;
+                for (i32 i = 0; i < fromSize; i++)
+                    toData[i].m_state = BucketState::kEmpty;
                 for (i32 i = 0; i < fromSize; i++)
                 {
                     Bucket &fromBucket = fromData[i];

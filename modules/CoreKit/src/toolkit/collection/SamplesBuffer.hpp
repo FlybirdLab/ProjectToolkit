@@ -11,7 +11,7 @@
 
 namespace toolkit {
 
-    // Small buffer for samples used to calculate min/max/avg values
+    /// @brief Small inline buffer that keeps the most recent samples for simple statistics.
     template<typename T, i32 Size>
     class TkSamplesBuffer
     {
@@ -82,7 +82,7 @@ namespace toolkit {
         }
 
     public:
-        // Adds the specified value to the buffer.
+        /// @brief Inserts a sample at the front and shifts older samples back.
         void add(const T& value)
         {
             if (m_count != Size)
@@ -95,21 +95,21 @@ namespace toolkit {
             m_data[0] = value;
         }
 
-        // Sets all elements to the given value.
+        /// @brief Assigns the same value to all currently stored samples.
         void setAll(const T value)
         {
             for (i32 i = 0; i < m_count; i++)
                 m_data[i] = value;
         }
 
-        // Clears this collection.
+        /// @brief Clears all samples without touching underlying inline storage.
         TK_FORCE_INLINE void clear()
         {
             m_count = 0;
         }
 
     public:
-        // Gets the minimum value in the buffer.
+        /// @brief Returns the minimum value among stored samples.
         T minimum() const
         {
             TK_ASSERT(hasItems());
@@ -122,7 +122,7 @@ namespace toolkit {
             return result;
         }
 
-        // Gets the maximum value in the buffer.
+        /// @brief Returns the maximum value among stored samples.
         T maximum() const
         {
             TK_ASSERT(hasItems());
@@ -135,7 +135,7 @@ namespace toolkit {
             return result;
         }
 
-        // Gets the average value in the buffer.
+        /// @brief Returns the arithmetic mean of stored samples.
         T average() const
         {
             TK_ASSERT(hasItems());

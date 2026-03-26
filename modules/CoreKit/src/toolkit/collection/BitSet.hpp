@@ -14,7 +14,7 @@
 namespace toolkit
 {
 
-    // Easy bit manipulation.
+    /// @brief Fixed-size bit set implemented on top of inline chunk storage.
     template <u32 kBitCount, typename TChunkType = u8>
     class TkBitSet
     {
@@ -25,6 +25,7 @@ namespace toolkit
         static constexpr u32 kChunkCount = (kBitCount + (kChunkBitCount - 1)) / kChunkBitCount;
 
     public:
+        /// @brief Initializes all bits to either set or unset.
         TkBitSet(bool set)
         {
             TK_ASSERT(set == 0 || set == 1);
@@ -145,7 +146,7 @@ namespace toolkit
             return getAnySet();
         }
 
-        // Set or unset a bit at the given position.
+        /// @brief Sets or clears the bit at `pos`.
         template <typename TInt>
         TkBitSet &set(TInt pos, bool setBit = true)
         {
@@ -167,7 +168,7 @@ namespace toolkit
             return *this;
         }
 
-        // Set all bits.
+        /// @brief Sets all bits to `1`.
         TkBitSet &setAll()
         {
             for (u32 i = 0; i < kChunkCount; ++i)
@@ -191,7 +192,7 @@ namespace toolkit
             return set(list, false);
         }
 
-        // Unset all bits.
+        /// @brief Clears all bits to `0`.
         TkBitSet &unsetAll()
         {
             for (u32 i = 0; i < kChunkCount; ++i)
@@ -210,7 +211,7 @@ namespace toolkit
             return *this;
         }
 
-        // Return true if the bit is set or false if it's not.
+        /// @brief Returns true when the bit at `pos` is set.
         template <typename TInt>
         bool get(TInt pos) const
         {

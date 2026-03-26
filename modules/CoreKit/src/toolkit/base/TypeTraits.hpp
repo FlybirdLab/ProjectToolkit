@@ -30,25 +30,25 @@ namespace toolkit
     };
 
     template <typename T>
-    struct TTypeIdentity
+    struct TTypeIdentity : std::type_identity<T>
     {
-        using Type = T;
+        using Type = typename std::type_identity<T>::type;
     };
 
     ////////////////////////////////////////////////////////////////////////////////////
 
     template <typename... Types>
-    struct TAnd : TBoolConstant<(true && ... && bool(Types::Value))>
+    struct TAnd : TBoolConstant<std::conjunction_v<Types...>>
     {
     };
 
     template <typename... Types>
-    struct TOr : TBoolConstant<(false || ... || bool(Types::Value))>
+    struct TOr : TBoolConstant<std::disjunction_v<Types...>>
     {
     };
 
     template <typename Type>
-    struct TNot : TBoolConstant<!bool(Type::Value)>
+    struct TNot : TBoolConstant<std::negation_v<Type>>
     {
     };
 
@@ -268,22 +268,17 @@ namespace toolkit
     template <bool Condition, typename TrueResult, typename FalseResult>
     struct TStaticIf
     {
-        using Value = std::conditional_t<Condition, TrueResult, FalseResult>;
+        using Type = std::conditional_t<Condition, TrueResult, FalseResult>;
+        using Value = Type;
     };
 
     template <bool Predicate, typename Result = void>
-    struct TEnableIf
+    struct TEnableIf : std::enable_if<Predicate, Result>
     {
-    };
-
-    template <typename Result>
-    struct TEnableIf<true, Result>
-    {
-        using Type = Result;
     };
 
     template <bool Predicate, typename Result = void>
-    using TEnableIfT = typename TEnableIf<Predicate, Result>::Type;
+    using TEnableIfT = std::enable_if_t<Predicate, Result>;
 
     ////////////////////////////////////////////////////////////////////////////////////
 
@@ -317,9 +312,9 @@ namespace toolkit
     ////////////////////////////////////////////////////////////////////////////////////
 
     template <typename TFn, typename... Args>
-    struct TInvokeResult
+    struct TInvokeResult : std::invoke_result<TFn, Args...>
     {
-        using Type = std::invoke_result_t<TFn, Args...>;
+        using Type = typename std::invoke_result<TFn, Args...>::type;
     };
 
     template <typename TFn, typename... Args>
@@ -332,25 +327,30 @@ namespace toolkit
     concept TNotSameAs = !std::same_as<T, U>;
 
     template <typename T>
-    concept TPointerType = TIsPointer<T>::Value;
+    concept TPointerType = std::is_pointer_v<std::remove_cv_t<T>>;
 
     template <typename T>
-    concept TEnumType = TIsEnum<T>::Value;
+    concept TEnumType = std::is_enum_v<T>;
 
     template <typename T>
-    concept TPODType = TIsPODType<T>::Value;
+    concept TPODType =
+        std::is_trivially_copyable_v<TRemoveCVT<T>> ||
+        std::is_enum_v<T> ||
+        std::is_pointer_v<std::remove_cv_t<T>>;
 
     template <typename T>
-    concept TTriviallyConstructibleType = TIsTriviallyConstructible<T>::Value;
+    concept TTriviallyConstructibleType = TPODType<T>;
 
     template <typename T>
-    concept TTriviallyDestructibleType = TIsTriviallyDestructible<T>::Value;
+    concept TTriviallyDestructibleType =
+        std::is_enum_v<T> || std::is_trivially_destructible_v<T>;
 
     template <typename T>
-    concept TTriviallyCopyAssignableType = TIsTriviallyCopyAssignable<T>::Value;
+    concept TTriviallyCopyAssignableType =
+        std::is_trivially_copy_assignable_v<T> || TPODType<T>;
 
     template <typename T>
-    concept TMoveConstructibleType = TIsMoveConstructible<T>::Value;
+    concept TMoveConstructibleType = std::move_constructible<T>;
 
     template <typename T>
     concept TArithmeticType = std::is_arithmetic_v<T>;
@@ -361,15 +361,16 @@ namespace toolkit
     template <typename TFn, typename ReturnType, typename... Args>
     concept TInvocableAs =
         std::invocable<TFn, Args...> &&
-        ((TIsVoidType<ReturnType>::Value &&
-          TIsVoidType<std::invoke_result_t<TFn, Args...>>::Value) ||
-         (!TIsVoidType<ReturnType>::Value &&
+        ((std::same_as<std::remove_cv_t<ReturnType>, void> &&
+          std::same_as<std::remove_cv_t<std::invoke_result_t<TFn, Args...>>, void>) ||
+         (!std::same_as<std::remove_cv_t<ReturnType>, void> &&
           std::convertible_to<std::invoke_result_t<TFn, Args...>, ReturnType>));
 
     ////////////////////////////////////////////////////////////////////////////////////
 
     template <typename T>
-    inline TEnableIfT<TAreTypesEqual<T, unsigned int>::Value, T> reverseBits(T bits)
+        requires std::same_as<TRemoveCVT<T>, unsigned int>
+    inline T reverseBits(T bits)
     {
         bits = (bits << 16) | (bits >> 16);
         bits = ((bits & 0x00ff00ff) << 8) | ((bits & 0xff00ff00) >> 8);
@@ -442,6 +443,9 @@ namespace toolkit
     struct TIsBitwiseConstructible<i64, u64> : TBoolConstant<true>
     {
     };
+
+    template <typename T, typename U>
+    concept TBitwiseConstructibleFrom = TIsBitwiseConstructible<T, U>::Value;
 
     ////////////////////////////////////////////////////////////////////////////////////
 

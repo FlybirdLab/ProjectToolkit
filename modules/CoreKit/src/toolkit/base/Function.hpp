@@ -29,7 +29,7 @@ namespace toolkit
 		template <ReturnType (*Method)(Params...)>
 		static ReturnType staticMethodStub(void *, Params... params)
 		{
-			if constexpr (TIsVoidType<ReturnType>::Value)
+			if constexpr (std::same_as<std::remove_cv_t<ReturnType>, void>)
 			{
 				(Method)(toolkit::forward<Params>(params)...);
 			}
@@ -41,7 +41,7 @@ namespace toolkit
 
 		static ReturnType staticPointerMethodStub(void *callee, Params... params)
 		{
-			if constexpr (TIsVoidType<ReturnType>::Value)
+			if constexpr (std::same_as<std::remove_cv_t<ReturnType>, void>)
 			{
 				reinterpret_cast<Signature>(callee)(toolkit::forward<Params>(params)...);
 			}
@@ -54,7 +54,7 @@ namespace toolkit
 		template <class T, ReturnType (T::*method)(Params...)>
 		static ReturnType classMethodStub(void *callee, Params... params)
 		{
-			if constexpr (TIsVoidType<ReturnType>::Value)
+			if constexpr (std::same_as<std::remove_cv_t<ReturnType>, void>)
 			{
 				(reinterpret_cast<T *>(callee)->*method)(toolkit::forward<Params>(params)...);
 			}
@@ -67,7 +67,7 @@ namespace toolkit
 		template <class T, ReturnType (T::*method)(Params...) const>
 		static ReturnType classMethodStub(void *callee, Params... params)
 		{
-			if constexpr (TIsVoidType<ReturnType>::Value)
+			if constexpr (std::same_as<std::remove_cv_t<ReturnType>, void>)
 			{
 				(reinterpret_cast<T *>(callee)->*method)(toolkit::forward<Params>(params)...);
 			}
@@ -117,8 +117,8 @@ namespace toolkit
 		}
 
 		template <typename T>
-			requires (TNotSameAs<TRemoveCVRefT<T>, TkFunc<ReturnType(Params...)>> &&
-					  TInvocableAs<TRemoveCVRefT<T> &, ReturnType, Params...>)
+			requires (!std::same_as<std::remove_cvref_t<T>, TkFunc<ReturnType(Params...)>> &&
+					  TInvocableAs<std::remove_cvref_t<T> &, ReturnType, Params...>)
 		TkFunc(const T &lambda)
 		{
 			m_lambda = nullptr;
@@ -202,8 +202,8 @@ namespace toolkit
 
 		// Binds a lambda.
 		template <typename T>
-			requires (TNotSameAs<TRemoveCVRefT<T>, TkFunc<ReturnType(Params...)>> &&
-					  TInvocableAs<TRemoveCVRefT<T> &, ReturnType, Params...>)
+			requires (!std::same_as<std::remove_cvref_t<T>, TkFunc<ReturnType(Params...)>> &&
+					  TInvocableAs<std::remove_cvref_t<T> &, ReturnType, Params...>)
 		void bind(const T &lambda)
 		{
 			if (m_lambda)
@@ -216,7 +216,7 @@ namespace toolkit
 			};
 			m_func = [](void *callee, Params... params) -> ReturnType
 			{
-				if constexpr (TIsVoidType<ReturnType>::Value)
+				if constexpr (std::same_as<std::remove_cv_t<ReturnType>, void>)
 				{
 					(*static_cast<T *>(callee))(toolkit::forward<Params>(params)...);
 				}

@@ -8,74 +8,227 @@
 #pragma once
 
 #include "toolkit/memory/Memory.hpp"
+#include <toolkit/memory/ContainerMemory.hpp>
 #include <toolkit/collection/StaticArray.hpp>
-#include <toolkit/collection/Array.hpp>
 #include <toolkit/base/Math.hpp>
 
 namespace toolkit
 {
-
-	// Template for dynamic array with variable capacity that uses fixed size memory chunks for data storage rather than linear allocation.
-	template <typename T, i32 ChunkSize>
-	class TkChunkedArray
+	namespace detail
 	{
+		template <typename T>
+		struct TChunkedArrayChunk final : protected TLinearContainerBase<T>
+		{
+			using ChunkBase = TLinearContainerBase<T>;
+			using ChunkBase::m_capacity;
+			using ChunkBase::m_alloc;
+			using ChunkBase::m_data;
+			using ChunkBase::allocateStorage;
+			using ChunkBase::freeStorage;
+			using ChunkBase::growCapacity;
+
+			explicit TChunkedArrayChunk(IAllocator &alloc = TkMemory::getDefault())
+				: ChunkBase{alloc}
+			{
+			}
+
+			explicit TChunkedArrayChunk(i32 capacity, IAllocator &alloc = TkMemory::getDefault())
+				: ChunkBase{alloc}
+			{
+				setCapacity(capacity, false);
+			}
+
+			~TChunkedArrayChunk()
+			{
+				TkMemory::destructItems(m_data, m_count);
+				freeStorage(m_data);
+			}
+
+			i32 count() const
+			{
+				return m_count;
+			}
+
+			i32 capacity() const
+			{
+				return m_capacity;
+			}
+
+			T &at(i32 index)
+			{
+				TK_ASSERT(index >= 0 && index < m_count);
+				return m_data[index];
+			}
+
+			const T &at(i32 index) const
+			{
+				TK_ASSERT(index >= 0 && index < m_count);
+				return m_data[index];
+			}
+
+			T &operator[](i32 index)
+			{
+				return at(index);
+			}
+
+			const T &operator[](i32 index) const
+			{
+				return at(index);
+			}
+
+			void setCapacity(i32 capacity, bool preserveContents = true)
+			{
+				if (capacity == m_capacity)
+					return;
+
+				TK_ASSERT(capacity >= 0);
+				const i32 newCount = preserveContents ? TkMath::min(m_count, capacity) : 0;
+				T *newData = allocateStorage(capacity);
+
+				if (m_count > 0)
+				{
+					if (newCount > 0)
+						TkMemory::moveItems(newData, m_data, newCount);
+					TkMemory::destructItems(m_data, m_count);
+				}
+
+				freeStorage(m_data);
+				m_data = newData;
+				m_capacity = capacity;
+				m_count = newCount;
+			}
+
+			void ensureCapacity(i32 minCapacity)
+			{
+				if (m_capacity < minCapacity)
+					setCapacity(growCapacity(minCapacity));
+			}
+
+			void clear()
+			{
+				TkMemory::destructItems(m_data, m_count);
+				m_count = 0;
+			}
+
+			void resize(i32 size)
+			{
+				TK_ASSERT(size >= 0);
+				if (size < m_count)
+				{
+					TkMemory::destructItems(m_data + size, m_count - size);
+				}
+				else if (size > m_count)
+				{
+					ensureCapacity(size);
+					TkMemory::constructItems(m_data + m_count, size - m_count);
+				}
+				m_count = size;
+			}
+
+			void add(const T &item)
+			{
+				TK_ASSERT(m_count < m_capacity);
+				TkMemory::constructItems(m_data + m_count, &item, 1);
+				++m_count;
+			}
+
+			void add(const TChunkedArrayChunk &other)
+			{
+				TK_ASSERT(m_count + other.m_count <= m_capacity);
+				TkMemory::constructItems(m_data + m_count, other.m_data, other.m_count);
+				m_count += other.m_count;
+			}
+
+			T &addOne()
+			{
+				TK_ASSERT(m_count < m_capacity);
+				TkMemory::constructItems(m_data + m_count, 1);
+				++m_count;
+				return m_data[m_count - 1];
+			}
+
+			void removeAt(i32 index)
+			{
+				TK_ASSERT(index >= 0 && index < m_count);
+				--m_count;
+				if (index < m_count)
+					m_data[index] = moveTemp(m_data[m_count]);
+				TkMemory::destructItems(m_data + m_count, 1);
+			}
+
+			void removeLast()
+			{
+				TK_ASSERT(m_count > 0);
+				--m_count;
+				TkMemory::destructItems(m_data + m_count, 1);
+			}
+
+			i32 find(const T &item) const
+			{
+				for (i32 i = 0; i < m_count; ++i)
+				{
+					if (m_data[i] == item)
+						return i;
+				}
+				return kInvalidIndex;
+			}
+
+		private:
+			i32 m_count = 0;
+		};
+	}
+
+	/// @brief Dynamic array that stores items across fixed-size heap chunks.
+	template <typename T, i32 ChunkSize>
+	class TkChunkedArray : protected TChunkedContainerBase<detail::TChunkedArrayChunk<T>, 32>
+	{
+		using Chunk = detail::TChunkedArrayChunk<T>;
+		using Base = TChunkedContainerBase<Chunk, 32>;
+		using Base::m_alloc;
+		using Base::m_chunks;
+		using Base::m_count;
+		using Base::appendChunk;
+		using Base::destroyChunks;
+		using Base::findOrAppendChunkWithSpace;
+
 		friend TkChunkedArray;
 
 	public:
+		/// @brief Creates an empty chunked array.
 		TkChunkedArray(IAllocator &alloc = TkMemory::getDefault())
-			: m_alloc{alloc}
+			: Base{alloc}
 		{
 		}
 		~TkChunkedArray()
 		{
-			for (auto *ptr : m_chunks)
-			{
-				if (!ptr)
-					continue;
-				TkMemory::deletePtr(m_alloc, ptr);
-			}
-			// FIX: Manually delete pointer instead of stack-array's clear. m_chunks.clear();
+			destroyChunks();
 		}
 		TkChunkedArray(TkChunkedArray &&other) noexcept
-			: m_count(other.m_count), m_alloc(other.m_alloc), m_chunks(std::move(other.m_chunks))
+			: Base(moveTemp(other))
 		{
-			other.m_count = 0;
-			other.m_chunks.clear();
 		}
 		TkChunkedArray &operator=(TkChunkedArray &&other) noexcept
 		{
 			if (this == &other)
 				return *this;
 
-			for (auto *ptr : m_chunks)
-			{
-				if (!ptr)
-					continue;
-				TkMemory::deletePtr(m_alloc, ptr);
-			}
-			m_chunks.clear();
-
+			TK_ASSERT(&m_alloc == &other.m_alloc);
+			destroyChunks();
 			m_count = other.m_count;
-			m_chunks = std::move(other.m_chunks);
-
+			m_chunks = moveTemp(other.m_chunks);
 			other.m_count = 0;
 			other.m_chunks.clear();
 
 			return *this;
 		}
 		TkChunkedArray(const TkChunkedArray &other)
-			: m_count(0), m_alloc(other.m_alloc)
+			: Base{other.m_alloc}
 		{
 			for (i32 i = 0; i < other.m_chunks.count(); ++i)
 			{
 				auto *src = other.m_chunks[i];
-				auto *dst = TkMemory::newObject<Chunk>(m_alloc);
-				dst->setCapacity(ChunkSize);
-
-				for (i32 j = 0; j < src->count(); ++j)
-					dst->add((*src)[j]);
-
-				m_chunks.add(dst);
+				auto *dst = appendChunk(ChunkSize);
+				dst->add(*src);
 				m_count += src->count();
 			}
 		}
@@ -89,13 +242,8 @@ namespace toolkit
 			for (i32 i = 0; i < other.m_chunks.count(); ++i)
 			{
 				auto *src = other.m_chunks[i];
-				auto *dst = TkMemory::newObject<Chunk>(m_alloc);
-				dst->setCapacity(ChunkSize);
-
-				for (i32 j = 0; j < src->count(); ++j)
-					dst->add((*src)[j]);
-
-				m_chunks.add(dst);
+				auto *dst = appendChunk(ChunkSize);
+				dst->add(*src);
 				m_count += src->count();
 			}
 
@@ -103,13 +251,13 @@ namespace toolkit
 		}
 
 	public:
-		// Gets the amount of the elements in the collection.
+		/// @brief Returns the total number of stored items.
 		TK_FORCE_INLINE i32 count() const
 		{
 			return m_count;
 		}
 
-		// Gets the amount of the elements that can be hold by collection without resizing.
+		/// @brief Returns the number of items that fit without allocating another chunk.
 		TK_FORCE_INLINE i32 capacity() const
 		{
 			return m_chunks.count() * ChunkSize;
@@ -128,7 +276,7 @@ namespace toolkit
 		}
 
 	public:
-		// Gets element by index
+		/// @brief Returns the item at `index`.
 		TK_FORCE_INLINE T &at(i32 index) const
 		{
 			TK_ASSERT(index >= 0 && index < m_count);
@@ -287,62 +435,26 @@ namespace toolkit
 		};
 
 	public:
-		// Adds the specified item to the collection.
+		/// @brief Appends one item and returns its stored address.
 		T *add(const T &item)
 		{
-			// Find first chunk with some space
-			Chunk *chunk = nullptr;
-			for (i32 i = 0; i < m_chunks.count(); i++)
-			{
-				if (m_chunks[i]->count() < ChunkSize)
-				{
-					chunk = m_chunks[i];
-					break;
-				}
-			}
+			Chunk *chunk = findOrAppendChunkWithSpace(ChunkSize);
 
-			// Allocate chunk if missing
-			if (chunk == nullptr)
-			{
-				chunk = TkMemory::newObject<Chunk>(m_alloc);
-				chunk->setCapacity(ChunkSize);
-				m_chunks.add(chunk);
-			}
-
-			// Add item
 			m_count++;
 			chunk->add(item);
 			return &chunk->at(chunk->count() - 1);
 		}
 
-		// Adds the one item to the collection and returns the reference to it.
+		/// @brief Appends one default-constructed item and returns it.
 		T &addOne()
 		{
-			// Find first chunk with some space
-			Chunk *chunk = nullptr;
-			for (i32 i = 0; i < m_chunks.count(); i++)
-			{
-				if (m_chunks[i]->count() < ChunkSize)
-				{
-					chunk = m_chunks[i];
-					break;
-				}
-			}
+			Chunk *chunk = findOrAppendChunkWithSpace(ChunkSize);
 
-			// Allocate chunk if missing
-			if (chunk == nullptr)
-			{
-				chunk = TkMemory::newObject<Chunk>();
-				chunk->setCapacity(ChunkSize);
-				m_chunks.add(chunk);
-			}
-
-			// Add item
 			m_count++;
 			return chunk->addOne();
 		}
 
-		// Removes the element at specified iterator position.
+		/// @brief Removes the item pointed to by the iterator using swap-remove semantics.
 		void remove(const Iterator &i)
 		{
 			if (isEmpty())
@@ -371,7 +483,7 @@ namespace toolkit
 			m_count--;
 		}
 
-		// Clears the collection but without changing its capacity.
+		/// @brief Clears all items but keeps allocated chunks for reuse.
 		void clear()
 		{
 			m_count = 0;
@@ -381,15 +493,13 @@ namespace toolkit
 			}
 		}
 
-		// Clears the collection and releases the dynamic memory allocated within the container.
+		/// @brief Clears the collection and frees all allocated chunks.
 		void release()
 		{
-			clear();
-			m_chunks.clearDelete();
-			m_chunks.resize(0);
+			destroyChunks();
 		}
 
-		// Ensures that collection has a given capacity. It does not preserve collection contents.
+		/// @brief Ensures enough chunks exist to store `minCapacity` items.
 		void ensureCapacity(i32 minCapacity)
 		{
 			i32 minChunks = minCapacity / ChunkSize;
@@ -397,13 +507,11 @@ namespace toolkit
 				++minChunks;
 			while (m_chunks.count() < minChunks)
 			{
-				auto chunk = TkMemory::newObject<Chunk>(m_alloc);
-				chunk->setCapacity(ChunkSize);
-				m_chunks.add(chunk);
+				appendChunk(ChunkSize);
 			}
 		}
 
-		// Resizes that collection to the specified new size. It may not preserve collection contents in case of shrinking.
+		/// @brief Resizes the collection by removing or default-constructing items.
 		void resize(i32 newSize)
 		{
 			while (newSize < count())
@@ -447,13 +555,13 @@ namespace toolkit
 			TK_ASSERT(newSize == count());
 		}
 
-		// Searches for the specified object and returns the zero-based index of the first occurrence within the entire collection.
+		/// @brief Returns the first matching item index or `kInvalidIndex`.
 		i32 find(const T &item) const
 		{
 			i32 startIndex = 0;
 			for (i32 chunkIndex = 0; chunkIndex < m_chunks.count(); chunkIndex++)
 			{
-				const i32 index = m_chunks[chunkIndex]->Find(item);
+				const i32 index = m_chunks[chunkIndex]->find(item);
 				if (index != kInvalidIndex)
 					return startIndex + index;
 				startIndex += ChunkSize;
@@ -499,12 +607,5 @@ namespace toolkit
 			return Iterator(this, m_count);
 		}
 
-	private:
-		// TODO: don't use Array but small struct and don't InlinedArray or Chunk* but Chunk (less dynamic allocations)
-		typedef TkArray<T> Chunk;
-
-		i32 m_count = 0;
-		IAllocator &m_alloc;
-		TkStaticArray<Chunk *, 32> m_chunks;
 	};
 }

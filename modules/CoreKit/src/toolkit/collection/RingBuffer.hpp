@@ -17,7 +17,7 @@
 namespace toolkit
 {
 
-    // Template for ring buffer with variable capacity.
+    /// @brief FIFO ring buffer with contiguous backing storage and automatic growth.
     template <typename T>
     class TkRingBuffer
     {
@@ -27,30 +27,35 @@ namespace toolkit
         IAllocator &m_alloc;
 
     public:
+        /// @brief Creates an empty ring buffer.
         TkRingBuffer(IAllocator &alloc = TkMemory::getDefault())
             : m_alloc{alloc}
         {
         }
         ~TkRingBuffer()
         {
-            destructAll();
+            release();
         }
 
+        /// @brief Returns the raw backing storage pointer.
         TK_FORCE_INLINE T *get()
         {
             return m_data;
         }
 
+        /// @brief Returns the number of stored items.
         TK_FORCE_INLINE i32 count() const
         {
             return m_count;
         }
 
+        /// @brief Returns the current storage capacity.
         TK_FORCE_INLINE i32 capacity() const
         {
             return m_capacity;
         }
 
+        /// @brief Appends one item to the tail, growing the buffer if needed.
         void pushBack(const T &data)
         {
             if (m_capacity == 0 || m_capacity == m_count)
@@ -76,6 +81,7 @@ namespace toolkit
             ++m_count;
         }
 
+        /// @brief Returns the front item without removing it.
         TK_FORCE_INLINE T &peekFront()
         {
             return m_data[m_front];
@@ -98,6 +104,7 @@ namespace toolkit
             return m_data[(m_front + index) % m_capacity];
         }
 
+        /// @brief Removes the front item from the buffer.
         void popFront()
         { 
             TK_ASSERT(m_count > 0);
@@ -106,17 +113,22 @@ namespace toolkit
             --m_count;
         }
 
+        /// @brief Destroys all items but keeps the backing storage.
         void clear()
         {
             destructAll();
             m_front = m_back = m_count = 0;
         }
 
+        /// @brief Destroys all items and releases the backing storage.
         void release()
         {
             destructAll();
             TkMemory::free(m_alloc, m_data);
             m_data = nullptr;
+            m_front = 0;
+            m_back = 0;
+            m_count = 0;
             m_capacity = 0;
         }
 
@@ -131,6 +143,7 @@ namespace toolkit
             const i32 backCount = m_count - frontCount;
             if (backCount > 0)
                 TkMemory::destructItems(m_data, backCount);
+            m_count = 0;
         }
     };
 

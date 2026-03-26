@@ -13,10 +13,12 @@
 namespace toolkit
 {
 
+    /// @brief Fixed-capacity array that stores items inline without heap allocation.
     template <typename T, psize Capacity>
     class TkStaticArray
     {
     public:
+        /// @brief Creates an empty inline array.
         TK_FORCE_INLINE TkStaticArray()
             : m_count{0}
         {
@@ -24,6 +26,7 @@ namespace toolkit
 
         TkStaticArray(std::initializer_list<T> initList)
         {
+            TK_ASSERT(static_cast<i32>(initList.size()) <= Capacity && "TkStaticArray overflow");
             m_count = static_cast<i32>(initList.size());
             if (m_count > 0)
             {
@@ -34,6 +37,7 @@ namespace toolkit
         TkStaticArray(const T *data, const i32 length)
         {
             TK_ASSERT(length >= 0);
+            TK_ASSERT(length <= Capacity && "TkStaticArray overflow");
             m_count = length;
             if (length > 0)
             {
@@ -43,6 +47,7 @@ namespace toolkit
 
         TkStaticArray(const TkStaticArray &other)
         {
+            TK_ASSERT(other.m_count <= Capacity && "TkStaticArray overflow");
             m_count = other.m_count;
             if (m_count > 0)
                 TkMemory::constructItems(m_data, other.get(), other.m_count);
@@ -51,6 +56,7 @@ namespace toolkit
         TkStaticArray(const TkStaticArray &other, i32 extraSize)
         {
             TK_ASSERT(extraSize >= 0);
+            TK_ASSERT(other.m_count + extraSize <= Capacity && "TkStaticArray overflow");
             m_count = other.m_count + extraSize;
 
             TkMemory::constructItems(m_data, other.get(), other.m_count);
@@ -68,9 +74,9 @@ namespace toolkit
 
         TkStaticArray(TkStaticArray &&other) noexcept
         {
+            TK_ASSERT(other.m_count <= Capacity && "TkStaticArray overflow");
             m_count = other.m_count;
-            for (i32 i = 0; i < m_count; ++i)
-                m_data[i] = moveTemp(other.m_data[i]);
+            TkMemory::moveItems(m_data, other.m_data, m_count);
 
             TkMemory::destructItems(other.m_data, m_count);
             other.m_count = 0;
@@ -90,6 +96,7 @@ namespace toolkit
         {
             if (this != &other)
             {
+                TK_ASSERT(other.m_count <= Capacity && "TkStaticArray overflow");
                 TkMemory::destructItems(m_data, m_count);
                 m_count = other.count();
                 TkMemory::constructItems(m_data, other.get(), m_count);
@@ -100,11 +107,11 @@ namespace toolkit
         {
             if (this != &other)
             {
+                TK_ASSERT(other.m_count <= Capacity && "TkStaticArray overflow");
                 TkMemory::destructItems(m_data, m_count);
 
                 m_count = other.m_count;
-                for (i32 i = 0; i < m_count; ++i)
-                    m_data[i] = moveTemp(other.m_data[i]);
+                TkMemory::moveItems(m_data, other.m_data, m_count);
 
                 TkMemory::destructItems(other.m_data, m_count);
                 other.m_count = 0;
@@ -118,6 +125,7 @@ namespace toolkit
         }
 
     public:
+        /// @brief Returns the current number of initialized items.
         TK_FORCE_INLINE i32 count() const
         {
             return m_count;
@@ -136,6 +144,13 @@ namespace toolkit
             return index < m_count && index >= 0;
         }
 
+        /// @brief Returns the compile-time maximum number of items.
+        TK_FORCE_INLINE constexpr psize capacity() const
+        {
+            return Capacity;
+        }
+
+        /// @brief Returns the raw inline storage pointer.
         TK_FORCE_INLINE T *get()
         {
             return m_data;
@@ -222,12 +237,14 @@ namespace toolkit
         }
 
     public:
+        /// @brief Clears all items while keeping inline storage available.
         TK_FORCE_INLINE void clear()
         {
             TkMemory::destructItems(m_data, m_count);
             m_count = 0;
         }
 
+        /// @brief Resizes the initialized range inside the inline buffer.
         void resize(const i32 size, const bool preserveContents = true)
         {
             if (m_count > size)
@@ -252,6 +269,7 @@ namespace toolkit
                 data[i] = value;
         }
 
+        /// @brief Replaces the current contents with a copy of `data`.
         void set(const T *data, const i32 count)
         {
             TK_ASSERT(count <= Capacity && "TkStaticArray overflow");
@@ -260,6 +278,7 @@ namespace toolkit
             TkMemory::constructItems(m_data, data, m_count);
         }
 
+        /// @brief Appends one item to the end of the array.
         void add(const T &item)
         {
             TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
@@ -303,6 +322,7 @@ namespace toolkit
             m_count += count;
         }
 
+        /// @brief Appends one default-constructed item and returns it.
         TK_FORCE_INLINE T &addOne()
         {
             TK_ASSERT(m_count + 1 <= Capacity && "TkStaticArray overflow");
@@ -378,6 +398,7 @@ namespace toolkit
             }
         }
 
+        /// @brief Removes the item at `index` while preserving item order.
         void removeAtKeepOrder(const i32 index)
         {
             TK_ASSERT(index < m_count && index >= 0);
@@ -416,6 +437,7 @@ namespace toolkit
             }
         }
 
+        /// @brief Removes the item at `index` by swapping in the last item.
         void removeAt(const i32 index)
         {
             TK_ASSERT(index < m_count && index >= 0);
@@ -433,6 +455,7 @@ namespace toolkit
             TkMemory::destructItems(m_data + m_count, 1);
         }
 
+        /// @brief Exchanges contents with another static array of the same type.
         void swap(TkStaticArray &other)
         {
             static_assert(TMoveConstructibleType<T>);

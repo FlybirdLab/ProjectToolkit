@@ -12,8 +12,7 @@
 
 namespace toolkit {
 
-    // Universal utility class that can store the chunk of data or just reference to the memory.
-    // Supports only value types that don't require constructor/destructor invocation.
+    /// @brief Small owned-or-linked data view that can either reference or allocate storage.
     template<typename T>
     class TkDataCollection : public TkSpan<T>
     {
@@ -21,6 +20,7 @@ namespace toolkit {
         typedef TkSpan<T> Base;
 
     public:
+        /// @brief Creates an empty collection.
         TkDataCollection(IAllocator& alloc = TkMemory::getDefault())
             : Base {}
             , m_alloc {alloc} 
@@ -99,13 +99,13 @@ namespace toolkit {
         }
 
     public:
-        // Returns true if data is allocated by container itself, otherwise it's just linked.
+        /// @brief Returns true when this object owns its current storage.
         TK_FORCE_INLINE bool isAllocated() const
         {
             return m_isAllocated;
         }
 
-        // Links the external data.
+        /// @brief Links external storage without taking ownership.
         void link(const TkArray<T>& data)
         {
             link(data.get(), data.count());
@@ -139,8 +139,7 @@ namespace toolkit {
             Base::m_data = (T*)data;
         }
 
-        // Allocate a new memory chunk.
-        // <param name="length">Length of the data (amount of T elements).</param>
+        /// @brief Allocates owned storage for `length` items.
         void allocate(const i32 length)
         {
             if (m_isAllocated && Base::m_length == length)
@@ -154,7 +153,7 @@ namespace toolkit {
             }
         }
 
-        // Copies the data to a new allocated chunk.
+        /// @brief Copies `data` into newly owned storage.
         TK_FORCE_INLINE void copy(const TkArray<T>& data)
         {
             if (data.hasItems())
@@ -197,16 +196,16 @@ namespace toolkit {
             memcpy(Base::m_data, data, length * sizeof(T));
         }
 
-        // Swaps data of two containers. Performs no data copy.
+        /// @brief Exchanges contents with another collection using the same allocator.
         void swap(TkDataCollection& data)
         {
-            toolkit::swap(m_alloc, data.m_alloc);
+            TK_ASSERT(&m_alloc == &data.m_alloc);
             toolkit::swap(m_isAllocated, data.m_isAllocated);
             toolkit::swap(Base::m_length, data.m_length);
             toolkit::swap(Base::m_data, data.m_data);
         }
 
-        // Releases the data.
+        /// @brief Releases owned storage and resets the collection to empty.
         void release()
         {
             if (m_isAllocated)
@@ -231,7 +230,7 @@ namespace toolkit {
             Base::m_length = length;
         }
 
-        // Appends the specified data at the end of the container. Will perform the data allocation.
+        /// @brief Appends a copy of `length` items to the owned buffer.
         void append(const T* data, i32 length)
         {
             if (length <= 0)

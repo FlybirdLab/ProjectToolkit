@@ -17,7 +17,7 @@
 
 namespace toolkit {
 
-	// Template for unordered set of values (without duplicates with O(1) lookup access)
+	/// @brief Open-addressing hash set that stores unique values in contiguous buckets.
 	template<typename T>
 	class TkHashSet
 	{
@@ -81,6 +81,7 @@ namespace toolkit {
 		};
 
 	public:
+		/// @brief Creates an empty hash set.
 		TkHashSet(IAllocator& alloc = TkMemory::getDefault()) 
 		    : m_alloc {alloc}
 		{ }
@@ -98,7 +99,7 @@ namespace toolkit {
 			other.m_elementsCount = 0;
 			other.m_deletedCount = 0;
 			other.m_size = 0;
-			moveToEmpty(m_data, other.m_data, m_size);
+			moveToEmpty(m_alloc, m_data, other.m_data, m_size);
 		}
 
 		TkHashSet(const TkHashSet& other)
@@ -120,6 +121,7 @@ namespace toolkit {
 		{
 			if (this != &other)
 			{
+				TK_ASSERT(&m_alloc == &other.m_alloc);
 				clear();
 				TkMemory::free(m_alloc, m_data);
 				m_elementsCount = other.m_elementsCount;
@@ -128,7 +130,7 @@ namespace toolkit {
 				other.m_elementsCount = 0;
 				other.m_deletedCount = 0;
 				other.m_size = 0;
-				moveToEmpty(m_data, other.m_data, m_size);
+				moveToEmpty(m_alloc, m_data, other.m_data, m_size);
 			}
 			return *this;
 		}
@@ -142,12 +144,14 @@ namespace toolkit {
 
 	public:
 		// Gets the amount of the elements in the collection.
+		/// @brief Returns the number of occupied entries.
 		TK_FORCE_INLINE i32 count() const
 		{
 			return m_elementsCount;
 		}
 
 		// Gets the amount of the elements that can be contained by the collection.
+		/// @brief Returns the bucket table size.
 		TK_FORCE_INLINE i32 capacity() const
 		{
 			return m_size;
@@ -308,7 +312,7 @@ namespace toolkit {
 		};
 
 	public:
-		// Removes all elements from the collection.
+		/// @brief Removes all entries while keeping the bucket table allocated.
 		void clear()
 		{
 			if (m_elementsCount + m_deletedCount != 0)
@@ -320,19 +324,19 @@ namespace toolkit {
 			}
 		}
 
-
+		/// @brief Deletes pointer values and then clears the set.
 		void clearDelete() 
 #if TK_COMPILER_MSVC
 		    requires(TPointerType<T>)
 #endif
-		{
-			for (Iterator i = Begin(); i.isNotEnd(); ++i)
 			{
-				if (i->Item)
-					TkMemory::free(m_alloc, i->Item);
+				for (Iterator i = Begin(); i.isNotEnd(); ++i)
+				{
+					if (i->item)
+						TkMemory::deletePtr(m_alloc, i->item);
+				}
+				clear();
 			}
-			clear();
-		}
 
 #if TK_COMPILER_MSVC
 		void clearDelete() requires(!TPointerType<T>) {
@@ -340,7 +344,7 @@ namespace toolkit {
 		}
 #endif
 
-		// Changes capacity of the collection
+		/// @brief Rebuilds the bucket table to the requested capacity.
 		void setCapacity(i32 capacity, const bool preserveContents = true)
 		{
 			if (capacity == this->capacity())
@@ -392,9 +396,11 @@ namespace toolkit {
 				for (i32 i = 0; i < oldSize; i++)
 					oldData[i].free();
 			}
+			if (m_alloc.getTypeId() != AllocatorType::kStack && oldAllocation)
+				TkMemory::free(m_alloc, oldAllocation);
 		}
 
-		// Ensures that collection has given capacity.
+		/// @brief Ensures the table can hold at least `minCapacity` buckets.
 		void ensureCapacity(const i32 minCapacity, const bool preserveContents = true)
 		{
 			if (m_size >= minCapacity)
@@ -405,7 +411,7 @@ namespace toolkit {
 			setCapacity(capacity, preserveContents);
 		}
 
-		// Swaps the contents of collection with the other object without copy operation. Performs fast internal data exchange.
+		/// @brief Exchanges contents with another set that uses a compatible allocator.
 		void swap(TkHashSet& other)
 		{
 			if (m_alloc.getTypeId() != AllocatorType::kStack)
@@ -424,7 +430,7 @@ namespace toolkit {
 		}
 
 	public:
-		// Add element to the collection.
+		/// @brief Inserts a value if it is not already present.
 		template<typename ItemType>
 		bool add(const ItemType& item)
 		{
@@ -448,10 +454,10 @@ namespace toolkit {
 		{
 			TK_ASSERT(i.m_collection != this && i);
 			const Bucket& bucket = *i;
-			Add(bucket.Item);
+			add(bucket.item);
 		}
 
-		// Removes the specified element from the collection.
+		/// @brief Removes the specified value from the set if it exists.
 		template<typename ItemType>
 		bool remove(const ItemType& item)
 		{
@@ -476,7 +482,7 @@ namespace toolkit {
 			if (i)
 			{
 				TK_ASSERT(m_data[i.m_index].isOccupied());
-				m_data[i.m_index].Delete();
+				m_data[i.m_index].destroy();
 				--m_elementsCount;
 				++m_deletedCount;
 				return true;
@@ -485,7 +491,7 @@ namespace toolkit {
 		}
 
 	public:
-		// Find element with given item in the collection
+		/// @brief Finds a value and returns an iterator to it.
 		template<typename ItemType>
 		Iterator find(const ItemType& item) const
 		{
@@ -508,13 +514,13 @@ namespace toolkit {
 		}
 
 	public:
-		// Clones other collection into this
+		/// @brief Replaces this set with a copy of `other`.
 		void clone(const TkHashSet& other)
 		{
 			clear();
 			setCapacity(other.capacity(), false);
 			for (Iterator i = other.Begin(); i != other.End(); ++i)
-				Add(i);
+				add(i);
 			TK_ASSERT(count() == other.count());
 			TK_ASSERT(capacity() == other.capacity());
 		}
@@ -668,6 +674,8 @@ namespace toolkit {
 				}
 				for (i32 i = 0; i < m_size; ++i)
 					oldData[i].free();
+				if (oldAllocation)
+					TkMemory::free(m_alloc, oldAllocation);
 			}
 			m_deletedCount = 0;
 		}
@@ -679,9 +687,11 @@ namespace toolkit {
 				toolkit::swap(to, from);
 			else
 			{
-				to = (Bucket*)TkMemory::allocate(alloc, fromSize);
+				to = (Bucket*)TkMemory::allocate(alloc, fromSize * sizeof(Bucket));
 				Bucket* toData = to;
 				Bucket* fromData = from;
+				for (i32 i = 0; i < fromSize; ++i)
+					toData[i].m_state = BucketState::kEmpty;
 				for (i32 i = 0; i < fromSize; ++i)
 				{
 					Bucket& fromBucket = fromData[i];

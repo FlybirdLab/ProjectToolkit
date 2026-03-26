@@ -10,32 +10,30 @@ namespace toolkit
 {
 
     TkBitArray::TkBitArray(const i32 capacity, IAllocator &alloc)
-        : m_capacity(capacity), m_alloc{alloc}
+        : Base{alloc}
     {
         if (capacity > 0)
-            m_data = (u64 *)TkMemory::allocate(alloc, toItemCapacity(capacity));
+            m_data = allocateStorage(toItemCapacity(capacity));
+        m_capacity = capacity;
     }
 
     TkBitArray::TkBitArray(const TkBitArray &other, IAllocator &alloc) noexcept
-        : m_alloc{alloc}
+        : Base{alloc}
     {
         m_count = m_capacity = other.count();
         if (m_capacity > 0)
         {
             const i32 itemsCapacity = toItemCapacity(m_capacity);
-            m_data = (u64 *)TkMemory::allocate(alloc, itemsCapacity);
+            m_data = allocateStorage(itemsCapacity);
             TkMemory::memoryCopy(get(), other.get(), itemsCapacity * sizeof(u64));
         }
     }
 
     TkBitArray::TkBitArray(TkBitArray &&other) noexcept
-        : m_alloc{other.m_alloc}
+        : Base(moveTemp(other))
     {
         m_count = other.m_count;
-        m_capacity = other.m_capacity;
         other.m_count = 0;
-        other.m_capacity = 0;
-        toolkit::swap(m_data, other.m_data);
     }
 
     TkBitArray &TkBitArray::operator=(const TkBitArray &other) noexcept
@@ -46,12 +44,13 @@ namespace toolkit
 
             if (m_capacity < other.m_count)
             {
-                TkMemory::free(m_alloc, m_data);
+                freeStorage(m_data);
                 m_capacity = other.m_count;
                 const i32 itemsCapacity = toItemCapacity(m_capacity);
-                m_data = (u64 *)TkMemory::allocate(m_alloc, itemsCapacity * sizeof(u64));
-                TkMemory::memoryCopy(get(), other.get(), itemsCapacity * sizeof(u64));
+                m_data = allocateStorage(itemsCapacity);
             }
+            if (other.m_count > 0)
+                TkMemory::memoryCopy(get(), other.get(), toItemCapacity(other.m_count) * sizeof(u64));
             m_count = other.m_count;
         }
         return *this;
@@ -63,20 +62,17 @@ namespace toolkit
         {
             TK_ASSERT(&m_alloc == &other.m_alloc);
 
-            TkMemory::free(m_alloc, m_data);
+            freeStorage(m_data);
             m_count = other.m_count;
-            m_capacity = other.m_capacity;
             other.m_count = 0;
-            other.m_capacity = 0;
-            toolkit::swap(m_data, other.m_data);
+            stealStorageFrom(other);
         }
         return *this;
     }
 
     TkBitArray::~TkBitArray()
     {
-        if (m_data)
-            TkMemory::free(m_alloc, m_data);
+        freeStorage(m_data);
     }
 
     bool TkBitArray::get(const i32 index) const
@@ -102,7 +98,6 @@ namespace toolkit
 
     void TkBitArray::setCapacity(const i32 capacity, const bool preserveContents)
     {
-        // FIX:
         if (capacity == m_capacity)
             return;
 
@@ -113,15 +108,11 @@ namespace toolkit
                                  : 0;
 
         const i32 newWords = toItemCapacity(capacity);
-        const i32 oldWords = toItemCount(m_count);
         const i32 copyWords = toItemCount(newCount);
 
         u64 *newData = newWords > 0
-                           ? static_cast<u64 *>(TkMemory::allocate(m_alloc, newWords * sizeof(u64)))
+                           ? allocateStorage(newWords)
                            : nullptr;
-
-        if (!newData && newWords > 0)
-            TK_ASSERT(false && "OutOfMemory Error");
 
         if (newData)
             TkMemory::memorySet(newData, 0, newWords * sizeof(u64));
@@ -129,7 +120,7 @@ namespace toolkit
         if (preserveContents && copyWords > 0)
             TkMemory::moveItems(newData, m_data, copyWords);
 
-        TkMemory::free(m_alloc, m_data);
+        freeStorage(m_data);
 
         m_data = newData;
         m_capacity = capacity;
@@ -165,7 +156,7 @@ namespace toolkit
     {
         if (m_capacity < minCapacity)
         {
-            const i32 capacity = calCapacityGrow(m_alloc, m_capacity, minCapacity);
+            const i32 capacity = growCapacity(minCapacity);
             setCapacity(capacity, preserveContents);
         }
     }
@@ -199,6 +190,7 @@ namespace toolkit
 
     void TkBitArray::swap(TkBitArray &other)
     {
+        TK_ASSERT(&m_alloc == &other.m_alloc);
         toolkit::swap(m_count, other.m_count);
         toolkit::swap(m_capacity, other.m_capacity);
         toolkit::swap(m_data, other.m_data);
