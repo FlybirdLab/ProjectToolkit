@@ -375,38 +375,38 @@ namespace toolkit
 												 : amount * amount * amount * (amount * (amount * 6 - 15) + 10);
 		}
 
-		inline i32 isZero(i32 a)
+		static inline i32 isZero(i32 a)
 		{
 			return a == 0;
 		}
 
-		inline bool isZero(f32 a)
+		static inline bool isZero(f32 a)
 		{
 			return abs(a) < ZeroTolerance;
 		}
 
-		inline bool isOne(i32 a)
+		static inline bool isOne(i32 a)
 		{
 			return a == 1;
 		}
 
-		inline bool isOne(f32 a)
+		static inline bool isOne(f32 a)
 		{
 			return isZero(a - 1.0f);
 		}
 
-		inline f32 sign(f32 v)
+		static inline f32 sign(f32 v)
 		{
 			return v > 0.0f ? 1.0f : v < 0.0f ? -1.0f
 											  : 0.0f;
 		}
 
-		inline bool sameSign(const f32 a, const f32 b)
+		static inline bool sameSign(const f32 a, const f32 b)
 		{
 			return a * b >= 0.0f;
 		}
 
-		inline bool notSameSign(const f32 a, const f32 b)
+		static inline bool notSameSign(const f32 a, const f32 b)
 		{
 			return a * b < 0.0f;
 		}

@@ -1,6 +1,6 @@
 ﻿/*
  * @Author: cubevlmu khfahqp@gmail.com
- * @LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+ * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
@@ -44,6 +44,7 @@ namespace toolkit::type
 
     typedef u64 uintptr;
 #define POINTER_SIZE 8
+
 
     static_assert(sizeof(i8) == 1, "Invalid i8 type size.");
     static_assert(sizeof(i16) == 2, "Invalid i16 type size.");
@@ -95,6 +96,19 @@ namespace toolkit::type
     static_assert(sizeof(bool) == 1, "bool is not vailed!");
 
     constexpr i32 kInvalidIndex = -1;
+
+#if TK_USE_LARGER_UNIT
+    // 64-bit precision for world coordinates
+    typedef double real;
+    constexpr real kMaxReal = kMaxF64;
+    constexpr real kMinReal = kMinF64;
+#else
+    // 32-bit precision for world coordinates
+    typedef float real;
+    constexpr real kMaxReal = kMaxF32;
+    constexpr real kMinReal = kMinF32;
+#endif
+
 
     template <typename T, u32 count>
     constexpr u32 lengthOf(const T (&)[count])

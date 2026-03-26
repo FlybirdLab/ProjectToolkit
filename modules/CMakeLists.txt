@@ -4,3 +4,4 @@
 # Module index for ToolkitProject
 
 add_subdirectory(CoreKit)
+add_subdirectory(MathKit)

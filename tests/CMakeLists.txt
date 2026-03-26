@@ -2,3 +2,4 @@
 # Copyright (c) 2026 Flybird Games. All rights reserved.
 
 add_subdirectory(CoreTest)
+add_subdirectory(MathTest)

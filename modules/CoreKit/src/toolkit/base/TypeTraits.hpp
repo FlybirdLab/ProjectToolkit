@@ -16,7 +16,11 @@ namespace toolkit
     template <bool TValue>
     struct TBoolConstant
     {
+        using ValueType = bool;
+        using Type = TBoolConstant<TValue>;
+
         static constexpr bool Value = TValue;
+        static constexpr bool value = TValue;
 
         constexpr operator bool() const noexcept
         {

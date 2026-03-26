@@ -86,7 +86,7 @@ namespace toolkit {
         i32 exitCode = 1;
         m_isRunning = true;
 
-        LogInfo("Thread \'{0}\' ID=0x{1:x} started with priority {2}", m_name, m_id, toString(getPriority())); //TODO ::cobalt::
+        LogInfo("Thread \'{0}\' ID=0x{1:x} started with priority {2}", m_name, m_id, toString(getPriority())); //TODO ::toolkit::
 
         if (m_runnable->onInit())
         {
