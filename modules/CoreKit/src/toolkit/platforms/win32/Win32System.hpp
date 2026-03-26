@@ -37,7 +37,7 @@ namespace toolkit
         f64 cycles2Seconds;
         ::WSAData wsaData;
 
-        TkString userLocale, computerName, windowsName;
+        TkString userLocale, computerName, userName, windowsName;
         TkString tempDir;
         HANDLE processMutex = nullptr;
         i32 dpi = 96;

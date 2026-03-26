@@ -48,6 +48,7 @@ namespace toolkit
         ::HANDLE directoryHandle;
         TkThread *thread = nullptr;
         TkMutex mtx;
+        volatile i64 activeCallbacks = 0;
         bool stopNow = false;
         static const i32 bufferSize = 32 * 1024;
         alignas(::DWORD) byte Buffer[bufferSize];

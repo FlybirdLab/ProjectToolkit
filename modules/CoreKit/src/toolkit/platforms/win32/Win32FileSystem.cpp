@@ -652,8 +652,9 @@ namespace toolkit
         auto ptr = (Win32FileWatcher *)handle;
         Win32FileWatcher::s_mtx.lock();
         Win32FileWatcher::s_watchers.remove(ptr);
-        ptr->stopNow = true;
         Win32FileWatcher::s_mtx.unlock();
+
+        ptr->stopNow = true;
 
         if (ptr->directoryHandle != INVALID_HANDLE_VALUE)
         {
@@ -665,6 +666,9 @@ namespace toolkit
 
             CloseHandle(handle);
         }
+
+        while (TSync::atomicRead(&ptr->activeCallbacks) > 0)
+            TkThread::sleep(1);
 
         Win32FileWatcher::s_mtx.lock();
         if (Win32FileWatcher::s_watchers.isEmpty() && Win32FileWatcher::s_thread)
@@ -700,23 +704,30 @@ namespace toolkit
     i32 Win32FileWatcher::run()
     {
         DWORD numBytes = 0;
-        LPOVERLAPPED overlapped;
+        LPOVERLAPPED overlapped = nullptr;
         ULONG_PTR compKey = 0;
         while (s_threadActive)
         {
             if (GetQueuedCompletionStatus(s_ioHandle, &numBytes, &compKey, &overlapped, INFINITE) && overlapped && numBytes != 0)
             {
-                // Send further to the specific watcher
+                Win32FileWatcher *targetWatcher = nullptr;
                 s_mtx.lock();
                 for (auto watcher : s_watchers)
                 {
                     if ((OVERLAPPED *)&watcher->overlapped == overlapped)
                     {
-                        watcher->notificationCompletion();
+                        targetWatcher = watcher;
+                        TSync::interlockedIncrement(&targetWatcher->activeCallbacks);
                         break;
                     }
                 }
                 s_mtx.unlock();
+
+                if (targetWatcher)
+                {
+                    targetWatcher->notificationCompletion();
+                    TSync::interlockedDecrement(&targetWatcher->activeCallbacks);
+                }
             }
         }
         return 0;
@@ -742,8 +753,6 @@ namespace toolkit
 
     void Win32FileWatcher::notificationCompletion()
     {
-        TkMutexGuard lock(Win32FileWatcher::s_mtx);
-
         // Process notifications
         auto notify = (FILE_NOTIFY_INFORMATION *)Buffer;
         do
@@ -776,7 +785,7 @@ namespace toolkit
                 TkString path(file.get(), notify->FileNameLength / sizeof(WCHAR));
                 path = this->path / path;
 
-                // Send event
+                // Send event without holding the global watchers lock.
                 event(path, action);
             }
 

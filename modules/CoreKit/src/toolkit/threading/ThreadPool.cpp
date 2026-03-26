@@ -149,21 +149,37 @@ namespace toolkit
 
     i32 TkThreadPool::threadProc()
     {
-        ThreadPoolTask *task;
+        ThreadPoolTask *task = nullptr;
 
         // Work until end
         while (TSync::atomicRead(&s_exitFlag) == 0)
         {
+            task = nullptr;
+
             // Try to get a job
             if (s_jobs.try_dequeue(task))
             {
                 task->execute();
+                task = nullptr;
             }
             else
             {
-                s_jobsMutex.lock();
-                s_jobsSignal.wait(s_jobsMutex);
-                s_jobsMutex.unlock();
+                {
+                    TkMutexGuard guard(s_jobsMutex);
+
+                    // Re-check the queue while holding the wait mutex to avoid missing a wake-up
+                    // from a producer that enqueued just before this worker went to sleep.
+                    while (TSync::atomicRead(&s_exitFlag) == 0 && !s_jobs.try_dequeue(task))
+                    {
+                        s_jobsSignal.wait(s_jobsMutex);
+                    }
+                }
+
+                if (task != nullptr)
+                {
+                    task->execute();
+                    task = nullptr;
+                }
             }
         }
 

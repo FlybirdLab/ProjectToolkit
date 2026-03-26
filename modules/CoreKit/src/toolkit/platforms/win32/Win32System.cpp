@@ -310,7 +310,6 @@ namespace toolkit
                 }
             }
 
-            ::FreeLibrary(shCoreDll);
         }
 
         return (dpiX + dpiY) / 2;
@@ -361,7 +360,7 @@ namespace toolkit
     {
         // Get OS version
 
-        HKEY hKey;
+        HKEY hKey = nullptr;
         LONG lRes = ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &hKey);
         if (lRes == ERROR_SUCCESS)
         {
@@ -454,7 +453,8 @@ namespace toolkit
                 s_global.version.minor = 0;
             }
         }
-        ::RegCloseKey(hKey);
+        if (hKey)
+            ::RegCloseKey(hKey);
     }
 
     bool System::init()
@@ -475,6 +475,8 @@ namespace toolkit
         TK_ASSERT(freqResult && frequency.QuadPart > 0);
         s_global.clockFreq = frequency.QuadPart;
         s_global.cycles2Seconds = 1.0 / static_cast<double>(frequency.QuadPart);
+
+        getWindowsVersion();
 
         // Estimate program size by checking physical memory usage on start
         s_global.programSizeMem = System::getProcessMemoryStats().usedPhysicalSize;
@@ -577,40 +579,6 @@ namespace toolkit
 #endif
         }
 
-        // Setup unique device ID
-        {
-            s_global.deviceId = TkUuid::Empty;
-
-            // A - Computer Name and User Name
-            u32 hash = HashFunc<TkString>::get(System::getComputerName());
-            combineHash(hash, HashFunc<TkString>::get(System::getUserName()));
-            s_global.deviceId.a = hash;
-
-            // B - MAC address
-            s_global.deviceId.b = 0;
-            ::IP_ADAPTER_ADDRESSES pAddresses[16];
-            DWORD dwBufLen = sizeof(pAddresses);
-
-            const DWORD dwStatus = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, pAddresses, &dwBufLen);
-            PIP_ADAPTER_ADDRESSES pAdapterInfo = dwStatus == ERROR_SUCCESS ? pAddresses : nullptr;
-            while (pAdapterInfo)
-            {
-                hash = pAdapterInfo->PhysicalAddress[0];
-                for (UINT i = 1; i < pAdapterInfo->PhysicalAddressLength; i++)
-                    combineHash(hash, pAdapterInfo->PhysicalAddress[i]);
-                s_global.deviceId.b = hash;
-
-                pAdapterInfo = pAdapterInfo->Next;
-            }
-
-            // C - memory
-            s_global.deviceId.c = (u32)System::getMemoryStats().physicalMemSize;
-
-            // D - cpuid
-            auto cpuInfo = System::getCPUStats();
-            s_global.deviceId.d = (u32)cpuInfo.speed * cpuInfo.logicalCoreCount * cpuInfo.coreCount * cpuInfo.cacheLineSize;
-        }
-
         // Init networking
         if (WSAStartup(MAKEWORD(2, 0), &s_global.wsaData) != 0)
             LogError("Unable to initializes native network! Error : %s", Win32System::getLastErrMsg());
@@ -654,7 +622,6 @@ namespace toolkit
             ::FreeLibrary(ntdll);
         }
 
-        DWORD tmp;
         wchar buffer1[256];
 
         // Get user locale string
@@ -665,6 +632,7 @@ namespace toolkit
         }
 
         // Get computer name string
+        DWORD tmp = sizeof(buffer1) / sizeof(buffer1[0]);
         if (GetComputerNameW(buffer1, &tmp))
         {
             StringAsUTF8<> name{buffer1};
@@ -672,11 +640,45 @@ namespace toolkit
         }
 
         // Get user name string
-        TkString userName;
+        tmp = sizeof(buffer1) / sizeof(buffer1[0]);
         if (GetUserNameW(buffer1, &tmp))
         {
             StringAsUTF8<> name{buffer1};
-            userName = name.get();
+            s_global.userName = name.get();
+        }
+
+        // Setup unique device ID
+        {
+            s_global.deviceId = TkUuid::Empty;
+
+            // A - Computer Name and User Name
+            u32 hash = HashFunc<TkString>::get(System::getComputerName());
+            combineHash(hash, HashFunc<TkString>::get(System::getUserName()));
+            s_global.deviceId.a = hash;
+
+            // B - MAC address
+            s_global.deviceId.b = 0;
+            ::IP_ADAPTER_ADDRESSES pAddresses[16];
+            DWORD dwBufLen = sizeof(pAddresses);
+
+            const DWORD dwStatus = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, pAddresses, &dwBufLen);
+            PIP_ADAPTER_ADDRESSES pAdapterInfo = dwStatus == ERROR_SUCCESS ? pAddresses : nullptr;
+            while (pAdapterInfo)
+            {
+                hash = pAdapterInfo->PhysicalAddress[0];
+                for (UINT i = 1; i < pAdapterInfo->PhysicalAddressLength; i++)
+                    combineHash(hash, pAdapterInfo->PhysicalAddress[i]);
+                s_global.deviceId.b = hash;
+
+                pAdapterInfo = pAdapterInfo->Next;
+            }
+
+            // C - memory
+            s_global.deviceId.c = (u32)System::getMemoryStats().physicalMemSize;
+
+            // D - cpuid
+            auto cpuInfo = System::getCPUStats();
+            s_global.deviceId.d = (u32)cpuInfo.speed * cpuInfo.logicalCoreCount * cpuInfo.coreCount * cpuInfo.cacheLineSize;
         }
 
         return true;
@@ -872,12 +874,7 @@ namespace toolkit
     {
         StringAsUTF16<MAX_PATH> u16{name};
         s_global.processMutex = ::CreateMutexW(nullptr, true, u16.get());
-        if (s_global.processMutex && ::GetLastError() != ERROR_ALREADY_EXISTS)
-        {
-            return false;
-        }
-
-        return true;
+        return s_global.processMutex != nullptr;
     }
 
     void System::releaseProcessMutex()
@@ -1032,32 +1029,29 @@ namespace toolkit
 
     TkString System::getUserName()
     {
-        return s_global.userLocale;
+        return s_global.userName;
     }
 
     NetConType System::getNetConType()
     {
+        __try
+        {
+        constexpr ULONG flags =
+            GAA_FLAG_SKIP_ANYCAST |
+            GAA_FLAG_SKIP_MULTICAST |
+            GAA_FLAG_SKIP_DNS_SERVER;
+
         ULONG bufLen = 0;
-        GetAdaptersAddresses(AF_UNSPEC, 0, nullptr, nullptr, &bufLen);
+        DWORD ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, nullptr, &bufLen);
+        if (ret != ERROR_BUFFER_OVERFLOW || bufLen == 0)
+            return ret == NO_ERROR ? NetConType::kNone : NetConType::kUnknown;
 
-        if (bufLen == 0)
-            return NetConType::kNone;
-
-        IP_ADAPTER_ADDRESSES *addrs =
-            reinterpret_cast<IP_ADAPTER_ADDRESSES *>(malloc(bufLen));
-
+        auto *addrs = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(malloc(bufLen));
         if (!addrs)
             return NetConType::kUnknown;
 
-        DWORD ret = GetAdaptersAddresses(
-            AF_UNSPEC,
-            GAA_FLAG_SKIP_ANYCAST |
-                GAA_FLAG_SKIP_MULTICAST |
-                GAA_FLAG_SKIP_DNS_SERVER,
-            nullptr,
-            addrs,
-            &bufLen);
-
+        TkMemory::memoryClear(addrs, bufLen);
+        ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, addrs, &bufLen);
         if (ret != NO_ERROR)
         {
             free(addrs);
@@ -1065,8 +1059,7 @@ namespace toolkit
         }
 
         NetConType result = NetConType::kNone;
-
-        for (auto *a = addrs; a; a = a->Next)
+        for (auto *a = addrs; a != nullptr; a = a->Next)
         {
             if (a->OperStatus != IfOperStatusUp)
                 continue;
@@ -1075,29 +1068,40 @@ namespace toolkit
             {
             case IF_TYPE_IEEE80211:
                 result = NetConType::kWiFi;
-                goto done;
+                break;
 
             case IF_TYPE_ETHERNET_CSMACD:
                 result = NetConType::kEthernet;
-                goto done;
+                break;
 
             case IF_TYPE_WWANPP:
             case IF_TYPE_WWANPP2:
                 result = NetConType::kCell;
-                goto done;
+                break;
                 // case IF_TYPE_BLUETOOTH:
                 //     result = NetConType::kBluetooth;
-                //     goto done;
+                //     break;
 
             default:
                 result = NetConType::kUnknown;
                 break;
             }
-        }
 
-    done:
+            if (result == NetConType::kWiFi ||
+                result == NetConType::kEthernet ||
+                result == NetConType::kCell)
+            {
+                break;
+            }
+        }
         free(addrs);
         return result;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            LogWarn("[Win32] getNetConType failed with SEH");
+            return NetConType::kUnknown;
+        }
     }
 
     ScreenOrienType System::getScreenOrienType()
@@ -1211,15 +1215,19 @@ namespace toolkit
         if (environmentStr)
         {
             LPWCH env = environmentStr;
-            StringAsUTF8 envOut{env};
             while (*env != '\0')
             {
                 if (*env != '=')
                 {
-                    WCHAR *str = wcschr(env, '=');
-                    StringAsUTF8 out{str};
-                    TK_ASSERT(str);
-                    result[TkString(out.get(), (i32)(out.get() - envOut.get()))] = out.get() + 1;
+                    WCHAR *separator = wcschr(env, L'=');
+                    if (separator)
+                    {
+                        const i32 keyLength = static_cast<i32>(separator - env);
+                        const i32 valueLength = TkStringUtils::length(separator + 1);
+                        StringAsUTF8 keyUtf8{env, keyLength};
+                        StringAsUTF8 valueUtf8{separator + 1, valueLength};
+                        result[TkString(keyUtf8.get(), keyUtf8.length())] = TkString(valueUtf8.get(), valueUtf8.length());
+                    }
                 }
                 while (*env != '\0')
                     env++;
@@ -1378,20 +1386,24 @@ namespace toolkit
 
                 i32 totalLength = 1;
                 for (auto &e : args.envArgs)
-                    totalLength += e.Key.length() + e.Value.length() + 2;
+                {
+                    StringAsUTF16 keyUtf16{e.Key.get()};
+                    StringAsUTF16 valueUtf16{e.Value.get()};
+                    totalLength += keyUtf16.length() + valueUtf16.length() + 2;
+                }
 
                 environmentStr = (wchar *)TkMemory::allocate(TkMemory::getDefault(), totalLength * sizeof(wchar));
 
                 wchar *env = environmentStr;
                 for (auto &e : args.envArgs)
                 {
-                    auto &key = e.Key;
-                    auto &value = e.Value;
-                    TkMemory::memoryCopy(env, key.get(), key.length() * sizeof(wchar));
-                    env += key.length();
+                    StringAsUTF16 keyUtf16{e.Key.get()};
+                    StringAsUTF16 valueUtf16{e.Value.get()};
+                    TkMemory::memoryCopy(env, keyUtf16.get(), keyUtf16.length() * sizeof(wchar));
+                    env += keyUtf16.length();
                     *env++ = '=';
-                    TkMemory::memoryCopy(env, value.get(), value.length() * sizeof(wchar));
-                    env += value.length();
+                    TkMemory::memoryCopy(env, valueUtf16.get(), valueUtf16.length() * sizeof(wchar));
+                    env += valueUtf16.length();
                     *env++ = 0;
                 }
                 *env++ = 0;

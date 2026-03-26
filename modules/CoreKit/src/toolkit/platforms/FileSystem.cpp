@@ -75,7 +75,9 @@ namespace toolkit
         if (size == 0)
             return true;
 
-        const u32 readBytes = readFile(handle, data.get(), size);
+        u32 readBytes = 0;
+        if (!readFile(handle, data.get(), size, &readBytes))
+            return false;
         return readBytes == size;
     }
 
