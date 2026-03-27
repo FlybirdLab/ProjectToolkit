@@ -16,8 +16,8 @@ namespace toolkit
 
     static_assert(sizeof(Mat) == 4 * 4 * 4, "Invalid Mat type size.");
 
-    const Mat Mat::Zero(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-    const Mat Mat::Identity(
+    const Mat Mat::kZero(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    const Mat Mat::kIdentity(
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
@@ -107,9 +107,9 @@ namespace toolkit
     {
         Mat3x3 rotationMat;
         FVec3 translation;
-        decompose(transform.Scale, rotationMat, translation);
-        transform.Translation = translation;
-        Quat::rotationMatrix(rotationMat, transform.Orientation);
+        decompose(transform.scale, rotationMat, translation);
+        transform.translation = translation;
+        Quat::rotationMatrix(rotationMat, transform.orientation);
     }
 
     void Mat::decompose(FVec3 &scale, Quat &rotation, FVec3 &translation) const
@@ -131,7 +131,7 @@ namespace toolkit
             TkMath::sqrt(m31 * m31 + m32 * m32 + m33 * m33));
 
         // If any of the scaling factors are zero, than the rotation matrix can not exist
-        rotation = Mat3x3::Identity;
+        rotation = Mat3x3::kIdentity;
         if (scale.isAnyZero())
             return;
 
@@ -383,7 +383,7 @@ namespace toolkit
         float det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13 - value.m14 * d14;
         if (TkMath::abs(det) <= 1e-12f)
         {
-            result = Zero;
+            result = kZero;
             return;
         }
 
@@ -501,7 +501,7 @@ namespace toolkit
     {
         const float zRange = 1.0f / (zFar - zNear);
 
-        result = Identity;
+        result = kIdentity;
         result.m11 = 2.0f / (right - left);
         result.m22 = 2.0f / (top - bottom);
         result.m33 = zRange;
@@ -525,7 +525,7 @@ namespace toolkit
     {
         const float zRange = zFar / (zFar - zNear);
 
-        result = Zero;
+        result = kZero;
         result.m11 = 2.0f * zNear / (right - left);
         result.m22 = 2.0f * zNear / (top - bottom);
         result.m31 = (left + right) / (left - right);
@@ -539,7 +539,7 @@ namespace toolkit
     {
         const float cosA = TkMath::cos(angle);
         const float sinA = TkMath::sin(angle);
-        result = Identity;
+        result = kIdentity;
         result.m22 = cosA;
         result.m23 = sinA;
         result.m32 = -sinA;
@@ -550,7 +550,7 @@ namespace toolkit
     {
         const float cosA = TkMath::cos(angle);
         const float sinA = TkMath::sin(angle);
-        result = Identity;
+        result = kIdentity;
         result.m11 = cosA;
         result.m13 = -sinA;
         result.m31 = sinA;
@@ -561,7 +561,7 @@ namespace toolkit
     {
         const float cosA = TkMath::cos(angle);
         const float sinA = TkMath::sin(angle);
-        result = Identity;
+        result = kIdentity;
         result.m11 = cosA;
         result.m12 = sinA;
         result.m21 = -sinA;
@@ -582,7 +582,7 @@ namespace toolkit
         const float xz = x * z;
         const float yz = y * z;
 
-        result = Identity;
+        result = kIdentity;
         result.m11 = xx + cosA * (1.0f - xx);
         result.m12 = xy - cosA * xy + sinA * z;
         result.m13 = xz - cosA * xz - sinA * y;
@@ -636,7 +636,7 @@ namespace toolkit
 
     Mat Mat::translation(const FVec3 &value)
     {
-        Mat result = Identity;
+        Mat result = kIdentity;
         result.m41 = value.x;
         result.m42 = value.y;
         result.m43 = value.z;
@@ -645,7 +645,7 @@ namespace toolkit
 
     void Mat::translation(const FVec3 &value, Mat &result)
     {
-        result = Identity;
+        result = kIdentity;
         result.m41 = value.x;
         result.m42 = value.y;
         result.m43 = value.z;
@@ -653,7 +653,7 @@ namespace toolkit
 
     void Mat::translation(float x, float y, float z, Mat &result)
     {
-        result = Identity;
+        result = kIdentity;
         result.m41 = x;
         result.m42 = y;
         result.m43 = z;
@@ -680,7 +680,7 @@ namespace toolkit
 
         const float d = rr1 / rr0 - rv1 / rv0;
 
-        matrix = Identity;
+        matrix = kIdentity;
         matrix.m11 = d * e1.x * e0.x + 1.0f;
         matrix.m12 = d * e1.x * e0.y;
         matrix.m13 = d * e1.x * e0.z;
@@ -919,8 +919,8 @@ namespace toolkit
         dst[11] = src[14];
     }
 
-    const Mat3x3 Mat3x3::Zero(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-    const Mat3x3 Mat3x3::Identity(
+    const Mat3x3 Mat3x3::kZero(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    const Mat3x3 Mat3x3::kIdentity(
         1.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f,
         0.0f, 0.0f, 1.0f);
@@ -970,7 +970,7 @@ namespace toolkit
         float det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13;
         if (TkMath::abs(det) < TkMath::ZeroTolerance)
         {
-            result = Zero;
+            result = kZero;
             return;
         }
 
@@ -1148,7 +1148,7 @@ namespace toolkit
             TkMath::sqrt(m31 * m31 + m32 * m32 + m33 * m33));
 
         // If any of the scaling factors are zero, than the rotation matrix can not exist
-        rotation = Identity;
+        rotation = kIdentity;
         if (scale.isAnyZero())
             return;
 

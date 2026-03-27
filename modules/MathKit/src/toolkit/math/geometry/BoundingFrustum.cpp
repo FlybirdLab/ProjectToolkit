@@ -84,7 +84,7 @@ namespace toolkit
         const real div2 = Vec3::dot(p2.normal, n3Xn1);
         const real div3 = Vec3::dot(p3.normal, n1Xn2);
         if (TkMath::isZero(div1 * div2 * div3))
-            return Vec3::Zero;
+            return Vec3::kZero;
         return n2Xn3 * (-p1.d / div1) - n3Xn1 * (p2.d / div2) - n1Xn2 * (p3.d / div3);
     }
 

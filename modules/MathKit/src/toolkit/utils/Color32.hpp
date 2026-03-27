@@ -14,7 +14,7 @@
 namespace toolkit
 {
 
-    struct Color;
+    class Color;
 
     // Representation of RGBa colors in 32 bit format (8 bits per component in RGBa order).
     struct TK_API Color32
@@ -40,10 +40,10 @@ namespace toolkit
         // Constructs a new Color32 with given r, g, b, a components.
         Color32(byte r, byte g, byte b, byte a)
         {
-            r = r;
-            g = g;
-            b = b;
-            a = a;
+            this->r = r;
+            this->g = g;
+            this->b = b;
+            this->a = a;
         }
 
         explicit Color32(const Color &c);
@@ -106,7 +106,7 @@ namespace toolkit
 
         Color32 operator*(float b) const
         {
-            return Color32((byte)((float)r * b), (byte)((float)g * b), (byte)((float)b * b), (byte)((float)a * b));
+            return Color32((byte)((float)r * b), (byte)((float)g * b), (byte)((float)this->b * b), (byte)((float)a * b));
         }
 
         // Returns true if color is fully transparent (all components are equal zero).

@@ -1,10 +1,10 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
- #pragma once
+#pragma once
 
 #include <toolkit/math/common.hpp>
 
@@ -12,67 +12,59 @@
 #include <toolkit/base/TypeTraits.hpp>
 #include <toolkit/base/Format.hpp>
 
-namespace toolkit {
-
+namespace toolkit
+{
     // Represents a two dimensional mathematical vector.
-    template<typename T>
-    struct Vector2Base
+    template <typename T>
+    class Vector2
     {
     public:
-        typedef T Real;
-        
-        union
-        {
-            struct { T x; T y; };
-            T raw[2];
-        };
-
-    public:
         // Vector with all components equal 0
-        static TK_API const Vector2Base<T> Zero;
+        static TK_API const Vector2<T> kZero;
         // Vector with all components equal 1
-        static TK_API const Vector2Base<T> One;
+        static TK_API const Vector2<T> kOne;
         // Vector with all components equal 0.5
-        static TK_API const Vector2Base<T> Half;
+        static TK_API const Vector2<T> kHalf;
         // Vector X=1, Y=0
-        static TK_API const Vector2Base<T> UnitX;
+        static TK_API const Vector2<T> kUnitX;
         // Vector X=0, Y=1
-        static TK_API const Vector2Base<T> UnitY;
+        static TK_API const Vector2<T> kUnitY;
         // Vector with all components equal maximum value.
-        static TK_API const Vector2Base<T> Minimum;
+        static TK_API const Vector2<T> kMinimum;
         // Vector with all components equal minimum value.
-        static TK_API const Vector2Base<T> Maximum;
+        static TK_API const Vector2<T> kMaximum;
 
     public:
-        Vector2Base() = default;
-        TK_FORCE_INLINE Vector2Base(T xy)
-            : x(xy)
-            , y(xy) {
+        Vector2() = default;
+        TK_FORCE_INLINE Vector2(T xy)
+            : x(xy), y(xy)
+        {
         }
-        TK_FORCE_INLINE explicit Vector2Base(const T* xy)
-            : x(xy[0])
-            , y(xy[1]) {
+        TK_FORCE_INLINE explicit Vector2(const T *xy)
+            : x(xy[0]), y(xy[1])
+        {
         }
-        TK_FORCE_INLINE Vector2Base(T x, T y)
-            : x(x)
-            , y(y) {
+        TK_FORCE_INLINE Vector2(T x, T y)
+            : x(x), y(y)
+        {
         }
-        template<typename U = T, typename TEnableIf<TNot<TIsTheSame<T, U>>::Value>::Type...>
-        TK_FORCE_INLINE Vector2Base(const Vector2Base<U>& xy)
-            : x((T)xy.X)
-            , y((T)xy.y) {
+        template <typename U = T, typename TEnableIf<TNot<TIsTheSame<T, U>>::Value>::Type...>
+        TK_FORCE_INLINE Vector2(const Vector2<U> &xy)
+            : x((T)xy.X), y((T)xy.y)
+        {
         }
-        TK_API explicit Vector2Base(const IVec3& xy);
-        TK_API explicit Vector2Base(const IVec4& xy);
-        TK_API explicit Vector2Base(const FVec3& xy);
-        TK_API explicit Vector2Base(const FVec4& xy);
-        TK_API explicit Vector2Base(const DVec3& xy);
-        TK_API explicit Vector2Base(const DVec4& xy);
-        TK_API explicit Vector2Base(const Color& color);
+        TK_API explicit Vector2(const IVec3 &xy);
+        TK_API explicit Vector2(const IVec4 &xy);
+        TK_API explicit Vector2(const FVec3 &xy);
+        TK_API explicit Vector2(const FVec4 &xy);
+        TK_API explicit Vector2(const DVec3 &xy);
+        TK_API explicit Vector2(const DVec4 &xy);
+        TK_API explicit Vector2(const Color &color);
 
     public:
         TK_API TkString toString() const;
 
+    public:
         // Gets a value indicting whether this instance is normalized.
         bool isNormalized() const
         {
@@ -164,21 +156,21 @@ namespace toolkit {
         }
 
         // Calculates a vector with values being absolute values of that vector.
-        Vector2Base getAbsolute() const
+        Vector2 getAbsolute() const
         {
-            return Vector2Base(TkMath::abs(x), TkMath::abs(y));
+            return Vector2(TkMath::abs(x), TkMath::abs(y));
         }
 
         // Calculates a vector with values being opposite to values of that vector.
-        Vector2Base getNegative() const
+        Vector2 getNegative() const
         {
-            return Vector2Base(-x, -y);
+            return Vector2(-x, -y);
         }
 
         // Calculates a normalized vector that has length equal to 1.
-        Vector2Base getNormalized() const
+        Vector2 getNormalized() const
         {
-            Vector2Base result(x, y);
+            Vector2 result(x, y);
             result.normalize();
             return result;
         }
@@ -197,270 +189,270 @@ namespace toolkit {
         }
 
     public:
-        Vector2Base operator+(const Vector2Base& b) const
+        Vector2 operator+(const Vector2 &b) const
         {
-            return Vector2Base(x + b.x, y + b.y);
+            return Vector2(x + b.x, y + b.y);
         }
 
-        Vector2Base operator-(const Vector2Base& b) const
+        Vector2 operator-(const Vector2 &b) const
         {
-            return Vector2Base(x - b.x, y - b.y);
+            return Vector2(x - b.x, y - b.y);
         }
 
-        Vector2Base operator*(const Vector2Base& b) const
+        Vector2 operator*(const Vector2 &b) const
         {
-            return Vector2Base(x * b.x, y * b.y);
+            return Vector2(x * b.x, y * b.y);
         }
 
-        Vector2Base operator/(const Vector2Base& b) const
+        Vector2 operator/(const Vector2 &b) const
         {
-            return Vector2Base(x / b.x, y / b.y);
+            return Vector2(x / b.x, y / b.y);
         }
 
-        Vector2Base operator-() const
+        Vector2 operator-() const
         {
-            return Vector2Base(-x, -y);
+            return Vector2(-x, -y);
         }
 
-        Vector2Base operator+(T b) const
+        Vector2 operator+(T b) const
         {
-            return Vector2Base(x + b, y + b);
+            return Vector2(x + b, y + b);
         }
 
-        Vector2Base operator-(T b) const
+        Vector2 operator-(T b) const
         {
-            return Vector2Base(x - b, y - b);
+            return Vector2(x - b, y - b);
         }
 
-        Vector2Base operator*(T b) const
+        Vector2 operator*(T b) const
         {
-            return Vector2Base(x * b, y * b);
+            return Vector2(x * b, y * b);
         }
 
-        Vector2Base operator/(T b) const
+        Vector2 operator/(T b) const
         {
-            return Vector2Base(x / b, y / b);
+            return Vector2(x / b, y / b);
         }
 
-        Vector2Base operator+(typename TOtherFloat<T>::Type a) const
-        {
-            T b = (T)a;
-            return Vector2Base(x + b, y + b);
-        }
-
-        Vector2Base operator-(typename TOtherFloat<T>::Type a) const
+        Vector2 operator+(typename TOtherFloat<T>::Type a) const
         {
             T b = (T)a;
-            return Vector2Base(x - b, y - b);
+            return Vector2(x + b, y + b);
         }
 
-        Vector2Base operator*(typename TOtherFloat<T>::Type a) const
+        Vector2 operator-(typename TOtherFloat<T>::Type a) const
         {
             T b = (T)a;
-            return Vector2Base(x * b, y * b);
+            return Vector2(x - b, y - b);
         }
 
-        Vector2Base operator/(typename TOtherFloat<T>::Type a) const
+        Vector2 operator*(typename TOtherFloat<T>::Type a) const
         {
             T b = (T)a;
-            return Vector2Base(x / b, y / b);
+            return Vector2(x * b, y * b);
         }
 
-        Vector2Base& operator+=(const Vector2Base& b)
+        Vector2 operator/(typename TOtherFloat<T>::Type a) const
+        {
+            T b = (T)a;
+            return Vector2(x / b, y / b);
+        }
+
+        Vector2 &operator+=(const Vector2 &b)
         {
             x += b.x;
             y += b.y;
             return *this;
         }
 
-        Vector2Base& operator-=(const Vector2Base& b)
+        Vector2 &operator-=(const Vector2 &b)
         {
             x -= b.x;
             y -= b.y;
             return *this;
         }
 
-        Vector2Base& operator*=(const Vector2Base& b)
+        Vector2 &operator*=(const Vector2 &b)
         {
             x *= b.x;
             y *= b.y;
             return *this;
         }
 
-        Vector2Base& operator/=(const Vector2Base& b)
+        Vector2 &operator/=(const Vector2 &b)
         {
             x /= b.x;
             y /= b.y;
             return *this;
         }
 
-        Vector2Base& operator+=(T b)
+        Vector2 &operator+=(T b)
         {
             x += b;
             y += b;
             return *this;
         }
 
-        Vector2Base& operator-=(T b)
+        Vector2 &operator-=(T b)
         {
             x -= b;
             y -= b;
             return *this;
         }
 
-        Vector2Base& operator*=(T b)
+        Vector2 &operator*=(T b)
         {
             x *= b;
             y *= b;
             return *this;
         }
 
-        Vector2Base& operator/=(T b)
+        Vector2 &operator/=(T b)
         {
             x /= b;
             y /= b;
             return *this;
         }
 
-        bool operator==(const Vector2Base& b) const
+        bool operator==(const Vector2 &b) const
         {
             return x == b.x && y == b.y;
         }
 
-        bool operator!=(const Vector2Base& b) const
+        bool operator!=(const Vector2 &b) const
         {
             return x != b.x || y != b.y;
         }
 
-        bool operator>(const Vector2Base& b) const
+        bool operator>(const Vector2 &b) const
         {
             return x > b.x && y > b.y;
         }
 
-        bool operator>=(const Vector2Base& b) const
+        bool operator>=(const Vector2 &b) const
         {
             return x >= b.x && y >= b.y;
         }
 
-        bool operator<(const Vector2Base& b) const
+        bool operator<(const Vector2 &b) const
         {
             return x < b.x && y < b.y;
         }
 
-        bool operator<=(const Vector2Base& b) const
+        bool operator<=(const Vector2 &b) const
         {
             return x <= b.x && y <= b.y;
         }
 
     public:
-        static bool nearEqual(const Vector2Base& a, const Vector2Base& b)
+        static bool nearEqual(const Vector2 &a, const Vector2 &b)
         {
             return TkMath::nearEqual(a.x, b.x) && TkMath::nearEqual(a.y, b.y);
         }
 
-        static bool nearEqual(const Vector2Base& a, const Vector2Base& b, T epsilon)
+        static bool nearEqual(const Vector2 &a, const Vector2 &b, T epsilon)
         {
             return TkMath::nearEqual(a.x, b.x, epsilon) && TkMath::nearEqual(a.y, b.y, epsilon);
         }
 
     public:
-        static T dot(const Vector2Base& a, const Vector2Base& b)
+        static T dot(const Vector2 &a, const Vector2 &b)
         {
             return a.x * b.x + a.y * b.y;
         }
 
-        static T cross(const Vector2Base& a, const Vector2Base& b)
+        static T cross(const Vector2 &a, const Vector2 &b)
         {
             return a.x * b.y - a.y * b.x;
         }
 
-        static void add(const Vector2Base& a, const Vector2Base& b, Vector2Base& result)
+        static void add(const Vector2 &a, const Vector2 &b, Vector2 &result)
         {
-            result = Vector2Base(a.x + b.x, a.y + b.y);
+            result = Vector2(a.x + b.x, a.y + b.y);
         }
 
-        static void subtract(const Vector2Base& a, const Vector2Base& b, Vector2Base& result)
+        static void subtract(const Vector2 &a, const Vector2 &b, Vector2 &result)
         {
-            result = Vector2Base(a.x - b.x, a.y - b.y);
+            result = Vector2(a.x - b.x, a.y - b.y);
         }
 
-        static void multiply(const Vector2Base& a, const Vector2Base& b, Vector2Base& result)
+        static void multiply(const Vector2 &a, const Vector2 &b, Vector2 &result)
         {
-            result = Vector2Base(a.x * b.x, a.y * b.y);
+            result = Vector2(a.x * b.x, a.y * b.y);
         }
 
-        static void divide(const Vector2Base& a, const Vector2Base& b, Vector2Base& result)
+        static void divide(const Vector2 &a, const Vector2 &b, Vector2 &result)
         {
-            result = Vector2Base(a.x / b.x, a.y / b.y);
+            result = Vector2(a.x / b.x, a.y / b.y);
         }
 
-        static void min(const Vector2Base& a, const Vector2Base& b, Vector2Base& result)
+        static void min(const Vector2 &a, const Vector2 &b, Vector2 &result)
         {
-            result = Vector2Base(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y);
+            result = Vector2(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y);
         }
 
-        static void max(const Vector2Base& a, const Vector2Base& b, Vector2Base& result)
+        static void max(const Vector2 &a, const Vector2 &b, Vector2 &result)
         {
-            result = Vector2Base(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y);
+            result = Vector2(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y);
         }
 
     public:
-        static Vector2Base min(const Vector2Base& a, const Vector2Base& b)
+        static Vector2 min(const Vector2 &a, const Vector2 &b)
         {
-            return Vector2Base(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y);
+            return Vector2(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y);
         }
 
-        static Vector2Base max(const Vector2Base& a, const Vector2Base& b)
+        static Vector2 max(const Vector2 &a, const Vector2 &b)
         {
-            return Vector2Base(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y);
+            return Vector2(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y);
         }
 
-        static Vector2Base mod(const Vector2Base& a, const Vector2Base& b)
+        static Vector2 mod(const Vector2 &a, const Vector2 &b)
         {
-            return Vector2Base(TkMath::mod(a.x, b.x), TkMath::mod(a.y, b.y));
+            return Vector2(TkMath::mod(a.x, b.x), TkMath::mod(a.y, b.y));
         }
 
-        static Vector2Base floor(const Vector2Base& v)
+        static Vector2 floor(const Vector2 &v)
         {
-            return Vector2Base(TkMath::floor(v.x), TkMath::floor(v.y));
+            return Vector2(TkMath::floor(v.x), TkMath::floor(v.y));
         }
 
-        static Vector2Base frac(const Vector2Base& v)
+        static Vector2 frac(const Vector2 &v)
         {
-            return Vector2Base(v.x - (i32)v.x, v.y - (i32)v.y);
+            return Vector2(v.x - (i32)v.x, v.y - (i32)v.y);
         }
 
-        static Vector2Base round(const Vector2Base& v)
+        static Vector2 round(const Vector2 &v)
         {
-            return Vector2Base(TkMath::round(v.x), TkMath::round(v.y));
+            return Vector2(TkMath::round(v.x), TkMath::round(v.y));
         }
 
-        static Vector2Base ceil(const Vector2Base& v)
+        static Vector2 ceil(const Vector2 &v)
         {
-            return Vector2Base(TkMath::ceil(v.x), TkMath::ceil(v.y));
+            return Vector2(TkMath::ceil(v.x), TkMath::ceil(v.y));
         }
 
-        static Vector2Base abs(const Vector2Base& v)
+        static Vector2 abs(const Vector2 &v)
         {
-            return Vector2Base(TkMath::abs(v.x), TkMath::abs(v.y));
+            return Vector2(TkMath::abs(v.x), TkMath::abs(v.y));
         }
 
         // Restricts a value to be within a specified range (inclusive min/max).
-        static Vector2Base clamp(const Vector2Base& v, const Vector2Base& min, const Vector2Base& max)
+        static Vector2 clamp(const Vector2 &v, const Vector2 &min, const Vector2 &max)
         {
-            Vector2Base result;
+            Vector2 result;
             clamp(v, min, max, result);
             return result;
         }
 
         // Restricts a value to be within a specified range (inclusive min/max).
-        static void clamp(const Vector2Base& v, const Vector2Base& min, const Vector2Base& max, Vector2Base& result)
+        static void clamp(const Vector2 &v, const Vector2 &min, const Vector2 &max, Vector2 &result)
         {
-            result = Vector2Base(TkMath::clamp(v.x, min.x, max.x), TkMath::clamp(v.y, min.y, max.y));
+            result = Vector2(TkMath::clamp(v.x, min.x, max.x), TkMath::clamp(v.y, min.y, max.y));
         }
 
         // Calculates distance between two points in 2D.
-        static T distance(const Vector2Base& a, const Vector2Base& b)
+        static T distance(const Vector2 &a, const Vector2 &b)
         {
             const T x = a.x - b.x;
             const T y = a.y - b.y;
@@ -468,7 +460,7 @@ namespace toolkit {
         }
 
         // Calculates the squared distance between two points in 2D.
-        static T distanceSquared(const Vector2Base& a, const Vector2Base& b)
+        static T distanceSquared(const Vector2 &a, const Vector2 &b)
         {
             const T x = a.x - b.x;
             const T y = a.y - b.y;
@@ -476,9 +468,9 @@ namespace toolkit {
         }
 
         // Performs vector normalization (scales vector up to unit length).
-        static Vector2Base normalize(const Vector2Base& v)
+        static Vector2 normalize(const Vector2 &v)
         {
-            Vector2Base r = v;
+            Vector2 r = v;
             const T length = TkMath::sqrt(r.x * r.x + r.y * r.y);
             if (length >= TkMath::ZeroTolerance)
             {
@@ -490,130 +482,167 @@ namespace toolkit {
         }
 
         // Performs a linear interpolation between two vectors.
-        static void lerp(const Vector2Base& start, const Vector2Base& end, T amount, Vector2Base& result)
+        static void lerp(const Vector2 &start, const Vector2 &end, T amount, Vector2 &result)
         {
             result.x = TkMath::lerp(start.x, end.x, amount);
             result.y = TkMath::lerp(start.y, end.y, amount);
         }
 
         // Performs a linear interpolation between two vectors.
-        static Vector2Base lerp(const Vector2Base& start, const Vector2Base& end, T amount)
+        static Vector2 lerp(const Vector2 &start, const Vector2 &end, T amount)
         {
-            Vector2Base result;
+            Vector2 result;
             lerp(start, end, amount, result);
             return result;
         }
 
         // Calculates the area of the triangle.
-        TK_API static T triangleArea(const Vector2Base& v0, const Vector2Base& v1, const Vector2Base& v2);
+        TK_API static T triangleArea(const Vector2 &v0, const Vector2 &v1, const Vector2 &v2);
         // Calculates the angle (in radians) between from and to. This is always the smallest value.
-        TK_API static T angle(const Vector2Base& from, const Vector2Base& to);
+        TK_API static T angle(const Vector2 &from, const Vector2 &to);
+
+    public:
+        union
+        {
+            struct
+            {
+                T x;
+                T y;
+            };
+            T raw[2];
+        };
     };
 
-
-    template<typename T>
-    inline Vector2Base<T> operator+(T a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator+(T a, const Vector2<T> &b)
     {
         return b + a;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator-(T a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator-(T a, const Vector2<T> &b)
     {
-        return Vector2Base<T>(a) - b;
+        return Vector2<T>(a) - b;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator*(T a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator*(T a, const Vector2<T> &b)
     {
         return b * a;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator/(T a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator/(T a, const Vector2<T> &b)
     {
-        return Vector2Base<T>(a) / b;
+        return Vector2<T>(a) / b;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator+(typename TOtherFloat<T>::Type a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator+(typename TOtherFloat<T>::Type a, const Vector2<T> &b)
     {
         return b + a;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator-(typename TOtherFloat<T>::Type a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator-(typename TOtherFloat<T>::Type a, const Vector2<T> &b)
     {
-        return Vector2Base<T>(a) - b;
+        return Vector2<T>(a) - b;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator*(typename TOtherFloat<T>::Type a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator*(typename TOtherFloat<T>::Type a, const Vector2<T> &b)
     {
         return b * a;
     }
 
-    template<typename T>
-    inline Vector2Base<T> operator/(typename TOtherFloat<T>::Type a, const Vector2Base<T>& b)
+    template <typename T>
+    inline Vector2<T> operator/(typename TOtherFloat<T>::Type a, const Vector2<T> &b)
     {
-        return Vector2Base<T>(a) / b;
+        return Vector2<T>(a) / b;
     }
 
-    template<typename T>
-    inline u32 getHash(const Vector2Base<T>& key)
+    template <typename T>
+    inline u32 getHash(const Vector2<T> &key)
     {
-        return (*(u32*)&key.x * 397) ^ *(u32*)&key.Y;
+        return (*(u32 *)&key.x * 397) ^ *(u32 *)&key.y;
     }
 
     namespace math
     {
-        template<typename T>
-        TK_FORCE_INLINE static bool nearEqual(const Vector2Base<T>& a, const Vector2Base<T>& b)
+        template <typename T>
+        TK_FORCE_INLINE static bool nearEqual(const Vector2<T> &a, const Vector2<T> &b)
         {
-            return Vector2Base<T>::nearEqual(a, b);
+            return Vector2<T>::nearEqual(a, b);
         }
     }
 
-    template<>
+    template <>
     struct TIsPODType<FVec2>
     {
-        enum { Value = true };
+        enum
+        {
+            Value = true
+        };
     };
 
-    template<>
+    template <>
     struct TIsPODType<DVec2>
     {
-        enum { Value = true };
+        enum
+        {
+            Value = true
+        };
     };
 
-    template<>
+    template <>
     struct TIsPODType<IVec2>
     {
-        enum { Value = true };
+        enum
+        {
+            Value = true
+        };
     };
 
 #if !defined(_MSC_VER) || defined(__clang__)
     // Forward specializations for Clang
-    template<> TK_API const FVec2 FVec2::Zero;
-    template<> TK_API const FVec2 FVec2::One;
-    template<> TK_API const FVec2 FVec2::UnitX;
-    template<> TK_API const FVec2 FVec2::UnitY;
-    template<> TK_API const FVec2 FVec2::Minimum;
-    template<> TK_API const FVec2 FVec2::Maximum;
+    template <>
+    TK_API const FVec2 FVec2::kZero;
+    template <>
+    TK_API const FVec2 FVec2::kOne;
+    template <>
+    TK_API const FVec2 FVec2::kUnitX;
+    template <>
+    TK_API const FVec2 FVec2::kUnitY;
+    template <>
+    TK_API const FVec2 FVec2::kMinimum;
+    template <>
+    TK_API const FVec2 FVec2::kMaximum;
 
-    template<> TK_API const DVec2 DVec2::Zero;
-    template<> TK_API const DVec2 DVec2::One;
-    template<> TK_API const DVec2 DVec2::UnitX;
-    template<> TK_API const DVec2 DVec2::UnitY;
-    template<> TK_API const DVec2 DVec2::Minimum;
-    template<> TK_API const DVec2 DVec2::Maximum;
+    template <>
+    TK_API const DVec2 DVec2::kZero;
+    template <>
+    TK_API const DVec2 DVec2::kOne;
+    template <>
+    TK_API const DVec2 DVec2::kUnitX;
+    template <>
+    TK_API const DVec2 DVec2::kUnitY;
+    template <>
+    TK_API const DVec2 DVec2::kMinimum;
+    template <>
+    TK_API const DVec2 DVec2::kMaximum;
 
-    template<> TK_API const IVec2 IVec2::Zero;
-    template<> TK_API const IVec2 IVec2::One;
-    template<> TK_API const IVec2 IVec2::UnitX;
-    template<> TK_API const IVec2 IVec2::UnitY;
-    template<> TK_API const IVec2 IVec2::Minimum;
-    template<> TK_API const IVec2 IVec2::Maximum;
+    template <>
+    TK_API const IVec2 IVec2::kZero;
+    template <>
+    TK_API const IVec2 IVec2::kOne;
+    template <>
+    TK_API const IVec2 IVec2::kUnitX;
+    template <>
+    TK_API const IVec2 IVec2::kUnitY;
+    template <>
+    TK_API const IVec2 IVec2::kMinimum;
+    template <>
+    TK_API const IVec2 IVec2::kMaximum;
 #endif
 
 }

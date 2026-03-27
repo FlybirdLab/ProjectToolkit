@@ -21,78 +21,78 @@ namespace toolkit
     static_assert(sizeof(FVec3) == 12, "Invalid FVec3 type size.");
 
     template <>
-    const FVec3 FVec3::Zero(0.0f);
+    const FVec3 FVec3::kZero(0.0f);
     template <>
-    const FVec3 FVec3::One(1.0f);
+    const FVec3 FVec3::kOne(1.0f);
     template <>
-    const FVec3 FVec3::Half(0.5f);
+    const FVec3 FVec3::kHalf(0.5f);
     template <>
-    const FVec3 FVec3::UnitX(1.0f, 0.0f, 0.0f);
+    const FVec3 FVec3::kUnitX(1.0f, 0.0f, 0.0f);
     template <>
-    const FVec3 FVec3::UnitY(0.0f, 1.0f, 0.0f);
+    const FVec3 FVec3::kUnitY(0.0f, 1.0f, 0.0f);
     template <>
-    const FVec3 FVec3::UnitZ(0.0f, 0.0f, 1.0f);
+    const FVec3 FVec3::kUnitZ(0.0f, 0.0f, 1.0f);
     template <>
-    const FVec3 FVec3::Up(0.0f, 1.0f, 0.0f);
+    const FVec3 FVec3::kUp(0.0f, 1.0f, 0.0f);
     template <>
-    const FVec3 FVec3::Down(0.0f, -1.0f, 0.0f);
+    const FVec3 FVec3::kDown(0.0f, -1.0f, 0.0f);
     template <>
-    const FVec3 FVec3::Left(-1.0f, 0.0f, 0.0f);
+    const FVec3 FVec3::kLeft(-1.0f, 0.0f, 0.0f);
     template <>
-    const FVec3 FVec3::Right(1.0f, 0.0f, 0.0f);
+    const FVec3 FVec3::kRight(1.0f, 0.0f, 0.0f);
     template <>
-    const FVec3 FVec3::Forward(0.0f, 0.0f, 1.0f);
+    const FVec3 FVec3::kForward(0.0f, 0.0f, 1.0f);
     template <>
-    const FVec3 FVec3::Backward(0.0f, 0.0f, -1.0f);
+    const FVec3 FVec3::kBackward(0.0f, 0.0f, -1.0f);
     template <>
-    const FVec3 FVec3::Minimum(kMinF32);
+    const FVec3 FVec3::kMinimum(kMinF32);
     template <>
-    const FVec3 FVec3::Maximum(kMaxF32);
+    const FVec3 FVec3::kMaximum(kMaxF32);
 
     template <>
-    FVec3::Vector3Base(const FVec2 &xy, float z)
+    FVec3::Vector3(const FVec2 &xy, f32 z)
         : x(xy.x), y(xy.y), z(z)
     {
     }
 
     template <>
-    FVec3::Vector3Base(const DVec2 &xy, float z)
-        : x(static_cast<float>(xy.x)), y(static_cast<float>(xy.y)), z(0)
+    FVec3::Vector3(const DVec2 &xy, f32 z)
+        : x(static_cast<f32>(xy.x)), y(static_cast<f32>(xy.y)), z(0)
     {
     }
 
     template <>
-    FVec3::Vector3Base(const IVec2 &xy, float z)
-        : x(static_cast<float>(xy.x)), y(static_cast<float>(xy.y)), z(z)
+    FVec3::Vector3(const IVec2 &xy, f32 z)
+        : x(static_cast<f32>(xy.x)), y(static_cast<f32>(xy.y)), z(z)
     {
     }
 
     template <>
-    FVec3::Vector3Base(const IVec3 &xyz)
-        : x(static_cast<float>(xyz.x)), y(static_cast<float>(xyz.y)), z(static_cast<float>(xyz.z))
+    FVec3::Vector3(const IVec3 &xyz)
+        : x(static_cast<f32>(xyz.x)), y(static_cast<f32>(xyz.y)), z(static_cast<f32>(xyz.z))
     {
     }
 
     template <>
-    FVec3::Vector3Base(const IVec4 &xyz)
-        : x((float)xyz.x), y((float)xyz.y), z((float)xyz.z)
+    FVec3::Vector3(const IVec4 &xyz)
+        : x((f32)xyz.x), y((f32)xyz.y), z((f32)xyz.z)
     {
     }
 
     template <>
-    FVec3::Vector3Base(const FVec4 &xyz)
-        : x((float)xyz.x), y((float)xyz.y), z((float)xyz.z)
+    FVec3::Vector3(const FVec4 &xyz)
+        : x((f32)xyz.x), y((f32)xyz.y), z((f32)xyz.z)
     {
     }
 
     template <>
-    FVec3::Vector3Base(const DVec4 &xyz)
-        : x((float)xyz.x), y((float)xyz.y), z((float)xyz.z)
+    FVec3::Vector3(const DVec4 &xyz)
+        : x((f32)xyz.x), y((f32)xyz.y), z((f32)xyz.z)
     {
     }
 
     template <>
-    FVec3::Vector3Base(const Color &color)
+    FVec3::Vector3(const Color &color)
         : x(color.r), y(color.g), z(color.b)
     {
     }
@@ -104,14 +104,14 @@ namespace toolkit
     }
 
     template <>
-    void FVec3::hermite(const FVec3 &value1, const FVec3 &tangent1, const FVec3 &value2, const FVec3 &tangent2, float amount, FVec3 &result)
+    void FVec3::hermite(const FVec3 &value1, const FVec3 &tangent1, const FVec3 &value2, const FVec3 &tangent2, f32 amount, FVec3 &result)
     {
-        const float squared = amount * amount;
-        const float cubed = amount * squared;
-        const float part1 = 2.0f * cubed - 3.0f * squared + 1.0f;
-        const float part2 = -2.0f * cubed + 3.0f * squared;
-        const float part3 = cubed - 2.0f * squared + amount;
-        const float part4 = cubed - squared;
+        const f32 squared = amount * amount;
+        const f32 cubed = amount * squared;
+        const f32 part1 = 2.0f * cubed - 3.0f * squared + 1.0f;
+        const f32 part2 = -2.0f * cubed + 3.0f * squared;
+        const f32 part3 = cubed - 2.0f * squared + amount;
+        const f32 part4 = cubed - squared;
         result.x = value1.x * part1 + value2.x * part2 + tangent1.x * part3 + tangent2.x * part4;
         result.y = value1.y * part1 + value2.y * part2 + tangent1.y * part3 + tangent2.y * part4;
         result.z = value1.z * part1 + value2.z * part2 + tangent1.z * part3 + tangent2.z * part4;
@@ -120,7 +120,7 @@ namespace toolkit
     template <>
     void FVec3::reflect(const FVec3 &vector, const FVec3 &normal, FVec3 &result)
     {
-        const Real dot = vector.x * normal.x + vector.y * normal.y + vector.z * normal.z;
+        const f32 dot = vector.x * normal.x + vector.y * normal.y + vector.z * normal.z;
         result.x = vector.x - 2.0f * dot * normal.x;
         result.y = vector.y - 2.0f * dot * normal.y;
         result.z = vector.z - 2.0f * dot * normal.z;
@@ -129,18 +129,18 @@ namespace toolkit
     template <>
     void FVec3::transform(const FVec3 &vector, const Quat &rotation, FVec3 &result)
     {
-        const float x = rotation.x + rotation.x;
-        const float y = rotation.y + rotation.y;
-        const float z = rotation.z + rotation.z;
-        const float wx = rotation.w * x;
-        const float wy = rotation.w * y;
-        const float wz = rotation.w * z;
-        const float xx = rotation.x * x;
-        const float xy = rotation.x * y;
-        const float xz = rotation.x * z;
-        const float yy = rotation.y * y;
-        const float yz = rotation.y * z;
-        const float zz = rotation.z * z;
+        const f32 x = rotation.x + rotation.x;
+        const f32 y = rotation.y + rotation.y;
+        const f32 z = rotation.z + rotation.z;
+        const f32 wx = rotation.w * x;
+        const f32 wy = rotation.w * y;
+        const f32 wz = rotation.w * z;
+        const f32 xx = rotation.x * x;
+        const f32 xy = rotation.x * y;
+        const f32 xz = rotation.x * z;
+        const f32 yy = rotation.y * y;
+        const f32 yz = rotation.y * z;
+        const f32 zz = rotation.z * z;
         result = FVec3(
             vector.x * (1.0f - yy - zz) + vector.y * (xy - wz) + vector.z * (xz + wy),
             vector.x * (xy + wz) + vector.y * (1.0f - xx - zz) + vector.z * (yz - wx),
@@ -150,18 +150,18 @@ namespace toolkit
     template <>
     FVec3 FVec3::transform(const FVec3 &vector, const Quat &rotation)
     {
-        const float x = rotation.x + rotation.x;
-        const float y = rotation.y + rotation.y;
-        const float z = rotation.z + rotation.z;
-        const float wx = rotation.w * x;
-        const float wy = rotation.w * y;
-        const float wz = rotation.w * z;
-        const float xx = rotation.x * x;
-        const float xy = rotation.x * y;
-        const float xz = rotation.x * z;
-        const float yy = rotation.y * y;
-        const float yz = rotation.y * z;
-        const float zz = rotation.z * z;
+        const f32 x = rotation.x + rotation.x;
+        const f32 y = rotation.y + rotation.y;
+        const f32 z = rotation.z + rotation.z;
+        const f32 wx = rotation.w * x;
+        const f32 wy = rotation.w * y;
+        const f32 wz = rotation.w * z;
+        const f32 xx = rotation.x * x;
+        const f32 xy = rotation.x * y;
+        const f32 xz = rotation.x * z;
+        const f32 yy = rotation.y * y;
+        const f32 yz = rotation.y * z;
+        const f32 zz = rotation.z * z;
         return {
             vector.x * (1.0f - yy - zz) + vector.y * (xy - wz) + vector.z * (xz + wy),
             vector.x * (xy + wz) + vector.y * (1.0f - xx - zz) + vector.z * (yz - wx),
@@ -248,14 +248,14 @@ namespace toolkit
     template <>
     FVec3 FVec3::project(const FVec3 &vector, const FVec3 &onNormal)
     {
-        const float sqrMag = dot(onNormal, onNormal);
+        const f32 sqrMag = dot(onNormal, onNormal);
         if (sqrMag < TkMath::ZeroTolerance)
-            return Zero;
+            return kZero;
         return onNormal * dot(vector, onNormal) / sqrMag;
     }
 
     template <>
-    void FVec3::project(const FVec3 &vector, float x, float y, float width, float height, float minZ, float maxZ, const Mat &worldViewProjection, FVec3 &result)
+    void FVec3::project(const FVec3 &vector, f32 x, f32 y, f32 width, f32 height, f32 minZ, f32 maxZ, const Mat &worldViewProjection, FVec3 &result)
     {
         FVec3 v;
         transformCoordinate(vector, worldViewProjection, v);
@@ -263,7 +263,7 @@ namespace toolkit
     }
 
     template <>
-    void FVec3::unproject(const FVec3 &vector, float x, float y, float width, float height, float minZ, float maxZ, const Mat &worldViewProjection, FVec3 &result)
+    void FVec3::unproject(const FVec3 &vector, f32 x, f32 y, f32 width, f32 height, f32 minZ, f32 maxZ, const Mat &worldViewProjection, FVec3 &result)
     {
         Mat matrix{};
         Mat::invert(worldViewProjection, matrix);
@@ -288,9 +288,9 @@ namespace toolkit
     template <>
     void FVec3::findBestAxisVectors(FVec3 &firstAxis, FVec3 &secondAxis) const
     {
-        const float absX = TkMath::abs(x);
-        const float absY = TkMath::abs(y);
-        const float absZ = TkMath::abs(z);
+        const f32 absX = TkMath::abs(x);
+        const f32 absY = TkMath::abs(y);
+        const f32 absZ = TkMath::abs(z);
         if (absZ > absX && absZ > absY)
             firstAxis = FVec3(1, 0, 0);
         else
@@ -300,15 +300,15 @@ namespace toolkit
     }
 
     template <>
-    float FVec3::triangleArea(const FVec3 &v0, const FVec3 &v1, const FVec3 &v2)
+    f32 FVec3::triangleArea(const FVec3 &v0, const FVec3 &v1, const FVec3 &v2)
     {
         return ((v2 - v0) ^ (v1 - v0)).length() * 0.5f;
     }
 
     template <>
-    float FVec3::angle(const FVec3 &from, const FVec3 &to)
+    f32 FVec3::angle(const FVec3 &from, const FVec3 &to)
     {
-        const float dot_ = TkMath::clamp(dot(normalize(from), normalize(to)), -1.0f, 1.0f);
+        const f32 dot_ = TkMath::clamp(dot(normalize(from), normalize(to)), -1.0f, 1.0f);
         if (TkMath::abs(dot_) > 1.0f - TkMath::ZeroTolerance)
             return dot_ > 0.0f ? 0.0f : TkMath::PI;
         return TkMath::acos(dot_);
@@ -332,78 +332,78 @@ namespace toolkit
     static_assert(sizeof(DVec3) == 24, "Invalid DVec3 type size.");
 
     template <>
-    const DVec3 DVec3::Zero(0.0);
+    const DVec3 DVec3::kZero(0.0);
     template <>
-    const DVec3 DVec3::One(1.0);
+    const DVec3 DVec3::kOne(1.0);
     template <>
-    const DVec3 DVec3::Half(0.5);
+    const DVec3 DVec3::kHalf(0.5);
     template <>
-    const DVec3 DVec3::UnitX(1.0, 0.0, 0.0);
+    const DVec3 DVec3::kUnitX(1.0, 0.0, 0.0);
     template <>
-    const DVec3 DVec3::UnitY(0.0, 1.0, 0.0);
+    const DVec3 DVec3::kUnitY(0.0, 1.0, 0.0);
     template <>
-    const DVec3 DVec3::UnitZ(0.0, 0.0, 1.0);
+    const DVec3 DVec3::kUnitZ(0.0, 0.0, 1.0);
     template <>
-    const DVec3 DVec3::Up(0.0, 1.0, 0.0);
+    const DVec3 DVec3::kUp(0.0, 1.0, 0.0);
     template <>
-    const DVec3 DVec3::Down(0.0, -1.0, 0.0);
+    const DVec3 DVec3::kDown(0.0, -1.0, 0.0);
     template <>
-    const DVec3 DVec3::Left(-1.0, 0.0, 0.0);
+    const DVec3 DVec3::kLeft(-1.0, 0.0, 0.0);
     template <>
-    const DVec3 DVec3::Right(1.0, 0.0, 0.0);
+    const DVec3 DVec3::kRight(1.0, 0.0, 0.0);
     template <>
-    const DVec3 DVec3::Forward(0.0, 0.0, 1.0);
+    const DVec3 DVec3::kForward(0.0, 0.0, 1.0);
     template <>
-    const DVec3 DVec3::Backward(0.0, 0.0, -1.0);
+    const DVec3 DVec3::kBackward(0.0, 0.0, -1.0);
     template <>
-    const DVec3 DVec3::Minimum(kMaxF64);
+    const DVec3 DVec3::kMinimum(kMaxF64);
     template <>
-    const DVec3 DVec3::Maximum(kMinF64);
+    const DVec3 DVec3::kMaximum(kMinF64);
 
     template <>
-    DVec3::Vector3Base(const FVec2 &xy, double z)
+    DVec3::Vector3(const FVec2 &xy, double z)
         : x((double)xy.x), y((double)xy.y), z(z)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const DVec2 &xy, double z)
+    DVec3::Vector3(const DVec2 &xy, double z)
         : x(xy.x), y(xy.y), z(0)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const IVec2 &xy, double z)
+    DVec3::Vector3(const IVec2 &xy, double z)
         : x((double)xy.x), y((double)xy.y), z(z)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const IVec3 &xyz)
+    DVec3::Vector3(const IVec3 &xyz)
         : x((double)xyz.x), y((double)xyz.y), z((double)xyz.z)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const IVec4 &xyz)
+    DVec3::Vector3(const IVec4 &xyz)
         : x((double)xyz.x), y((double)xyz.y), z((double)xyz.z)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const FVec4 &xyz)
+    DVec3::Vector3(const FVec4 &xyz)
         : x((double)xyz.x), y((double)xyz.y), z((double)xyz.z)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const DVec4 &xyz)
+    DVec3::Vector3(const DVec4 &xyz)
         : x(xyz.x), y(xyz.y), z(xyz.z)
     {
     }
 
     template <>
-    DVec3::Vector3Base(const Color &color)
+    DVec3::Vector3(const Color &color)
         : x((double)color.r), y((double)color.g), z((double)color.b)
     {
     }
@@ -440,18 +440,18 @@ namespace toolkit
     template <>
     void DVec3::transform(const DVec3 &vector, const Quat &rotation, DVec3 &result)
     {
-        const float x = rotation.x + rotation.x;
-        const float y = rotation.y + rotation.y;
-        const float z = rotation.z + rotation.z;
-        const float wx = rotation.w * x;
-        const float wy = rotation.w * y;
-        const float wz = rotation.w * z;
-        const float xx = rotation.x * x;
-        const float xy = rotation.x * y;
-        const float xz = rotation.x * z;
-        const float yy = rotation.y * y;
-        const float yz = rotation.y * z;
-        const float zz = rotation.z * z;
+        const f32 x = rotation.x + rotation.x;
+        const f32 y = rotation.y + rotation.y;
+        const f32 z = rotation.z + rotation.z;
+        const f32 wx = rotation.w * x;
+        const f32 wy = rotation.w * y;
+        const f32 wz = rotation.w * z;
+        const f32 xx = rotation.x * x;
+        const f32 xy = rotation.x * y;
+        const f32 xz = rotation.x * z;
+        const f32 yy = rotation.y * y;
+        const f32 yz = rotation.y * z;
+        const f32 zz = rotation.z * z;
         result = DVec3(
             vector.x * (1.0f - yy - zz) + vector.y * (xy - wz) + vector.z * (xz + wy),
             vector.x * (xy + wz) + vector.y * (1.0f - xx - zz) + vector.z * (yz - wx),
@@ -461,18 +461,18 @@ namespace toolkit
     template <>
     DVec3 DVec3::transform(const DVec3 &vector, const Quat &rotation)
     {
-        const float x = rotation.x + rotation.x;
-        const float y = rotation.y + rotation.y;
-        const float z = rotation.z + rotation.z;
-        const float wx = rotation.w * x;
-        const float wy = rotation.w * y;
-        const float wz = rotation.w * z;
-        const float xx = rotation.x * x;
-        const float xy = rotation.x * y;
-        const float xz = rotation.x * z;
-        const float yy = rotation.y * y;
-        const float yz = rotation.y * z;
-        const float zz = rotation.z * z;
+        const f32 x = rotation.x + rotation.x;
+        const f32 y = rotation.y + rotation.y;
+        const f32 z = rotation.z + rotation.z;
+        const f32 wx = rotation.w * x;
+        const f32 wy = rotation.w * y;
+        const f32 wz = rotation.w * z;
+        const f32 xx = rotation.x * x;
+        const f32 xy = rotation.x * y;
+        const f32 xz = rotation.x * z;
+        const f32 yy = rotation.y * y;
+        const f32 yz = rotation.y * z;
+        const f32 zz = rotation.z * z;
         return {
             vector.x * static_cast<double>(1.0f - yy - zz) + vector.y * static_cast<double>(xy - wz) + vector.z * static_cast<double>(xz + wy),
             vector.x * static_cast<double>(xy + wz) + vector.y * static_cast<double>(1.0f - xx - zz) + vector.z * static_cast<double>(yz - wx),
@@ -559,14 +559,14 @@ namespace toolkit
     template <>
     DVec3 DVec3::project(const DVec3 &vector, const DVec3 &onNormal)
     {
-        const Real sqrMag = dot(onNormal, onNormal);
+        const f64 sqrMag = dot(onNormal, onNormal);
         if (sqrMag < TkMath::ZeroTolerance)
-            return Zero;
+            return kZero;
         return onNormal * dot(vector, onNormal) / sqrMag;
     }
 
     template <>
-    void DVec3::project(const DVec3 &vector, float x, float y, float width, float height, float minZ, float maxZ, const Mat &worldViewProjection, DVec3 &result)
+    void DVec3::project(const DVec3 &vector, f32 x, f32 y, f32 width, f32 height, f32 minZ, f32 maxZ, const Mat &worldViewProjection, DVec3 &result)
     {
         DVec3 v;
         transformCoordinate(vector, worldViewProjection, v);
@@ -574,7 +574,7 @@ namespace toolkit
     }
 
     template <>
-    void DVec3::unproject(const DVec3 &vector, float x, float y, float width, float height, float minZ, float maxZ, const Mat &worldViewProjection, DVec3 &result)
+    void DVec3::unproject(const DVec3 &vector, f32 x, f32 y, f32 width, f32 height, f32 minZ, f32 maxZ, const Mat &worldViewProjection, DVec3 &result)
     {
         Mat matrix{};
         Mat::invert(worldViewProjection, matrix);
@@ -643,78 +643,78 @@ namespace toolkit
     static_assert(sizeof(IVec3) == 12, "Invalid IVec3 type size.");
 
     template <>
-    const IVec3 IVec3::Zero(0);
+    const IVec3 IVec3::kZero(0);
     template <>
-    const IVec3 IVec3::One(1);
+    const IVec3 IVec3::kOne(1);
     template <>
-    const IVec3 IVec3::Half(1);
+    const IVec3 IVec3::kHalf(1);
     template <>
-    const IVec3 IVec3::UnitX(1, 0, 0);
+    const IVec3 IVec3::kUnitX(1, 0, 0);
     template <>
-    const IVec3 IVec3::UnitY(0, 1, 0);
+    const IVec3 IVec3::kUnitY(0, 1, 0);
     template <>
-    const IVec3 IVec3::UnitZ(0, 0, 1);
+    const IVec3 IVec3::kUnitZ(0, 0, 1);
     template <>
-    const IVec3 IVec3::Up(0, 1, 0);
+    const IVec3 IVec3::kUp(0, 1, 0);
     template <>
-    const IVec3 IVec3::Down(0, -1, 0);
+    const IVec3 IVec3::kDown(0, -1, 0);
     template <>
-    const IVec3 IVec3::Left(-1, 0, 0);
+    const IVec3 IVec3::kLeft(-1, 0, 0);
     template <>
-    const IVec3 IVec3::Right(1, 0, 0);
+    const IVec3 IVec3::kRight(1, 0, 0);
     template <>
-    const IVec3 IVec3::Forward(0, 0, 1);
+    const IVec3 IVec3::kForward(0, 0, 1);
     template <>
-    const IVec3 IVec3::Backward(0, 0, -1);
+    const IVec3 IVec3::kBackward(0, 0, -1);
     template <>
-    const IVec3 IVec3::Minimum(kMinI32);
+    const IVec3 IVec3::kMinimum(kMinI32);
     template <>
-    const IVec3 IVec3::Maximum(kMaxI32);
+    const IVec3 IVec3::kMaximum(kMaxI32);
 
     template <>
-    IVec3::Vector3Base(const FVec2 &xy, i32 z)
+    IVec3::Vector3(const FVec2 &xy, i32 z)
         : x((i32)xy.x), y((i32)xy.y), z(z)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const DVec2 &xy, i32 z)
+    IVec3::Vector3(const DVec2 &xy, i32 z)
         : x((i32)xy.x), y((i32)xy.y), z(0)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const IVec2 &xy, i32 z)
+    IVec3::Vector3(const IVec2 &xy, i32 z)
         : x(xy.x), y(xy.y), z(z)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const IVec3 &xyz)
+    IVec3::Vector3(const IVec3 &xyz)
         : x(xyz.x), y(xyz.y), z(xyz.z)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const IVec4 &xyz)
+    IVec3::Vector3(const IVec4 &xyz)
         : x(xyz.x), y(xyz.y), z(xyz.z)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const FVec4 &xyz)
+    IVec3::Vector3(const FVec4 &xyz)
         : x((i32)xyz.x), y((i32)xyz.y), z((i32)xyz.z)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const DVec4 &xyz)
+    IVec3::Vector3(const DVec4 &xyz)
         : x((i32)xyz.x), y((i32)xyz.y), z((i32)xyz.z)
     {
     }
 
     template <>
-    IVec3::Vector3Base(const Color &color)
+    IVec3::Vector3(const Color &color)
         : x((i32)color.r), y((i32)color.g), z((i32)color.b)
     {
     }
@@ -800,17 +800,17 @@ namespace toolkit
     template <>
     IVec3 IVec3::project(const IVec3 &vector, const IVec3 &onNormal)
     {
-        return Zero;
+        return kZero;
     }
 
     template <>
-    void IVec3::project(const IVec3 &vector, float x, float y, float width, float height, float minZ, float maxZ, const Mat &worldViewProjection, IVec3 &result)
+    void IVec3::project(const IVec3 &vector, f32 x, f32 y, f32 width, f32 height, f32 minZ, f32 maxZ, const Mat &worldViewProjection, IVec3 &result)
     {
         result = vector;
     }
 
     template <>
-    void IVec3::unproject(const IVec3 &vector, float x, float y, float width, float height, float minZ, float maxZ, const Mat &worldViewProjection, IVec3 &result)
+    void IVec3::unproject(const IVec3 &vector, f32 x, f32 y, f32 width, f32 height, f32 minZ, f32 maxZ, const Mat &worldViewProjection, IVec3 &result)
     {
         result = vector;
     }

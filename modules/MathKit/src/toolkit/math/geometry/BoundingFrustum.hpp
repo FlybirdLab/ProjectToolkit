@@ -1,46 +1,33 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #pragma once
 
 #include <toolkit/math/geometry/Plane.hpp>
 #include <toolkit/math/Matrix.hpp>
-#include <toolkit/math/geometry/CollisionsHelper.hpp>
+#include <toolkit/math/geometry/Collisions.hpp>
 
-namespace toolkit {
+namespace toolkit
+{
 
     // Defines a frustum which can be used in frustum culling, zoom to Extents (zoom to fit) operations, (matrix, frustum, camera) interchange, and many kind of intersection testing.
-    struct TK_API BoundingFrustum
+    class TK_API BoundingFrustum
     {
-        Mat matrix;
-
-        union
-        {
-            struct
-            {
-                Plane pNear;
-                Plane pFar;
-                Plane pLeft;
-                Plane pRight;
-                Plane pTop;
-                Plane pBottom;
-            };
-            Plane planes[6];
-        };
-
+    public:
         BoundingFrustum() = default;
-        BoundingFrustum(const Mat& matrix)
+        BoundingFrustum(const Mat &matrix)
         {
             setMatrix(matrix);
         }
 
+    public:
         TkString toString() const;
 
         // Gets the matrix that describes this bounding frustum.
-        TK_FORCE_INLINE const Mat& getMatrix() const
+        TK_FORCE_INLINE const Mat &getMatrix() const
         {
             return matrix;
         }
@@ -52,13 +39,13 @@ namespace toolkit {
         }
 
         // Gets the inverted matrix to that describes this bounding frustum.
-        TK_FORCE_INLINE void getInvMatrix(Mat& result) const
+        TK_FORCE_INLINE void getInvMatrix(Mat &result) const
         {
             Mat::invert(matrix, result);
         }
 
         // Sets the matrix (made from view and projection matrices) that describes this bounding frustum.
-        void setMatrix(const Mat& view, const Mat& projection)
+        void setMatrix(const Mat &view, const Mat &projection)
         {
             Mat viewProjection;
             Mat::multiply(view, projection, viewProjection);
@@ -66,7 +53,7 @@ namespace toolkit {
         }
 
         // Sets the matrix that describes this bounding frustum.
-        void setMatrix(const Mat& matrix);
+        void setMatrix(const Mat &matrix);
 
         // Gets the near.
         TK_FORCE_INLINE Plane getNear() const
@@ -114,10 +101,10 @@ namespace toolkit {
         void getCorners(DVec3 corners[8]) const;
 
         // Gets bounding box that contains whole frustum.
-        void getBox(BoundingBox& result) const;
+        void getBox(BoundingBox &result) const;
 
         // Gets bounding sphere that contains whole frustum.
-        void getSphere(BoundingSphere& result) const;
+        void getSphere(BoundingSphere &result) const;
 
         // Determines whether this frustum is orthographic.
         TK_FORCE_INLINE bool isOrthographic() const
@@ -131,42 +118,63 @@ namespace toolkit {
         // Gets the height of the frustum at specified depth.
         float getHeightAtDepth(float depth) const;
 
-        TK_FORCE_INLINE bool operator==(const BoundingFrustum& other) const
+    public:
+        TK_FORCE_INLINE bool operator==(const BoundingFrustum &other) const
         {
             return matrix == other.matrix;
         }
 
-        TK_FORCE_INLINE bool operator!=(const BoundingFrustum& other) const
+        TK_FORCE_INLINE bool operator!=(const BoundingFrustum &other) const
         {
             return matrix != other.matrix;
         }
 
         // Checks whether a point lays inside, intersects or lays outside the frustum.
-        ContainmentType contains(const Vec3& point) const;
+        ContainmentType contains(const Vec3 &point) const;
 
         // Determines the intersection relationship between the frustum and a bounding box.
-        TK_FORCE_INLINE ContainmentType contains(const BoundingBox& box) const
+        TK_FORCE_INLINE ContainmentType contains(const BoundingBox &box) const
         {
             return TkCollision::frustumContainsBox(*this, box);
         }
 
         // Determines the intersection relationship between the frustum and a bounding sphere.
-        ContainmentType contains(const BoundingSphere& sphere) const;
+        ContainmentType contains(const BoundingSphere &sphere) const;
 
         // Checks whether the current BoundingFrustum intersects a BoundingSphere.
-        bool intersects(const BoundingSphere& sphere) const;
+        bool intersects(const BoundingSphere &sphere) const;
 
         // Checks whether the current BoundingFrustum intersects a BoundingBox.
-        TK_FORCE_INLINE bool intersects(const BoundingBox& box) const
+        TK_FORCE_INLINE bool intersects(const BoundingBox &box) const
         {
             return TkCollision::frustumContainsBox(*this, box) != ContainmentType::kDisjoint;
         }
+
+    public:
+        Mat matrix;
+
+        union
+        {
+            struct
+            {
+                Plane pNear;
+                Plane pFar;
+                Plane pLeft;
+                Plane pRight;
+                Plane pTop;
+                Plane pBottom;
+            };
+            Plane planes[6];
+        };
     };
 
-    template<>
+    template <>
     struct TIsPODType<BoundingFrustum>
     {
-        enum { Value = true };
+        enum
+        {
+            Value = true
+        };
     };
 
 }

@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #pragma once
@@ -11,45 +11,32 @@
 #include <toolkit/base/Math.hpp>
 #include <toolkit/base/Format.hpp>
 
-namespace toolkit {
+namespace toolkit
+{
 
-    struct Mat;
+    class Mat;
     struct Mat3x3;
 
     // Represents a four dimensional mathematical quaternion. Euler angles are stored in: pitch, yaw, roll order (x, y, z).
-    struct TK_API Quat
+    class TK_API Quat
     {
+    public:
         // Equality tolerance factor used when comparing quaternions via dot operation.
-        static constexpr real Tolerance = 0.9999999f;
+        static constexpr real kTolerance = 0.9999999f;
+        // Quat with all components equal 0.
+        static Quat kZero;
+        // Quat with all components equal 1.
+        static Quat kOne;
+        // Identity quaternion (represents no rotation).
+        static Quat kIdentity;
 
     public:
-        union
-        {
-            struct
-            {
-                float x;
-                float y;
-                float z;
-                float w;
-            };
-            float raw[4];
-        };
-
-        // Quat with all components equal 0.
-        static Quat Zero;
-        // Quat with all components equal 1.
-        static Quat One;
-        // Identity quaternion (represents no rotation).
-        static Quat Identity;
-
         Quat() = default;
         Quat(const float x, const float y, const float z, const float w)
-            : x(x)
-            , y(y)
-            , z(z)
-            , w(w) { }
-        explicit Quat(const FVec4& value);
+            : x(x), y(y), z(z), w(w) {}
+        explicit Quat(const FVec4 &value);
 
+    public:
         TkString toString() const;
 
         // Gets a value indicating whether this instance is equivalent to the identity quaternion.
@@ -104,81 +91,46 @@ namespace toolkit {
         FVec3 getEuler() const;
 
         // Conjugates the quaternion
-        void conjugate()
-        {
-            x = -x;
-            y = -y;
-            z = -z;
-        }
-
+        void conjugate();
         // Gets the conjugated quaternion.
         Quat conjugated() const
         {
-            return { -x, -y, -z, w };
+            return {-x, -y, -z, w};
         }
 
         // Conjugates and renormalizes the quaternion.
-        void invert()
-        {
-            float lengthSq = TkMath::sqrt(x * x + y * y + z * z + w * w);
-            if (!TkMath::isZero(lengthSq))
-            {
-                lengthSq = 1.0f / lengthSq;
-                x = -x * lengthSq;
-                y = -y * lengthSq;
-                z = -z * lengthSq;
-                w = w * lengthSq;
-            }
-        }
-
+        void invert();
         // Converts the quaternion into a unit quaternion.
-        void normalize()
-        {
-            const float length = TkMath::sqrt(x * x + y * y + z * z + w * w);
-            if (!TkMath::isZero(length))
-            {
-                const float inv = 1.0f / length;
-                x *= inv;
-                y *= inv;
-                z *= inv;
-                w *= inv;
-            }
-        }
+        void normalize();
 
         // Scales a quaternion by the given value.
-        void multiply(float scale)
-        {
-            x *= scale;
-            y *= scale;
-            z *= scale;
-            w *= scale;
-        }
-
+        void multiply(float scale);
         // Multiplies a quaternion by another.
-        void multiply(const Quat& other);
+        void multiply(const Quat &other);
 
+    public:
         // Adds two quaternions.
-        inline Quat operator+(const Quat& b) const
+        inline Quat operator+(const Quat &b) const
         {
             return {x + b.x, y + b.y, z + b.z, w + b.w};
         }
 
         // Subtracts two quaternions.
-        inline Quat operator-(const Quat& b) const
+        inline Quat operator-(const Quat &b) const
         {
             return {x - b.x, y - b.y, z - b.z, w - b.w};
         }
 
         // Multiplies two quaternions.
-        inline Quat operator*(const Quat& b) const
+        inline Quat operator*(const Quat &b) const
         {
-            Quat result {};
+            Quat result{};
             multiply(*this, b, result);
             return result;
         }
 
         // Adds two quaternions.
-        inline Quat& operator+=(const Quat& b)
+        inline Quat &operator+=(const Quat &b)
         {
             x += b.x;
             y += b.y;
@@ -188,7 +140,7 @@ namespace toolkit {
         }
 
         // Subtracts two quaternions.
-        inline Quat& operator-=(const Quat& b)
+        inline Quat &operator-=(const Quat &b)
         {
             x -= b.x;
             y -= b.y;
@@ -198,7 +150,7 @@ namespace toolkit {
         }
 
         // Multiplies two quaternions.
-        inline Quat& operator*=(const Quat& b)
+        inline Quat &operator*=(const Quat &b)
         {
             multiply(b);
             return *this;
@@ -213,41 +165,42 @@ namespace toolkit {
         }
 
         // Transforms a vector by the given rotation.
-        FVec3 operator*(const FVec3& vector) const;
+        FVec3 operator*(const FVec3 &vector) const;
 
         // Scales a quaternion by the given value.
-        TK_FORCE_INLINE Quat& operator*=(float scale)
+        TK_FORCE_INLINE Quat &operator*=(float scale)
         {
             multiply(scale);
             return *this;
         }
 
         // Determines whether the specified <see cref="Quat" /> is equal to this instance.
-        TK_FORCE_INLINE bool operator==(const Quat& other) const
+        TK_FORCE_INLINE bool operator==(const Quat &other) const
         {
-            return dot(*this, other) > Tolerance;
+            return dot(*this, other) > kTolerance;
         }
 
         // Determines whether the specified <see cref="Quat" /> is equal to this instance.
-        TK_FORCE_INLINE bool operator!=(const Quat& other) const
+        TK_FORCE_INLINE bool operator!=(const Quat &other) const
         {
             return !(*this == other);
         }
-        
+
+    public:
         // Determines whether the specified <see cref="Quat" /> structures are equal.
-        static bool nearEqual(const Quat& a, const Quat& b)
+        static bool nearEqual(const Quat &a, const Quat &b)
         {
-            return dot(a, b) > Tolerance;
+            return dot(a, b) > kTolerance;
         }
 
         // Determines whether the specified <see cref="Quat" /> structures are equal.
-        static bool nearEqual(const Quat& a, const Quat& b, float epsilon)
+        static bool nearEqual(const Quat &a, const Quat &b, float epsilon)
         {
             return dot(a, b) > 1.0f - epsilon;
         }
 
         // Calculates the inverse of the specified quaternion.
-        static Quat invert(const Quat& value)
+        static Quat invert(const Quat &value)
         {
             Quat result;
             invert(value, result);
@@ -255,163 +208,125 @@ namespace toolkit {
         }
 
         // Calculates the inverse of the specified quaternion.
-        static void invert(const Quat& value, Quat& result)
+        static void invert(const Quat &value, Quat &result)
         {
             result = value;
             result.invert();
         }
 
         // Calculates the dot product of two quaternions.
-        static float dot(const Quat& left, const Quat& right)
+        static float dot(const Quat &left, const Quat &right)
         {
             return left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w;
         }
 
         // Calculates the angle between two quaternions.
-        static float angleBetween(const Quat& a, const Quat& b)
+        static float angleBetween(const Quat &a, const Quat &b)
         {
             const float dot_ = dot(a, b);
-            return dot_ > Tolerance ? 0 : TkMath::acos(TkMath::min(TkMath::abs(dot_), 1.0f)) * 2.0f * 57.29578f;
+            return dot_ > kTolerance ? 0 : TkMath::acos(TkMath::min(TkMath::abs(dot_), 1.0f)) * 2.0f * 57.29578f;
         }
 
         // Adds two quaternions.
-        static void add(const Quat& left, const Quat& right, Quat& result);
+        static void add(const Quat &left, const Quat &right, Quat &result);
         // Subtracts two quaternions.
-        static void subtract(const Quat& left, const Quat& right, Quat& result);
-
+        static void subtract(const Quat &left, const Quat &right, Quat &result);
         // Scales a quaternion by the given value.
-        static void multiply(const Quat& value, float scale, Quat& result)
-        {
-            result.x = value.x * scale;
-            result.y = value.y * scale;
-            result.z = value.z * scale;
-            result.w = value.w * scale;
-        }
+        static void multiply(const Quat &value, float scale, Quat &result);
 
         // Multiplies a quaternion by another.
-        static void multiply(const Quat& left, const Quat& right, Quat& result);
-
+        static void multiply(const Quat &left, const Quat &right, Quat &result);
         // Reverses the direction of a given quaternion.
-        static void negate(const Quat& value, Quat& result);
+        static void negate(const Quat &value, Quat &result);
 
         // Performs a linear interpolation between two quaternions.
-        static void lerp(const Quat& start, const Quat& end, float amount, Quat& result);
-
+        static void lerp(const Quat &start, const Quat &end, float amount, Quat &result);
         // Performs a linear interpolation between two quaternion.
-        static Quat lerp(const Quat& start, const Quat& end, float amount)
-        {
-            Quat result;
-            lerp(start, end, amount, result);
-            return result;
-        }
+        static Quat lerp(const Quat &start, const Quat &end, float amount);
 
         // Creates a quaternion given an angle cosine (radians in range [-1,1]) and an axis of rotation (normalized).
-        static void rotationAxis(const FVec3& axis, float angle, Quat& result);
-
+        static void rotationAxis(const FVec3 &axis, float angle, Quat &result);
         // Creates a quaternion given an angle cosine (radians in range [-1,1]) and an axis of rotation (normalized).
-        static void rotationCosAxis(const FVec3& axis, float cos, Quat& result);
-
+        static void rotationCosAxis(const FVec3 &axis, float cos, Quat &result);
         // Creates a quaternion given a rotation matrix.
-        static void rotationMatrix(const Mat& matrix, Quat& result);
-
+        static void rotationMatrix(const Mat &matrix, Quat &result);
         // Creates a quaternion given a rotation matrix.
-        static void rotationMatrix(const Mat3x3& matrix, Quat& result);
+        static void rotationMatrix(const Mat3x3 &matrix, Quat &result);
 
         // Creates a left-handed, look-at quaternion.
-        static void lookAt(const FVec3& eye, const FVec3& target, const FVec3& up, Quat& result);
+        static void lookAt(const FVec3 &eye, const FVec3 &target, const FVec3 &up, Quat &result);
 
         // Creates a left-handed, look-at quaternion.
-        static void rotationLookAt(const FVec3& forward, const FVec3& up, Quat& result);
+        static void rotationLookAt(const FVec3 &forward, const FVec3 &up, Quat &result);
 
         // Creates a left-handed spherical billboard that rotates around a specified object position.
-        static void billboard(const FVec3& objectPosition, const FVec3& cameraPosition, const FVec3& cameraUpFloat, const FVec3& cameraForwardFloat, Quat& result);
-
+        static void billboard(const FVec3 &objectPosition, const FVec3 &cameraPosition, const FVec3 &cameraUpFloat, const FVec3 &cameraForwardFloat, Quat &result);
         // Calculates the orientation from the direction vector.
-        static Quat fromDirection(const FVec3& direction);
+        static Quat fromDirection(const FVec3 &direction);
 
         // Creates a rotation with the specified forward and upwards directions.
-        static void lookRotation(const FVec3& forward, const FVec3& up, Quat& result);
-
+        static void lookRotation(const FVec3 &forward, const FVec3 &up, Quat &result);
         // Creates a rotation with the specified forward and upwards directions.
-        static Quat lookRotation(const FVec3& forward, const FVec3& up)
-        {
-            Quat result {};
-            lookRotation(forward, up, result);
-            return result;
-        }
+        static Quat lookRotation(const FVec3 &forward, const FVec3 &up);
 
         // Gets the shortest arc quaternion to rotate this vector to the destination vector.
-        static void getRotationFromTo(const FVec3& from, const FVec3& to, Quat& result, const FVec3& fallbackAxis);
-
+        static void getRotationFromTo(const FVec3 &from, const FVec3 &to, Quat &result, const FVec3 &fallbackAxis);
         // Gets the shortest arc quaternion to rotate this vector to the destination vector.
-        static Quat getRotationFromTo(const FVec3& from, const FVec3& to, const FVec3& fallbackAxis)
-        {
-            Quat result;
-            getRotationFromTo(from, to, result, fallbackAxis);
-            return result;
-        }
+        static Quat getRotationFromTo(const FVec3 &from, const FVec3 &to, const FVec3 &fallbackAxis);
 
         // Gets the quaternion that will rotate vector from into vector to, around their plan perpendicular axis.The input vectors don't need to be normalized.
-        static void findBetween(const FVec3& from, const FVec3& to, Quat& result);
-
+        static void findBetween(const FVec3 &from, const FVec3 &to, Quat &result);
         // Gets the quaternion that will rotate vector from into vector to, around their plan perpendicular axis.The input vectors don't need to be normalized.
-        static Quat findBetween(const FVec3& from, const FVec3& to)
-        {
-            Quat result;
-            findBetween(from, to, result);
-            return result;
-        }
-
+        static Quat findBetween(const FVec3 &from, const FVec3 &to);
         // Creates a quaternion given a rotation matrix.
-        static Quat rotationMatrix(const Mat& matrix)
-        {
-            Quat result;
-            rotationMatrix(matrix, result);
-            return result;
-        }
+        static Quat rotationMatrix(const Mat &matrix);
 
         // Interpolates between two quaternions, using spherical linear interpolation.
-        static void slerp(const Quat& start, const Quat& end, float amount, Quat& result);
-
+        static void slerp(const Quat &start, const Quat &end, float amount, Quat &result);
         // Creates a quaternion given a yaw, pitch, and roll value (in degrees).
         static Quat euler(float x, float y, float z);
-
         // Creates a quaternion given a yaw, pitch, and roll value in order: X:roll, Y:pitch, Z:yaw (in degrees).
-        static Quat euler(const FVec3& euler);
+        static Quat euler(const FVec3 &euler);
 
         // Creates a quaternion given a yaw, pitch, and roll value (in radians).
-        static Quat rotationYawPitchRoll(float yaw, float pitch, float roll)
-        {
-            Quat result;
-            rotationYawPitchRoll(yaw, pitch, roll, result);
-            return result;
-        }
-
+        static Quat rotationYawPitchRoll(float yaw, float pitch, float roll);
         // Creates a quaternion given a yaw, pitch, and roll value (in radians).
-        static void rotationYawPitchRoll(float yaw, float pitch, float roll, Quat& result);
-
+        static void rotationYawPitchRoll(float yaw, float pitch, float roll, Quat &result);
         // Gets rotation from a normal in relation to a transform. This function is especially useful for axis aligned faces, and with <seealso cref="Physics::RayCast"/>.
-        static Quat GetRotationFromNormal(const Vec3& normal, const Transform& reference);
+        static Quat GetRotationFromNormal(const Vec3 &normal, const Transform &reference);
+
+    public:
+        union
+        {
+            struct
+            {
+                float x;
+                float y;
+                float z;
+                float w;
+            };
+            float raw[4];
+        };
     };
 
     // Scales a quaternion by the given value
-    inline Quat operator*(float a, const Quat& b)
+    inline Quat operator*(float a, const Quat &b)
     {
         return b * a;
     }
 
-    namespace math
+    TK_FORCE_INLINE static bool nearEqual(const Quat &a, const Quat &b)
     {
-        TK_FORCE_INLINE static bool nearEqual(const Quat& a, const Quat& b)
-        {
-            return Quat::nearEqual(a, b);
-        }
+        return Quat::nearEqual(a, b);
     }
 
-    template<>
+    template <>
     struct TIsPODType<Quat>
     {
-        enum { Value = true };
+        enum
+        {
+            Value = true
+        };
     };
 
 }

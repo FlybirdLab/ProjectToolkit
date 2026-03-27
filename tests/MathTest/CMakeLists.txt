@@ -15,6 +15,7 @@ set(DEPS
 )
 set(HEAD
         "TK_DEBUG"
+        "TK_STATIC_PLUGINS"
 )
 set(SRCS
         ""

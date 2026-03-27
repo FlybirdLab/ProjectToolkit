@@ -12,41 +12,17 @@
 namespace toolkit
 {
 
-    struct Transform;
+    class Transform;
 
-    struct TK_API Mat
+    class TK_API Mat
     {
-        union
-        {
-            struct
-            {
-                float m11;
-                float m12;
-                float m13;
-                float m14;
-                float m21;
-                float m22;
-                float m23;
-                float m24;
-                float m31;
-                float m32;
-                float m33;
-                float m34;
-                float m41;
-                float m42;
-                float m43;
-                float m44;
-            };
-
-            float values[4][4];
-            float raw[16];
-        };
-
+    public:
         // A matrix with all of its components set to zero.
-        static const Mat Zero;
+        static const Mat kZero;
         // The identity matrix.
-        static const Mat Identity;
+        static const Mat kIdentity;
 
+    public:
         Mat() = default;
         Mat(float m11, float m12, float m13, float m14,
             float m21, float m22, float m23, float m24,
@@ -65,6 +41,7 @@ namespace toolkit
         }
         explicit Mat(const Mat3x3 &matrix);
 
+    public:
         TkString toString() const;
 
         // Gets the up FVec3 of the matrix; that is m21, m22, and m23.
@@ -326,7 +303,7 @@ namespace toolkit
         // Gets a value indicating whether this instance is an identity matrix.
         bool isIdentity() const
         {
-            return *this == Identity;
+            return *this == kIdentity;
         }
 
         // Calculates the determinant of the matrix.
@@ -350,6 +327,7 @@ namespace toolkit
         // Removes any scaling from the matrix by performing the normalization (each row magnitude is 1). Does not modify the 4th row with translation vector.
         void normalizeScale();
 
+    public:
         // Decomposes a rotation matrix with the specified yaw, pitch, roll.
         void decompose(float &yaw, float &pitch, float &roll) const;
         // Decomposes a matrix into a scale, rotation, and translation.
@@ -361,6 +339,7 @@ namespace toolkit
         // Decomposes a matrix into a scale, rotation, and translation.
         void decompose(FVec3 &scale, Mat3x3 &rotation, FVec3 &translation) const;
 
+    public:
         Mat operator*(const float scale) const
         {
             Mat result;
@@ -486,7 +465,7 @@ namespace toolkit
         // Creates a matrix that scales along the x-axis, y-axis, and y-axis.
         static Mat scaling(float x, float y, float z)
         {
-            Mat result = Identity;
+            Mat result = kIdentity;
             result.m11 = x;
             result.m22 = y;
             result.m33 = z;
@@ -495,7 +474,7 @@ namespace toolkit
         // Creates a matrix that scales along the x-axis, y-axis, and y-axis.
         static void scaling(float x, float y, float z, Mat &result)
         {
-            result = Identity;
+            result = kIdentity;
             result.m11 = x;
             result.m22 = y;
             result.m33 = z;
@@ -503,14 +482,14 @@ namespace toolkit
         // Creates a matrix that uniformly scales along all three axis.
         static Mat scaling(float scale)
         {
-            Mat result = Identity;
+            Mat result = kIdentity;
             result.m11 = result.m22 = result.m33 = scale;
             return result;
         }
         // Creates a matrix that uniformly scales along all three axis.
         static void scaling(float scale, Mat &result)
         {
-            result = Identity;
+            result = kIdentity;
             result.m11 = result.m22 = result.m33 = scale;
         }
         // Creates a matrix that rotates around the x-axis. Angle of rotation in radians. Angles are measured clockwise when looking along the rotation axis toward the origin.
@@ -601,6 +580,33 @@ namespace toolkit
         static Vec3 transformVector(const Mat &m, const Vec3 &v);
         static FVec4 transformPosition(const Mat &m, const FVec3 &v);
         static FVec4 transformPosition(const Mat &m, const FVec4 &v);
+
+    public:
+        union
+        {
+            struct
+            {
+                float m11;
+                float m12;
+                float m13;
+                float m14;
+                float m21;
+                float m22;
+                float m23;
+                float m24;
+                float m31;
+                float m32;
+                float m33;
+                float m34;
+                float m41;
+                float m42;
+                float m43;
+                float m44;
+            };
+
+            float values[4][4];
+            float raw[16];
+        };
     };
 
     template <>
@@ -613,16 +619,18 @@ namespace toolkit
     };
 
     // Helper matrix for optimized float3x4 package of transformation matrices.
-    struct TK_API Mat3x4
+    class TK_API Mat3x4
     {
+    public:
+        void setMatrix(const Mat &m);
+        void setMatrixTranspose(const Mat &m);
+
+    public:
         union
         {
             float values[3][4];
             float raw[12];
         };
-
-        void setMatrix(const Mat &m);
-        void setMatrixTranspose(const Mat &m);
     };
 
     template <>
@@ -638,30 +646,12 @@ namespace toolkit
     struct TK_API Mat3x3
     {
     public:
-        union
-        {
-            struct
-            {
-                float m11;
-                float m12;
-                float m13;
-                float m21;
-                float m22;
-                float m23;
-                float m31;
-                float m32;
-                float m33;
-            };
-
-            float values[3][3];
-            float raw[9];
-        };
-
         // A matrix with all of its components set to zero.
-        static const Mat3x3 Zero;
+        static const Mat3x3 kZero;
         // The identity matrix.
-        static const Mat3x3 Identity;
+        static const Mat3x3 kIdentity;
 
+    public:
         Mat3x3() = default;
         Mat3x3(float m11, float m12, float m13, float m21, float m22, float m23, float m31, float m32, float m33)
             : m11(m11), m12(m12), m13(m13), m21(m21), m22(m22), m23(m23), m31(m31), m32(m32), m33(m33)
@@ -669,14 +659,15 @@ namespace toolkit
         }
         Mat3x3(float values[9])
         {
-            memcpy(raw, values, sizeof(float) * 9);
+            TkMemory::memoryCopy(raw, values, sizeof(float) * 9);
         }
         Mat3x3(float values[3][3])
         {
-            memcpy(raw, values, sizeof(float) * 9);
+            TkMemory::memoryCopy(raw, values, sizeof(float) * 9);
         }
         explicit Mat3x3(const Mat &matrix);
 
+    public:
         TkString toString() const;
 
         // Gets the up FVec3 of the matrix; that is m21, m22, and m23.
@@ -857,7 +848,7 @@ namespace toolkit
         // Gets a value indicating whether this instance is an identity Mat3x3.
         bool isIdentity() const
         {
-            return *this == Identity;
+            return *this == kIdentity;
         }
 
         // Calculates the determinant of the Mat3x3.
@@ -878,6 +869,7 @@ namespace toolkit
         // Removes any scaling from the matrix by performing the normalization (each row magnitude is 1).
         void normalizeScale();
 
+    public:
         // Calculates the inverse of the specified Mat3x3.
         static void invert(const Mat3x3 &value, Mat3x3 &result);
         // Calculates the inverse of the specified Mat3x3.
@@ -998,6 +990,7 @@ namespace toolkit
         // Decomposes a matrix into a scale and rotation.
         void decompose(FVec3 &scale, Quat &rotation) const;
 
+    public:
         // Tests for equality between two objects.
         bool operator==(const Mat3x3 &other) const;
 
@@ -1006,6 +999,26 @@ namespace toolkit
         {
             return !operator==(other);
         }
+
+    public:
+        union
+        {
+            struct
+            {
+                float m11;
+                float m12;
+                float m13;
+                float m21;
+                float m22;
+                float m23;
+                float m31;
+                float m32;
+                float m33;
+            };
+
+            float values[3][3];
+            float raw[9];
+        };
     };
 
     template <>

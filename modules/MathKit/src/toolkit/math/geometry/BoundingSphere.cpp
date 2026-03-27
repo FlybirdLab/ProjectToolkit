@@ -12,7 +12,7 @@
 
 namespace toolkit {
 
-    const BoundingSphere BoundingSphere::Empty(Vec3(0, 0, 0), 0);
+    const BoundingSphere BoundingSphere::kEmpty(Vec3(0, 0, 0), 0);
 
     TkString BoundingSphere::toString() const
     {
@@ -116,7 +116,7 @@ namespace toolkit {
         TK_ASSERT(points && pointsCount > 0);
 
         // Find the center of all points
-        FVec3 center = FVec3::Zero;
+        FVec3 center = FVec3::kZero;
         for (i32 i = 0; i < pointsCount; i++)
             FVec3::add(points[i], center, center);
         center /= (float)pointsCount;
@@ -141,7 +141,7 @@ namespace toolkit {
         TK_ASSERT(points && pointsCount > 0);
 
         // Find the center of all points
-        DVec3 center = DVec3::Zero;
+        DVec3 center = DVec3::kZero;
         for (i32 i = 0; i < pointsCount; i++)
             DVec3::add(points[i], center, center);
         center /= (double)pointsCount;
@@ -165,7 +165,7 @@ namespace toolkit {
     {
         if (box.minimum.isNanOrInfinity() || box.maximum.isNanOrInfinity())
         {
-            result = Empty;
+            result = kEmpty;
             return;
         }
         const real x = box.maximum.x - box.minimum.x;
@@ -181,12 +181,12 @@ namespace toolkit {
     void BoundingSphere::merge(const BoundingSphere& value1, const BoundingSphere& value2, BoundingSphere& result)
     {
         // Pre-exit if one of the bounding sphere by assuming that a merge with an empty sphere is equivalent at taking the non-empty sphere
-        if (value1 == Empty)
+        if (value1 == kEmpty)
         {
             result = value2;
             return;
         }
-        if (value2 == Empty)
+        if (value2 == kEmpty)
         {
             result = value1;
             return;

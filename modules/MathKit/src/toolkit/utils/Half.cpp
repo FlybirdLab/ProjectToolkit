@@ -2,6 +2,8 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * References:
+ *     https://github.com/microsoft/DirectXMath
  */
 
 #include "Half.hpp"
@@ -80,7 +82,7 @@ namespace toolkit
 
     Half4::Half4(const FVec4 &v)
     {
-        z = Float16Compressor::compress(v.x);
+        x = Float16Compressor::compress(v.x);
         y = Float16Compressor::compress(v.y);
         z = Float16Compressor::compress(v.z);
         w = Float16Compressor::compress(v.w);
@@ -88,7 +90,7 @@ namespace toolkit
 
     Half4::Half4(const Color &c)
     {
-        z = Float16Compressor::compress(c.r);
+        x = Float16Compressor::compress(c.r);
         y = Float16Compressor::compress(c.g);
         z = Float16Compressor::compress(c.b);
         w = Float16Compressor::compress(c.a);
@@ -96,7 +98,7 @@ namespace toolkit
 
     Half4::Half4(const Rectangle &rect)
     {
-        z = Float16Compressor::compress(rect.location.x);
+        x = Float16Compressor::compress(rect.location.x);
         y = Float16Compressor::compress(rect.location.y);
         z = Float16Compressor::compress(rect.size.x);
         w = Float16Compressor::compress(rect.size.y);
@@ -200,8 +202,6 @@ namespace toolkit
 
     FloatR11G11B10::FloatR11G11B10(float x, float y, float z)
     {
-        // Reference: https://github.com/microsoft/DirectXMath
-
         u32 ivalue[4];
         ivalue[0] = *(u32 *)&x;
         ivalue[1] = *(u32 *)&y;

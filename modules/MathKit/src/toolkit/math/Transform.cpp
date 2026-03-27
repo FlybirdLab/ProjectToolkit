@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #include "Transform.hpp"
@@ -12,11 +12,26 @@
 namespace toolkit
 {
 
-    Transform Transform::Identity(Vec3(0, 0, 0));
-    Transform::Transform(const Vec3 &position, const Mat3x3 &rotationScale)
-        : Translation(position)
+    Transform Transform::kIdentity(Vec3(0, 0, 0));
+
+    Transform::Transform(const Vec3 &position)
+        : translation(position), orientation(0.0f, 0.0f, 0.0f, 1.0f), scale(1.0f)
     {
-        rotationScale.decompose(Scale, Orientation);
+    }
+
+    Transform::Transform(const Vec3 &position, const Quat &rotation)
+        : translation(position), orientation(rotation), scale(1.0f)
+    {
+    }
+
+    Transform::Transform(const Vec3 &position, const Quat &rotation, const FVec3 &scale)
+        : translation(position), orientation(rotation), scale(scale)
+    {
+    }
+
+    Transform::Transform(const Vec3 &position, const Mat3x3 &rotationScale) : translation(position)
+    {
+        rotationScale.decompose(scale, orientation);
     }
 
     TkString Transform::toString() const
@@ -26,242 +41,252 @@ namespace toolkit
 
     bool Transform::isIdentity() const
     {
-        return Translation.isZero() && Orientation.isIdentity() && Scale.isOne();
+        return translation.isZero() && orientation.isIdentity() && scale.isOne();
     }
 
     bool Transform::isNanOrInfinity() const
     {
-        return Translation.isNanOrInfinity() || Orientation.isNanOrInfinity() || Scale.isNanOrInfinity();
+        return translation.isNanOrInfinity() || orientation.isNanOrInfinity() || scale.isNanOrInfinity();
     }
 
     Mat Transform::getRotation() const
     {
         Mat result{};
-        Mat::rotationQuaternion(Orientation, result);
+        Mat::rotationQuaternion(orientation, result);
         return result;
     }
 
     void Transform::getRotation(Mat &result) const
     {
-        Mat::rotationQuaternion(Orientation, result);
+        Mat::rotationQuaternion(orientation, result);
     }
 
     void Transform::setRotation(const Mat &value)
     {
-        Quat::rotationMatrix(value, Orientation);
+        Quat::rotationMatrix(value, orientation);
     }
 
     Mat Transform::getWorld() const
     {
         Mat result{};
-        Mat::transformation(Scale, Orientation, Translation, result);
+        Mat::transformation(scale, orientation, translation, result);
         return result;
     }
 
     void Transform::getWorld(Mat &result) const
     {
-        Mat::transformation(Scale, Orientation, Translation, result);
+        Mat::transformation(scale, orientation, translation, result);
     }
 
     Transform Transform::add(const Vec3 &translation) const
     {
         Transform result;
-        result.Orientation = Orientation;
-        result.Scale = Scale;
-        Vec3::add(Translation, translation, result.Translation);
+        result.orientation = orientation;
+        result.scale = scale;
+        Vec3::add(this->translation, translation, result.translation);
         return result;
     }
 
     Transform Transform::add(const Transform &other) const
     {
         Transform result;
-        Quat::multiply(Orientation, other.Orientation, result.Orientation);
-        result.Orientation.normalize();
-        FVec3::multiply(Scale, other.Scale, result.Scale);
-        Vec3::add(Translation, other.Translation, result.Translation);
+        Quat::multiply(orientation, other.orientation, result.orientation);
+        result.orientation.normalize();
+        FVec3::multiply(scale, other.scale, result.scale);
+        Vec3::add(this->translation, other.translation, result.translation);
         return result;
     }
 
     Transform Transform::subtract(const Transform &other) const
     {
         Transform result;
-        Vec3::subtract(Translation, other.Translation, result.Translation);
-        const Quat invRotation = other.Orientation.conjugated();
-        Quat::multiply(Orientation, invRotation, result.Orientation);
-        result.Orientation.normalize();
-        FVec3::divide(Scale, other.Scale, result.Scale);
+        Vec3::subtract(this->translation, other.translation, result.translation);
+        const Quat invRotation = other.orientation.conjugated();
+        Quat::multiply(orientation, invRotation, result.orientation);
+        result.orientation.normalize();
+        FVec3::divide(scale, other.scale, result.scale);
         return result;
     }
 
     void Transform::localToWorld(const Transform &other, Transform &result) const
     {
-        // Quat::multiply(Orientation, other.Orientation, result.Orientation);
-        const float a = Orientation.y * other.Orientation.z - Orientation.z * other.Orientation.y;
-        const float b = Orientation.z * other.Orientation.x - Orientation.x * other.Orientation.z;
-        const float c = Orientation.x * other.Orientation.y - Orientation.y * other.Orientation.x;
-        const float d = Orientation.x * other.Orientation.x + Orientation.y * other.Orientation.y + Orientation.z * other.Orientation.z;
-        result.Orientation.x = Orientation.x * other.Orientation.w + other.Orientation.x * Orientation.w + a;
-        result.Orientation.y = Orientation.y * other.Orientation.w + other.Orientation.y * Orientation.w + b;
-        result.Orientation.z = Orientation.z * other.Orientation.w + other.Orientation.z * Orientation.w + c;
-        result.Orientation.w = Orientation.w * other.Orientation.w - d;
+        // Quat::multiply(orientation, other.orientation, result.orientation);
+        const float a = orientation.y * other.orientation.z - orientation.z * other.orientation.y;
+        const float b = orientation.z * other.orientation.x - orientation.x * other.orientation.z;
+        const float c = orientation.x * other.orientation.y - orientation.y * other.orientation.x;
+        const float d = orientation.x * other.orientation.x + orientation.y * other.orientation.y + orientation.z * other.orientation.z;
+        result.orientation.x = orientation.x * other.orientation.w + other.orientation.x * orientation.w + a;
+        result.orientation.y = orientation.y * other.orientation.w + other.orientation.y * orientation.w + b;
+        result.orientation.z = orientation.z * other.orientation.w + other.orientation.z * orientation.w + c;
+        result.orientation.w = orientation.w * other.orientation.w - d;
 
-        // result.Orientation.normalize();
-        const float length = result.Orientation.length();
+        // result.orientation.normalize();
+        const float length = result.orientation.length();
         if (length > TkMath::ZeroTolerance)
         {
             const float inv = 1.0f / length;
-            result.Orientation.x *= inv;
-            result.Orientation.y *= inv;
-            result.Orientation.z *= inv;
-            result.Orientation.w *= inv;
+            result.orientation.x *= inv;
+            result.orientation.y *= inv;
+            result.orientation.z *= inv;
+            result.orientation.w *= inv;
         }
 
-        // Vec3::multiply(Scale, other.Scale, result.Scale);
-        result.Scale = FVec3(Scale.x * other.Scale.x, Scale.y * other.Scale.y, Scale.z * other.Scale.z);
+        // Vec3::multiply(scale, other.scale, result.scale);
+        result.scale = FVec3(scale.x * other.scale.x, scale.y * other.scale.y, scale.z * other.scale.z);
 
-        // Vec3 tmp; Vec3::multiply(other.Translation, Scale, tmp);
-        auto tmp = Vec3(other.Translation.x * Scale.x, other.Translation.y * Scale.y, other.Translation.z * Scale.z);
+        // Vec3 tmp; Vec3::multiply(other.Translation, scale, tmp);
+        auto tmp = Vec3(other.translation.x * scale.x, other.translation.y * scale.y, other.translation.z * scale.z);
 
-        // Vec3::transform(tmp, Orientation, tmp);
-        const float x = Orientation.x + Orientation.x;
-        const float y = Orientation.y + Orientation.y;
-        const float z = Orientation.z + Orientation.z;
-        const float wx = Orientation.w * x;
-        const float wy = Orientation.w * y;
-        const float wz = Orientation.w * z;
-        const float xx = Orientation.x * x;
-        const float xy = Orientation.x * y;
-        const float xz = Orientation.x * z;
-        const float yy = Orientation.y * y;
-        const float yz = Orientation.y * z;
-        const float zz = Orientation.z * z;
+        // Vec3::transform(tmp, orientation, tmp);
+        const float x = orientation.x + orientation.x;
+        const float y = orientation.y + orientation.y;
+        const float z = orientation.z + orientation.z;
+        const float wx = orientation.w * x;
+        const float wy = orientation.w * y;
+        const float wz = orientation.w * z;
+        const float xx = orientation.x * x;
+        const float xy = orientation.x * y;
+        const float xz = orientation.x * z;
+        const float yy = orientation.y * y;
+        const float yz = orientation.y * z;
+        const float zz = orientation.z * z;
         tmp = Vec3(
             tmp.x * (1.0f - yy - zz) + tmp.y * (xy - wz) + tmp.z * (xz + wy),
             tmp.x * (xy + wz) + tmp.y * (1.0f - xx - zz) + tmp.z * (yz - wx),
             tmp.x * (xz - wy) + tmp.y * (yz + wx) + tmp.z * (1.0f - xx - yy));
 
-        // Vec3::add(tmp, Translation, result.Translation);
-        result.Translation = Vec3(tmp.x + Translation.x, tmp.y + Translation.y, tmp.z + Translation.z);
+        // Vec3::add(tmp, translation, result.Translation);
+        result.translation = Vec3(tmp.x + translation.x, tmp.y + translation.y, tmp.z + translation.z);
     }
 
     void Transform::localToWorldVector(const Vec3 &vector, Vec3 &result) const
     {
-        Vec3 tmp = vector * Scale;
-        Vec3::transform(tmp, Orientation, result);
+        Vec3 tmp = vector * scale;
+        Vec3::transform(tmp, orientation, result);
     }
 
     void Transform::localToWorld(const Vec3 &point, Vec3 &result) const
     {
-        Vec3 tmp = point * Scale;
-        Vec3::transform(tmp, Orientation, tmp);
-        Vec3::add(tmp, Translation, result);
+        Vec3 tmp = point * scale;
+        Vec3::transform(tmp, orientation, tmp);
+        Vec3::add(tmp, translation, result);
     }
 
     void Transform::worldToLocal(const Transform &other, Transform &result) const
     {
-        Vec3 invScale = Scale;
+        Vec3 invScale = scale;
         if (invScale.x != 0.0f)
             invScale.x = 1.0f / invScale.x;
         if (invScale.y != 0.0f)
             invScale.y = 1.0f / invScale.y;
         if (invScale.z != 0.0f)
             invScale.z = 1.0f / invScale.z;
-        const Quat invRotation = Orientation.conjugated();
-        Quat::multiply(invRotation, other.Orientation, result.Orientation);
-        result.Orientation.normalize();
-        FVec3::multiply(other.Scale, invScale, result.Scale);
-        const Vec3 tmp = other.Translation - Translation;
-        Vec3::transform(tmp, invRotation, result.Translation);
-        Vec3::multiply(result.Translation, invScale, result.Translation);
+        const Quat invRotation = orientation.conjugated();
+        Quat::multiply(invRotation, other.orientation, result.orientation);
+        result.orientation.normalize();
+        FVec3::multiply(other.scale, invScale, result.scale);
+        const Vec3 tmp = other.translation - translation;
+        Vec3::transform(tmp, invRotation, result.translation);
+        Vec3::multiply(result.translation, invScale, result.translation);
     }
 
     void Transform::worldToLocal(const Vec3 &point, Vec3 &result) const
     {
-        Vec3 invScale = Scale;
+        Vec3 invScale = scale;
         if (invScale.x != 0.0f)
             invScale.x = 1.0f / invScale.x;
         if (invScale.y != 0.0f)
             invScale.y = 1.0f / invScale.y;
         if (invScale.z != 0.0f)
             invScale.z = 1.0f / invScale.z;
-        const Quat invRotation = Orientation.conjugated();
-        result = point - Translation;
+        const Quat invRotation = orientation.conjugated();
+        result = point - translation;
         Vec3::transform(result, invRotation, result);
         result *= invScale;
     }
 
     void Transform::worldToLocalVector(const Vec3 &vector, Vec3 &result) const
     {
-        FVec3 invScale = Scale;
+        FVec3 invScale = scale;
         if (invScale.x != 0.0f)
             invScale.x = 1.0f / invScale.x;
         if (invScale.y != 0.0f)
             invScale.y = 1.0f / invScale.y;
         if (invScale.z != 0.0f)
             invScale.z = 1.0f / invScale.z;
-        const Quat invRotation = Orientation.conjugated();
+        const Quat invRotation = orientation.conjugated();
         Vec3::transform(vector, invRotation, result);
         result *= invScale;
     }
 
     void Transform::worldToLocal(const Quat &rotation, Quat &result) const
     {
-        Quat orientation = Orientation;
+        Quat orientation = this->orientation;
         orientation.conjugate();
         Quat::multiply(orientation, rotation, orientation);
         orientation.normalize();
         result = orientation;
     }
 
+    bool Transform::nearEqual(const Transform &a, const Transform &b)
+    {
+        return Vec3::nearEqual(a.translation, b.translation) && Quat::nearEqual(a.orientation, b.orientation) && FVec3::nearEqual(a.scale, b.scale);
+    }
+
+    bool Transform::nearEqual(const Transform &a, const Transform &b, float epsilon)
+    {
+        return Vec3::nearEqual(a.translation, b.translation, epsilon) && Quat::nearEqual(a.orientation, b.orientation, epsilon) && FVec3::nearEqual(a.scale, b.scale, epsilon);
+    }
+
     FVec3 Transform::getRight() const
     {
-        return FVec3::transform(FVec3::Right, Orientation);
+        return FVec3::transform(FVec3::kRight, orientation);
     }
 
     FVec3 Transform::getLeft() const
     {
-        return FVec3::transform(FVec3::Left, Orientation);
+        return FVec3::transform(FVec3::kLeft, orientation);
     }
 
     FVec3 Transform::getUp() const
     {
-        return FVec3::transform(FVec3::Up, Orientation);
+        return FVec3::transform(FVec3::kUp, orientation);
     }
 
     FVec3 Transform::getDown() const
     {
-        return FVec3::transform(FVec3::Down, Orientation);
+        return FVec3::transform(FVec3::kDown, orientation);
     }
 
     FVec3 Transform::getForward() const
     {
-        return FVec3::transform(FVec3::Forward, Orientation);
+        return FVec3::transform(FVec3::kForward, orientation);
     }
 
     FVec3 Transform::getBackward() const
     {
-        return FVec3::transform(FVec3::Backward, Orientation);
+        return FVec3::transform(FVec3::kBackward, orientation);
     }
 
     Transform Transform::lerp(const Transform &t1, const Transform &t2, float amount)
     {
         Transform result;
-        Vec3::lerp(t1.Translation, t2.Translation, amount, result.Translation);
-        Quat::slerp(t1.Orientation, t2.Orientation, amount, result.Orientation);
-        FVec3::lerp(t1.Scale, t2.Scale, amount, result.Scale);
+        Vec3::lerp(t1.translation, t2.translation, amount, result.translation);
+        Quat::slerp(t1.orientation, t2.orientation, amount, result.orientation);
+        FVec3::lerp(t1.scale, t2.scale, amount, result.scale);
         return result;
     }
 
     void Transform::lerp(const Transform &t1, const Transform &t2, float amount, Transform &result)
     {
-        Vec3::lerp(t1.Translation, t2.Translation, amount, result.Translation);
-        Quat::slerp(t1.Orientation, t2.Orientation, amount, result.Orientation);
-        FVec3::lerp(t1.Scale, t2.Scale, amount, result.Scale);
+        Vec3::lerp(t1.translation, t2.translation, amount, result.translation);
+        Quat::slerp(t1.orientation, t2.orientation, amount, result.orientation);
+        FVec3::lerp(t1.scale, t2.scale, amount, result.scale);
     }
 
     Transform Transform::alignRotationToNormalAndSnapToGrid(const Vec3 &point, const Vec3 &normal, const Vec3 &normalOffset, const Transform &relativeTo, const Vec3 &gridSize, const FVec3 &scale)
     {
         Quat rot = Quat::GetRotationFromNormal(normal, relativeTo);
-        return Transform(Vec3::snapToGrid(point, gridSize, rot, relativeTo.Translation, normalOffset), rot, scale);
+        return Transform(Vec3::snapToGrid(point, gridSize, rot, relativeTo.translation, normalOffset), rot, scale);
     }
 }

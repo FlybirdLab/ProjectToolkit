@@ -8,6 +8,10 @@
 
 #include <toolkit/common.hpp>
 
+#ifdef assert
+#undef assert
+#endif
+
 namespace toolkit
 {
     struct StackFrame

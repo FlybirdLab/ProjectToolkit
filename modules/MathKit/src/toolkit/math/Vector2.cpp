@@ -13,63 +13,62 @@
 
 namespace toolkit
 {
-
     // Float
     static_assert(sizeof(FVec2) == 8, "Invalid FVec2 type size.");
 
     template <>
-    const FVec2 FVec2::Zero(0.0f);
+    const FVec2 FVec2::kZero(0.0f);
     template <>
-    const FVec2 FVec2::One(1.0f);
+    const FVec2 FVec2::kOne(1.0f);
     template <>
-    const FVec2 FVec2::Half(0.5f);
+    const FVec2 FVec2::kHalf(0.5f);
     template <>
-    const FVec2 FVec2::UnitX(1.0f, 0.0f);
+    const FVec2 FVec2::kUnitX(1.0f, 0.0f);
     template <>
-    const FVec2 FVec2::UnitY(0.0f, 1.0f);
+    const FVec2 FVec2::kUnitY(0.0f, 1.0f);
     template <>
-    const FVec2 FVec2::Minimum(kMinF32);
+    const FVec2 FVec2::kMinimum(kMinF32);
     template <>
-    const FVec2 FVec2::Maximum(kMaxF32);
+    const FVec2 FVec2::kMaximum(kMaxF32);
 
     template <>
-    FVec2::Vector2Base(const IVec3 &xy)
+    FVec2::Vector2(const IVec3 &xy)
         : x((float)xy.x), y((float)xy.y)
     {
     }
 
     template <>
-    FVec2::Vector2Base(const IVec4 &xy)
+    FVec2::Vector2(const IVec4 &xy)
         : x((float)xy.x), y((float)xy.y)
     {
     }
 
     template <>
-    FVec2::Vector2Base(const FVec3 &xy)
+    FVec2::Vector2(const FVec3 &xy)
         : x(xy.x), y(xy.y)
     {
     }
 
     template <>
-    FVec2::Vector2Base(const FVec4 &xy)
+    FVec2::Vector2(const FVec4 &xy)
         : x(xy.x), y(xy.y)
     {
     }
 
     template <>
-    FVec2::Vector2Base(const DVec3 &xy)
+    FVec2::Vector2(const DVec3 &xy)
         : x((float)xy.x), y((float)xy.y)
     {
     }
 
     template <>
-    FVec2::Vector2Base(const DVec4 &xy)
+    FVec2::Vector2(const DVec4 &xy)
         : x((float)xy.x), y((float)xy.y)
     {
     }
 
     template <>
-    FVec2::Vector2Base(const Color &color)
+    FVec2::Vector2(const Color &color)
         : x(color.r), y(color.g)
     {
     }
@@ -99,56 +98,56 @@ namespace toolkit
     static_assert(sizeof(DVec2) == 16, "Invalid DVec2 type size.");
 
     template <>
-    const DVec2 DVec2::Zero(0.0);
+    const DVec2 DVec2::kZero(0.0);
     template <>
-    const DVec2 DVec2::One(1.0);
+    const DVec2 DVec2::kOne(1.0);
     template <>
-    const DVec2 DVec2::UnitX(1.0, 0.0);
+    const DVec2 DVec2::kUnitX(1.0, 0.0);
     template <>
-    const DVec2 DVec2::UnitY(0.0, 1.0);
+    const DVec2 DVec2::kUnitY(0.0, 1.0);
     template <>
-    const DVec2 DVec2::Minimum(kMinF64);
+    const DVec2 DVec2::kMinimum(kMinF64);
     template <>
-    const DVec2 DVec2::Maximum(kMaxF64);
+    const DVec2 DVec2::kMaximum(kMaxF64);
 
     template <>
-    DVec2::Vector2Base(const IVec3 &xy)
+    DVec2::Vector2(const IVec3 &xy)
         : x((double)xy.x), y((double)xy.y)
     {
     }
 
     template <>
-    DVec2::Vector2Base(const IVec4 &xy)
+    DVec2::Vector2(const IVec4 &xy)
         : x((double)xy.x), y((double)xy.y)
     {
     }
 
     template <>
-    DVec2::Vector2Base(const FVec3 &xy)
+    DVec2::Vector2(const FVec3 &xy)
         : x((double)xy.x), y((double)xy.y)
     {
     }
 
     template <>
-    DVec2::Vector2Base(const FVec4 &xy)
+    DVec2::Vector2(const FVec4 &xy)
         : x((i32)xy.x), y((double)xy.y)
     {
     }
 
     template <>
-    DVec2::Vector2Base(const DVec3 &xy)
+    DVec2::Vector2(const DVec3 &xy)
         : x(xy.x), y(xy.y)
     {
     }
 
     template <>
-    DVec2::Vector2Base(const DVec4 &xy)
+    DVec2::Vector2(const DVec4 &xy)
         : x(xy.x), y(xy.y)
     {
     }
 
     template <>
-    DVec2::Vector2Base(const Color &color)
+    DVec2::Vector2(const Color &color)
         : x((double)color.r), y((double)color.g)
     {
     }
@@ -178,56 +177,56 @@ namespace toolkit
     static_assert(sizeof(IVec2) == 8, "Invalid IVec2 type size.");
 
     template <>
-    const IVec2 IVec2::Zero(0);
+    const IVec2 IVec2::kZero(0);
     template <>
-    const IVec2 IVec2::One(1);
+    const IVec2 IVec2::kOne(1);
     template <>
-    const IVec2 IVec2::UnitX(1, 0);
+    const IVec2 IVec2::kUnitX(1, 0);
     template <>
-    const IVec2 IVec2::UnitY(0, 1);
+    const IVec2 IVec2::kUnitY(0, 1);
     template <>
-    const IVec2 IVec2::Minimum(kMinI32);
+    const IVec2 IVec2::kMinimum(kMinI32);
     template <>
-    const IVec2 IVec2::Maximum(kMaxI32);
+    const IVec2 IVec2::kMaximum(kMaxI32);
 
     template <>
-    IVec2::Vector2Base(const IVec3 &xy)
+    IVec2::Vector2(const IVec3 &xy)
         : x(xy.x), y(xy.y)
     {
     }
 
     template <>
-    IVec2::Vector2Base(const IVec4 &xy)
+    IVec2::Vector2(const IVec4 &xy)
         : x(xy.x), y(xy.y)
     {
     }
 
     template <>
-    IVec2::Vector2Base(const FVec3 &xy)
+    IVec2::Vector2(const FVec3 &xy)
         : x((i32)xy.x), y((i32)xy.y)
     {
     }
 
     template <>
-    IVec2::Vector2Base(const FVec4 &xy)
+    IVec2::Vector2(const FVec4 &xy)
         : x((i32)xy.x), y((i32)xy.y)
     {
     }
 
     template <>
-    IVec2::Vector2Base(const DVec3 &xy)
+    IVec2::Vector2(const DVec3 &xy)
         : x((i32)xy.x), y((i32)xy.y)
     {
     }
 
     template <>
-    IVec2::Vector2Base(const DVec4 &xy)
+    IVec2::Vector2(const DVec4 &xy)
         : x((i32)xy.x), y((i32)xy.y)
     {
     }
 
     template <>
-    IVec2::Vector2Base(const Color &color)
+    IVec2::Vector2(const Color &color)
         : x((i32)color.r), y((i32)color.g)
     {
     }

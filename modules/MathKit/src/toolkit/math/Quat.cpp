@@ -2,6 +2,8 @@
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ * References:
+ *    http://lolengine.net/blog/2014/02/24/quaternion-from-two-vectors-final
  */
 
 #include "Quat.hpp"
@@ -16,9 +18,9 @@
 namespace toolkit
 {
 
-    Quat Quat::Zero(0, 0, 0, 0);
-    Quat Quat::One(1, 1, 1, 1);
-    Quat Quat::Identity(0, 0, 0, 1);
+    Quat Quat::kZero(0, 0, 0, 0);
+    Quat Quat::kOne(1, 1, 1, 1);
+    Quat Quat::kIdentity(0, 0, 0, 1);
     Quat::Quat(const FVec4 &value)
         : x(value.x), y(value.y), z(value.z), w(value.w)
     {
@@ -41,7 +43,7 @@ namespace toolkit
     {
         const float length = x * x + y * y + z * z;
         if (TkMath::isZero(length))
-            return FVec3::UnitX;
+            return FVec3::kUnitX;
         const float inv = 1.0f / TkMath::sqrt(length);
         return {x * inv, y * inv, z * inv};
     }
@@ -86,6 +88,47 @@ namespace toolkit
         return TkMath::unwindDegrees(result * TkMath::RadiansToDegrees);
     }
 
+    void Quat::conjugate()
+    {
+        x = -x;
+        y = -y;
+        z = -z;
+    }
+
+    void Quat::invert()
+    {
+        float lengthSq = TkMath::sqrt(x * x + y * y + z * z + w * w);
+        if (!TkMath::isZero(lengthSq))
+        {
+            lengthSq = 1.0f / lengthSq;
+            x = -x * lengthSq;
+            y = -y * lengthSq;
+            z = -z * lengthSq;
+            w = w * lengthSq;
+        }
+    }
+
+    void Quat::normalize()
+    {
+        const float length = TkMath::sqrt(x * x + y * y + z * z + w * w);
+        if (!TkMath::isZero(length))
+        {
+            const float inv = 1.0f / length;
+            x *= inv;
+            y *= inv;
+            z *= inv;
+            w *= inv;
+        }
+    }
+
+    void Quat::multiply(float scale)
+    {
+        x *= scale;
+        y *= scale;
+        z *= scale;
+        w *= scale;
+    }
+
     void Quat::multiply(const Quat &other)
     {
         const float a = y * other.z - z * other.y;
@@ -117,6 +160,14 @@ namespace toolkit
         result.y = left.y - right.y;
         result.z = left.z - right.z;
         result.w = left.w - right.w;
+    }
+
+    void Quat::multiply(const Quat &value, float scale, Quat &result)
+    {
+        result.x = value.x * scale;
+        result.y = value.y * scale;
+        result.z = value.z * scale;
+        result.w = value.w * scale;
     }
 
     void Quat::multiply(const Quat &left, const Quat &right, Quat &result)
@@ -157,6 +208,13 @@ namespace toolkit
             result.w = inverse * start.w - amount * end.w;
         }
         result.normalize();
+    }
+
+    Quat Quat::lerp(const Quat &start, const Quat &end, float amount)
+    {
+        Quat result{};
+        lerp(start, end, amount, result);
+        return result;
     }
 
     void Quat::rotationAxis(const FVec3 &axis, float angle, Quat &result)
@@ -305,7 +363,7 @@ namespace toolkit
 
     void Quat::rotationLookAt(const FVec3 &forward, const FVec3 &up, Quat &result)
     {
-        lookAt(FVec3::Zero, forward, up, result);
+        lookAt(FVec3::kZero, forward, up, result);
     }
 
     void Quat::billboard(const FVec3 &objectPosition, const FVec3 &cameraPosition, const FVec3 &cameraUpVector, const FVec3 &cameraForwardVector, Quat &result)
@@ -317,20 +375,20 @@ namespace toolkit
 
     Quat Quat::fromDirection(const FVec3 &direction)
     {
-        TK_CHECK_RETURN_DEBUG(direction.isNormalized(), Quat::Identity);
+        TK_CHECK_RETURN_DEBUG(direction.isNormalized(), Quat::kIdentity);
         Quat orientation;
-        if (FVec3::dot(direction, FVec3::Up) >= 0.999f)
+        if (FVec3::dot(direction, FVec3::kUp) >= 0.999f)
         {
-            rotationAxis(FVec3::Left, TkMath::PI_OVER_2, orientation);
+            rotationAxis(FVec3::kLeft, TkMath::PI_OVER_2, orientation);
         }
-        else if (FVec3::dot(direction, FVec3::Down) >= 0.999f)
+        else if (FVec3::dot(direction, FVec3::kDown) >= 0.999f)
         {
-            rotationAxis(FVec3::Right, TkMath::PI_OVER_2, orientation);
+            rotationAxis(FVec3::kRight, TkMath::PI_OVER_2, orientation);
         }
         else
         {
             FVec3 right, up;
-            FVec3::cross(direction, FVec3::Up, right);
+            FVec3::cross(direction, FVec3::kUp, right);
             FVec3::cross(right, direction, up);
             lookRotation(direction, up, orientation);
         }
@@ -406,6 +464,13 @@ namespace toolkit
 #undef m22
     }
 
+    Quat Quat::lookRotation(const FVec3 &forward, const FVec3 &up)
+    {
+        Quat result{};
+        lookRotation(forward, up, result);
+        return result;
+    }
+
     void Quat::getRotationFromTo(const FVec3 &from, const FVec3 &to, Quat &result, const FVec3 &fallbackAxis)
     {
         // Based on Stan Melax's article in Game Programming Gems
@@ -419,13 +484,13 @@ namespace toolkit
         const float d = FVec3::dot(v0, v1);
         if (d >= 1.0f)
         {
-            result = Identity;
+            result = kIdentity;
             return;
         }
 
         if (d < 1e-6f - 1.0f)
         {
-            if (fallbackAxis != FVec3::Zero)
+            if (fallbackAxis != FVec3::kZero)
             {
                 // Rotate 180 degrees about the fallback axis
                 rotationAxis(fallbackAxis, TkMath::PI, result);
@@ -433,9 +498,9 @@ namespace toolkit
             else
             {
                 // Generate an axis
-                FVec3 axis = FVec3::cross(FVec3::UnitX, from);
+                FVec3 axis = FVec3::cross(FVec3::kUnitX, from);
                 if (axis.lengthSquared() < TkMath::ZeroTolerance) // Pick another if colinear
-                    axis = FVec3::cross(FVec3::UnitY, from);
+                    axis = FVec3::cross(FVec3::kUnitY, from);
                 axis.normalize();
                 rotationAxis(axis, TkMath::PI, result);
             }
@@ -456,13 +521,19 @@ namespace toolkit
         }
     }
 
+    Quat Quat::getRotationFromTo(const FVec3 &from, const FVec3 &to, const FVec3 &fallbackAxis)
+    {
+        Quat result;
+        getRotationFromTo(from, to, result, fallbackAxis);
+        return result;
+    }
+
     void Quat::findBetween(const FVec3 &from, const FVec3 &to, Quat &result)
     {
-        // http://lolengine.net/blog/2014/02/24/quaternion-from-two-vectors-final
         const float normFromNormTo = TkMath::sqrt(from.lengthSquared() * to.lengthSquared());
         if (normFromNormTo < TkMath::ZeroTolerance)
         {
-            result = Identity;
+            result = kIdentity;
             return;
         }
         const float w = normFromNormTo + FVec3::dot(from, to);
@@ -478,6 +549,20 @@ namespace toolkit
             result = Quat(cross.x, cross.y, cross.z, w);
         }
         result.normalize();
+    }
+
+    Quat Quat::findBetween(const FVec3 &from, const FVec3 &to)
+    {
+        Quat result{};
+        findBetween(from, to, result);
+        return result;
+    }
+
+    Quat Quat::rotationMatrix(const Mat &matrix)
+    {
+        Quat result;
+        rotationMatrix(matrix, result);
+        return result;
     }
 
     void Quat::slerp(const Quat &start, const Quat &end, float amount, Quat &result)
@@ -543,6 +628,13 @@ namespace toolkit
             sinYawOver2 * cosPitchOver2 * cosRollOver2 - cosYawOver2 * sinPitchOver2 * sinRollOver2,
             cosYawOver2 * cosPitchOver2 * sinRollOver2 - sinYawOver2 * sinPitchOver2 * cosRollOver2,
             cosYawOver2 * cosPitchOver2 * cosRollOver2 + sinYawOver2 * sinPitchOver2 * sinRollOver2);
+    }
+
+    Quat Quat::rotationYawPitchRoll(float yaw, float pitch, float roll)
+    {
+        Quat result{};
+        rotationYawPitchRoll(yaw, pitch, roll, result);
+        return result;
     }
 
     void Quat::rotationYawPitchRoll(float yaw, float pitch, float roll, Quat &result)

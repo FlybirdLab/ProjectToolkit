@@ -11,8 +11,7 @@
 
 namespace toolkit
 {
-
-    Ray Ray::Identity(Vec3(0, 0, 0), Vec3(0, 0, 1.0f));
+    Ray Ray::kIdentity(Vec3(0, 0, 0), Vec3(0, 0, 1.0f));
 
     TkString Ray::toString() const
     {

@@ -16,7 +16,7 @@ namespace toolkit
     {
     public:
         // The empty rectangle.
-        static Rectangle Empty;
+        static Rectangle kEmpty;
 
     public:
         Rectangle() = default;

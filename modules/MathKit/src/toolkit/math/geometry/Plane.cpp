@@ -47,16 +47,6 @@ namespace toolkit
 
     Vec3 Plane::intersection(const Plane &inPlane1, const Plane &inPlane2, const Plane &inPlane3)
     {
-        // intersection point with 3 planes
-        //  {
-        //      x = -( c2*b1*d3-c2*b3*d1+b3*c1*d2+c3*b2*d1-b1*c3*d2-c1*b2*d3)/
-        //           (-c2*b3*a1+c3*b2*a1-b1*c3*a2-c1*b2*a3+b3*c1*a2+c2*b1*a3),
-        //      y =  ( c3*a2*d1-c3*a1*d2-c2*a3*d1+d2*c1*a3-a2*c1*d3+c2*d3*a1)/
-        //           (-c2*b3*a1+c3*b2*a1-b1*c3*a2-c1*b2*a3+b3*c1*a2+c2*b1*a3),
-        //      z = -(-a2*b1*d3+a2*b3*d1-a3*b2*d1+d3*b2*a1-d2*b3*a1+d2*b1*a3)/
-        //           (-c2*b3*a1+c3*b2*a1-b1*c3*a2-c1*b2*a3+b3*c1*a2+c2*b1*a3)
-        //  }
-
         // TODO: convet into cros products, dot products etc. ???
 
         const real bc1 = inPlane1.normal.y * inPlane3.normal.z - inPlane3.normal.y * inPlane1.normal.z;
@@ -73,7 +63,7 @@ namespace toolkit
         const real w = -(inPlane1.normal.x * bc3 + inPlane2.normal.x * bc1 + inPlane3.normal.x * bc2);
 
         // better to have detectable invalid values than to have reaaaaaaally big values
-        if (w > -NormalEpsilon && w < NormalEpsilon)
+        if (w > -kNormalEpsilon && w < kNormalEpsilon)
         {
             return Vec3(NAN);
         }

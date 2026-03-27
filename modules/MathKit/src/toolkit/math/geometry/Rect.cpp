@@ -1,17 +1,17 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
- #include "Rect.hpp"
+#include "Rect.hpp"
 
 #include "toolkit/types/String.hpp"
 
 namespace toolkit
 {
 
-    Rectangle Rectangle::Empty(0, 0, 0, 0);
+    Rectangle Rectangle::kEmpty(0, 0, 0, 0);
 
     TkString Rectangle::toString() const
     {
@@ -20,7 +20,7 @@ namespace toolkit
 
     bool Rectangle::contains(const FVec2 &location) const
     {
-        return location.x >= location.x && location.y >= location.y && (location.x <= location.x + size.x && location.y <= location.y + size.y);
+        return location.x >= this->location.x && location.y >= this->location.y && (location.x <= this->location.x + size.x && location.y <= this->location.y + size.y);
     }
 
     bool Rectangle::contains(const Rectangle &value) const
@@ -51,26 +51,26 @@ namespace toolkit
 
     void Rectangle::expand(float toExpand)
     {
-        location -= toExpand * 0.5f;
-        size += toExpand;
+        location -= FVec2(toExpand, toExpand);
+        size += FVec2(toExpand * 2.0f, toExpand * 2.0f);
     }
 
     Rectangle Rectangle::makeExpanded(float toExpand) const
     {
-        return Rectangle(location - toExpand * 0.5f, size + toExpand);
+        return Rectangle(location - FVec2(toExpand, toExpand), size + FVec2(toExpand * 2.0f, toExpand * 2.0f));
     }
 
     void Rectangle::scale(float scale)
     {
         const FVec2 toExpand = size * (scale - 1.0f) * 0.5f;
-        location -= toExpand * 0.5f;
-        size += toExpand;
+        location -= toExpand;
+        size += toExpand * 2.0f;
     }
 
     Rectangle Rectangle::makeScaled(float scale) const
     {
         const FVec2 toExpand = size * (scale - 1.0f) * 0.5f;
-        return Rectangle(location - toExpand * 0.5f, size + toExpand);
+        return Rectangle(location - toExpand, size + toExpand * 2.0f);
     }
 
     Rectangle Rectangle::unionRectangle(const Rectangle &a, const FVec2 &b)
@@ -104,7 +104,7 @@ namespace toolkit
     {
         const FVec2 upperLeft = FVec2::min(p1, p2);
         const FVec2 rightBottom = FVec2::max(p1, p2);
-        return Rectangle(upperLeft, TkMath::max(rightBottom - upperLeft, FVec2::Zero));
+        return Rectangle(upperLeft, TkMath::max(rightBottom - upperLeft, FVec2::kZero));
     }
 
     Rectangle Rectangle::fromPoints(const FVec2 *points, i32 pointsCount)
@@ -117,6 +117,6 @@ namespace toolkit
             upperLeft = FVec2::min(upperLeft, points[i]);
             rightBottom = FVec2::max(rightBottom, points[i]);
         }
-        return Rectangle(upperLeft, TkMath::max(rightBottom - upperLeft, FVec2::Zero));
+        return Rectangle(upperLeft, TkMath::max(rightBottom - upperLeft, FVec2::kZero));
     }
 }

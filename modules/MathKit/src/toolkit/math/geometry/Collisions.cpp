@@ -4,9 +4,13 @@
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  * References:
  *     Real-Time Collision Detection by Christer Ericson
+ *     Jorgy343
+ *     RayIntersectsSphere
+ *     Real-Time Rendering, Third Edition
+ *     http://www.cs.virginia.edu/~gfx/Courses/2003/ImageSynthesis/papers/Acceleration/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
  */
 
-#include "CollisionsHelper.hpp"
+#include "Collisions.hpp"
 
 #include "toolkit/math/Vector2.hpp"
 #include "toolkit/math/Vector3.hpp"
@@ -19,6 +23,119 @@
 
 namespace toolkit
 {
+    namespace
+    {
+        struct Vec2Lite
+        {
+            real x;
+            real y;
+        };
+
+        static Vec2Lite projectToPlane2D(const Vec3 &v, int axis)
+        {
+            switch (axis)
+            {
+            case 0:
+                return {v.y, v.z};
+            case 1:
+                return {v.x, v.z};
+            default:
+                return {v.x, v.y};
+            }
+        }
+
+        static real cross2d(const Vec2Lite &a, const Vec2Lite &b)
+        {
+            return a.x * b.y - a.y * b.x;
+        }
+
+        static bool pointInTriangle2D(const Vec2Lite &p, const Vec2Lite &a, const Vec2Lite &b, const Vec2Lite &c)
+        {
+            const Vec2Lite ap{a.x - p.x, a.y - p.y};
+            const Vec2Lite bp{b.x - p.x, b.y - p.y};
+            const Vec2Lite cp{c.x - p.x, c.y - p.y};
+            const bool orientation = cross2d(ap, bp) > 0;
+            if ((cross2d(bp, cp) > 0) != orientation)
+                return false;
+            return (cross2d(cp, ap) > 0) == orientation;
+        }
+
+        static bool coplanarRayIntersectsTriangle(const Ray &ray, const Vec3 &vertex1, const Vec3 &vertex2, const Vec3 &vertex3, real &distance)
+        {
+            Vec3 edge1, edge2, planeNormal;
+            Vec3::subtract(vertex2, vertex1, edge1);
+            Vec3::subtract(vertex3, vertex1, edge2);
+            Vec3::cross(edge1, edge2, planeNormal);
+
+            const Vec3 absNormal = planeNormal.getAbsolute();
+            int axis = 2;
+            if (absNormal.x >= absNormal.y && absNormal.x >= absNormal.z)
+                axis = 0;
+            else if (absNormal.y >= absNormal.z)
+                axis = 1;
+
+            const Vec2Lite p = projectToPlane2D(ray.position, axis);
+            const Vec2Lite d = projectToPlane2D(ray.direction, axis);
+            const Vec2Lite a = projectToPlane2D(vertex1, axis);
+            const Vec2Lite b = projectToPlane2D(vertex2, axis);
+            const Vec2Lite c = projectToPlane2D(vertex3, axis);
+
+            if (pointInTriangle2D(p, a, b, c))
+            {
+                distance = 0.0f;
+                return true;
+            }
+
+            const Vec2Lite edgesStart[3] = {a, b, c};
+            const Vec2Lite edgesEnd[3] = {b, c, a};
+            real bestDistance = kMaxReal;
+            bool hit = false;
+
+            for (int i = 0; i < 3; ++i)
+            {
+                const Vec2Lite s = edgesStart[i];
+                const Vec2Lite e = edgesEnd[i];
+                const Vec2Lite edge{e.x - s.x, e.y - s.y};
+                const Vec2Lite delta{s.x - p.x, s.y - p.y};
+                const real denom = cross2d(d, edge);
+
+                if (TkMath::isZero(denom))
+                {
+                    if (!TkMath::isZero(cross2d(delta, d)))
+                        continue;
+
+                    const real dd = d.x * d.x + d.y * d.y;
+                    if (TkMath::isZero(dd))
+                        continue;
+
+                    const Vec2Lite candidates[2] = {s, e};
+                    for (const Vec2Lite &candidate : candidates)
+                    {
+                        const Vec2Lite rel{candidate.x - p.x, candidate.y - p.y};
+                        const real t = (rel.x * d.x + rel.y * d.y) / dd;
+                        if (t >= 0.0f && t < bestDistance)
+                        {
+                            bestDistance = t;
+                            hit = true;
+                        }
+                    }
+                    continue;
+                }
+
+                const real t = cross2d(delta, edge) / denom;
+                const real u = cross2d(delta, d) / denom;
+                if (t >= 0.0f && u >= 0.0f && u <= 1.0f && t < bestDistance)
+                {
+                    bestDistance = t;
+                    hit = true;
+                }
+            }
+
+            distance = hit ? bestDistance : 0.0f;
+            return hit;
+        }
+    }
+
 
     void TkCollision::closestPointPointLine(const FVec2 &point, const FVec2 &p0, const FVec2 &p1, FVec2 &result)
     {
@@ -169,10 +286,8 @@ namespace toolkit
 
     void TkCollision::closestPointPlanePoint(const Plane &plane, const Vec3 &point, Vec3 &result)
     {
-        // Source: real-Time Collision Detection by Christer Ericson
-        // Consterence: Page 126
-        const real dot = Vec3::dot(plane.normal, point);
-        const real t = dot - plane.d;
+        const real dot = Vec3::dot(plane.normal, point) + plane.d;
+        const real t = dot;
         result = point - t * plane.normal;
     }
 
@@ -214,9 +329,6 @@ namespace toolkit
 
     void TkCollision::closestPointSpherePoint(const BoundingSphere &sphere, const Vec3 &point, Vec3 &result)
     {
-        // Source: Jorgy343
-        // Consterence: None
-
         // Get the unit direction from the sphere's center to the point.
         Vec3::subtract(point, sphere.center, result);
         result.normalize();
@@ -238,9 +350,6 @@ namespace toolkit
 
     void TkCollision::closestPointSphereSphere(const BoundingSphere &sphere1, const BoundingSphere &sphere2, Vec3 &result)
     {
-        // Source: Jorgy343
-        // Consterence: None
-
         // Get the unit direction from the first sphere's center to the second sphere's center.
         Vec3::subtract(sphere2.center, sphere1.center, result);
         result.normalize();
@@ -263,7 +372,7 @@ namespace toolkit
     real TkCollision::distancePlanePoint(const Plane &plane, const Vec3 &point)
     {
         const real dot = Vec3::dot(plane.normal, point);
-        return dot - plane.d;
+        return dot + plane.d;
     }
 
     real TkCollision::distanceBoxPoint(const BoundingBox &box, const Vec3 &point)
@@ -347,9 +456,6 @@ namespace toolkit
 
     bool TkCollision::rayIntersectsPoint(const Ray &ray, const Vec3 &point)
     {
-        // Source: RayIntersectsSphere
-        // Consterence: None
-
         Vec3 m;
         Vec3::subtract(ray.position, point, m);
 
@@ -371,9 +477,6 @@ namespace toolkit
 
     bool TkCollision::rayIntersectsRay(const Ray &ray1, const Ray &ray2, Vec3 &point)
     {
-        // Source: Real-Time Rendering, Third Edition
-        // Consterence: Page 780
-
         Vec3 cross;
 
         Vec3::cross(ray1.direction, ray2.direction, cross);
@@ -387,7 +490,7 @@ namespace toolkit
                 TkMath::nearEqual(ray2.position.y, ray1.position.y) &&
                 TkMath::nearEqual(ray2.position.z, ray1.position.z))
             {
-                point = Vec3::Zero;
+                point = Vec3::kZero;
                 return true;
             }
         }
@@ -441,7 +544,7 @@ namespace toolkit
             !TkMath::nearEqual(point2.y, point1.y) ||
             !TkMath::nearEqual(point2.z, point1.z))
         {
-            point = Vec3::Zero;
+            point = Vec3::kZero;
             return false;
         }
 
@@ -451,9 +554,6 @@ namespace toolkit
 
     bool TkCollision::rayIntersectsPlane(const Ray &ray, const Plane &plane, real &distance)
     {
-        // Source: real-Time Collision Detection by Christer Ericson
-        // Consterence: Page 175
-
         const real direction = Vec3::dot(plane.normal, ray.direction);
 
         if (TkMath::isZero(direction))
@@ -465,7 +565,7 @@ namespace toolkit
         const real position = Vec3::dot(plane.normal, ray.position);
         distance = (-plane.d - position) / direction;
 
-        if (distance < Plane::DistanceEpsilon)
+        if (distance < Plane::kDistanceEpsilon)
         {
             distance = 0.0f;
             return false;
@@ -476,13 +576,10 @@ namespace toolkit
 
     bool TkCollision::rayIntersectsPlane(const Ray &ray, const Plane &plane, Vec3 &point)
     {
-        // Source: real-Time Collision Detection by Christer Ericson
-        // Consterence: Page 175
-
         real distance;
         if (!rayIntersectsPlane(ray, plane, distance))
         {
-            point = Vec3::Zero;
+            point = Vec3::kZero;
             return false;
         }
 
@@ -492,9 +589,6 @@ namespace toolkit
 
     bool TkCollision::rayIntersectsTriangle(const Ray &ray, const Vec3 &vertex1, const Vec3 &vertex2, const Vec3 &vertex3, real &distance)
     {
-        // Source: Fast Minimum Storage Ray / Triangle Intersection
-        // Consterence: http://www.cs.virginia.edu/~gfx/Courses/2003/ImageSynthesis/papers/Acceleration/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
-
         distance = 0.0f;
 
         // Compute vectors along two edges of the triangle
@@ -524,7 +618,10 @@ namespace toolkit
         // back and the front of the triangle.
         if (TkMath::isZero(determinant))
         {
-            return false;
+            const real planeDistance = Vec3::dot(Vec3::cross(edge1, edge2), ray.position - vertex1);
+            if (!TkMath::isZero(planeDistance))
+                return false;
+            return coplanarRayIntersectsTriangle(ray, vertex1, vertex2, vertex3, distance);
         }
 
         const real inverseDeterminant = 1.0f / determinant;
@@ -575,11 +672,8 @@ namespace toolkit
 
     bool TkCollision::rayIntersectsTriangle(const Ray &ray, const Vec3 &vertex1, const Vec3 &vertex2, const Vec3 &vertex3, real &distance, Vec3 &normal)
     {
-        // Source: Fast Minimum Storage Ray / Triangle Intersection
-        // Consterence: http://www.cs.virginia.edu/~gfx/Courses/2003/ImageSynthesis/papers/Acceleration/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
-
         distance = 0.0f;
-        normal = Vec3::Up;
+        normal = Vec3::kUp;
 
         // Compute vectors along two edges of the triangle
         Vec3 edge1, edge2;
@@ -608,7 +702,16 @@ namespace toolkit
         // back and the front of the triangle.
         if (TkMath::isZero(determinant))
         {
-            return false;
+            const real planeDistance = Vec3::dot(Vec3::cross(edge1, edge2), ray.position - vertex1);
+            if (!TkMath::isZero(planeDistance))
+                return false;
+
+            if (!coplanarRayIntersectsTriangle(ray, vertex1, vertex2, vertex3, distance))
+                return false;
+
+            Vec3::cross(edge1, edge2, normal);
+            normal.normalize();
+            return true;
         }
 
         const real inverseDeterminant = 1.0f / determinant;
@@ -653,19 +756,8 @@ namespace toolkit
             return false;
         }
 
-        // Calculate hit normal (handle both triangle sides)
-        const Vec3 vd0 = vertex2 - vertex1;
-        const Vec3 vd1 = vertex3 - vertex1;
-        const Vec3 n1 = Vec3::normalize(vd0 ^ vd1);
-        const Vec3 n2 = Vec3::normalize(vd1 ^ vd0);
-        // TODO: optimize it
-        const real BiasAdjust = 0.01f;
-        const Vec3 center = (vertex1 + vertex2 + vertex3) * 0.333333f;
-        if (Vec3::distanceSquared(center + n1 * BiasAdjust, ray.position) < Vec3::distanceSquared(center + n2 * BiasAdjust, ray.position))
-            normal = n1;
-        else
-            normal = n2;
-        //*normal = Vec3::normalize(vd0 ^ vd1) * -1;
+        Vec3::cross(edge1, edge2, normal);
+        normal.normalize();
 
         distance = rayDistance;
 
@@ -677,7 +769,7 @@ namespace toolkit
         real distance;
         if (!rayIntersectsTriangle(ray, vertex1, vertex2, vertex3, distance))
         {
-            point = Vec3::Zero;
+            point = Vec3::kZero;
             return false;
         }
         point = ray.position + ray.direction * distance;
@@ -789,7 +881,7 @@ namespace toolkit
     {
         if (!rayIntersectsBox(ray, box, distance))
         {
-            normal = Vec3::Up;
+            normal = Vec3::kUp;
             return false;
         }
 
@@ -831,7 +923,7 @@ namespace toolkit
         real distance;
         if (!rayIntersectsBox(ray, box, distance))
         {
-            point = Vec3::Zero;
+            point = Vec3::kZero;
             return false;
         }
 
@@ -873,7 +965,7 @@ namespace toolkit
     {
         if (!rayIntersectsSphere(ray, sphere, distance))
         {
-            normal = Vec3::Up;
+            normal = Vec3::kUp;
             return false;
         }
         const Vec3 point = ray.position + ray.direction * distance;
@@ -886,7 +978,7 @@ namespace toolkit
         real distance;
         if (!rayIntersectsSphere(ray, sphere, distance))
         {
-            point = Vec3::Zero;
+            point = Vec3::kZero;
             return false;
         }
         point = ray.position + ray.direction * distance;
@@ -896,9 +988,9 @@ namespace toolkit
     PlaneIntersectionType TkCollision::planeIntersectsPoint(const Plane &plane, const Vec3 &point)
     {
         const real distance = Vec3::dot(plane.normal, point) + plane.d;
-        if (distance > Plane::DistanceEpsilon)
+        if (distance > Plane::kDistanceEpsilon)
             return PlaneIntersectionType::kFront;
-        if (distance < Plane::DistanceEpsilon)
+        if (distance < -Plane::kDistanceEpsilon)
             return PlaneIntersectionType::kBack;
         return PlaneIntersectionType::kIntersecting;
     }
@@ -915,7 +1007,7 @@ namespace toolkit
         return !TkMath::isZero(denominator);
     }
 
-    bool planeIntersectsPlane(const Plane &plane1, const Plane &plane2, Ray &line)
+    bool TkCollision::planeIntersectsPlane(const Plane &plane1, const Plane &plane2, Ray &line)
     {
         Vec3 direction;
         Vec3::cross(plane1.normal, plane2.normal, direction);
@@ -970,10 +1062,10 @@ namespace toolkit
         min.z = plane.normal.z >= 0.0f ? box.maximum.z : box.minimum.z;
 
         real distance = Vec3::dot(plane.normal, max);
-        if (distance + plane.d > Plane::DistanceEpsilon)
+        if (distance + plane.d > Plane::kDistanceEpsilon)
             return PlaneIntersectionType::kFront;
         distance = Vec3::dot(plane.normal, min);
-        if (distance + plane.d < Plane::DistanceEpsilon)
+        if (distance + plane.d < Plane::kDistanceEpsilon)
             return PlaneIntersectionType::kBack;
         return PlaneIntersectionType::kIntersecting;
     }
@@ -1084,9 +1176,6 @@ namespace toolkit
 
     ContainmentType TkCollision::sphereContainsTriangle(const BoundingSphere &sphere, const Vec3 &vertex1, const Vec3 &vertex2, const Vec3 &vertex3)
     {
-        // Source: Jorgy343
-        // Consterence: None
-
         const ContainmentType test1 = sphereContainsPoint(sphere, vertex1);
         const ContainmentType test2 = sphereContainsPoint(sphere, vertex2);
         const ContainmentType test3 = sphereContainsPoint(sphere, vertex3);
@@ -1189,7 +1278,7 @@ namespace toolkit
                 p.y = box.maximum.y;
             if (plane.normal.z >= 0)
                 p.z = box.maximum.z;
-            if (Vec3::dot(plane.normal, p) + plane.d < Plane::DistanceEpsilon)
+            if (Vec3::dot(plane.normal, p) + plane.d < Plane::kDistanceEpsilon)
                 return ContainmentType::kDisjoint;
 
             p = box.maximum;
@@ -1199,7 +1288,7 @@ namespace toolkit
                 p.y = box.minimum.y;
             if (plane.normal.z >= 0)
                 p.z = box.minimum.z;
-            if (Vec3::dot(plane.normal, p) + plane.d < Plane::DistanceEpsilon)
+            if (Vec3::dot(plane.normal, p) + plane.d < Plane::kDistanceEpsilon)
                 result = ContainmentType::kIntersects;
         }
         return result;

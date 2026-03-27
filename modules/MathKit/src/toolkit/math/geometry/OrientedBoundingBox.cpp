@@ -72,7 +72,7 @@ namespace toolkit {
         const FVec3 yv = transformation.localToWorldVector(Vec3(0, (float)extents.y, 0));
         const FVec3 zv = transformation.localToWorldVector(Vec3(0, 0, (float)extents.z));
 
-        const FVec3 center = transformation.Translation;
+        const FVec3 center = transformation.translation;
 
         corners[0] = center + xv + yv + zv;
         corners[1] = center + xv + yv - zv;
@@ -91,7 +91,7 @@ namespace toolkit {
         const DVec3 yv = transformation.localToWorldVector(Vec3(0, (float)extents.y, 0));
         const DVec3 zv = transformation.localToWorldVector(Vec3(0, 0, (float)extents.z));
 
-        const DVec3 center = transformation.Translation;
+        const DVec3 center = transformation.translation;
 
         corners[0] = center + xv + yv + zv;
         corners[1] = center + xv + yv - zv;
@@ -172,7 +172,7 @@ namespace toolkit {
             const real minDstToEdgeLocal = tmp.getAbsolute().minValue();
 
             // Transform distance to world space
-            Vec3 dstVec = Vec3::UnitX * minDstToEdgeLocal;
+            Vec3 dstVec = Vec3::kUnitX * minDstToEdgeLocal;
             transformation.localToWorldVector(dstVec, dstVec);
             *distance = dstVec.length();
         }
@@ -200,7 +200,7 @@ namespace toolkit {
         else
         {
             // Transform sphere radius into the obb coordinates
-            Vec3 vRadius = Vec3::UnitX * sphere.radius;
+            Vec3 vRadius = Vec3::kUnitX * sphere.radius;
             transformation.localToWorldVector(vRadius, vRadius);
             locRadius = vRadius.length();
         }
@@ -242,7 +242,7 @@ namespace toolkit {
     {
         Vec3 point;
         const bool result = intersects(ray, point);
-        distance = Vec3::distance(ray.position, point);
+        distance = result ? Vec3::distance(ray.position, point) : 0.0f;
         return result;
     }
 

@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #pragma once
@@ -12,36 +12,23 @@
 namespace toolkit
 {
 
-    struct Mat;
+    class Mat;
 
     // Describes transformation in a 3D space.
-    struct TK_API Transform
+    class TK_API Transform
     {
-        // The translation vector of the transform.
-        Vec3 Translation;
-        // The rotation of the transform.
-        Quat Orientation{};
-        // The scale vector of the transform.
-        FVec3 Scale;
-
+    public:
         // An identity transform.
-        static Transform Identity;
+        static Transform kIdentity;
 
+    public:
         Transform() = default;
-        Transform(const Vec3 &position)
-            : Translation(position), Orientation(0.0f, 0.0f, 0.0f, 1.0f), Scale(1.0f)
-        {
-        }
-        Transform(const Vec3 &position, const Quat &rotation)
-            : Translation(position), Orientation(rotation), Scale(1.0f)
-        {
-        }
-        Transform(const Vec3 &position, const Quat &rotation, const FVec3 &scale)
-            : Translation(position), Orientation(rotation), Scale(scale)
-        {
-        }
-        Transform(const Vec3 &position, const Mat3x3 &rotationScale);
+        Transform(const Vec3 &position);
+        Transform(const Vec3 &position, const Quat &rotation);
+        Transform(const Vec3 &position, const Quat &rotation, const FVec3 &scale);
+        Transform(const Vec3 &position, const Mat3x3 &rotationscale);
 
+    public:
         TkString toString() const;
 
         // Checks if transform is an identity transformation.
@@ -52,20 +39,22 @@ namespace toolkit
         // Calculates the determinant of this transformation.
         TK_FORCE_INLINE float getDeterminant() const
         {
-            return Scale.x * Scale.y * Scale.z;
+            return scale.x * scale.y * scale.z;
         }
 
-        // Gets rotation matrix (from Orientation).
+    public:
+        // Gets rotation matrix (from orientation).
         Mat getRotation() const;
-        // Gets rotation matrix (from Orientation).
+        // Gets rotation matrix (from orientation).
         void getRotation(Mat &result) const;
-        // Sets rotation matrix (from Orientation).
+        // Sets rotation matrix (from orientation).
         void setRotation(const Mat &value);
         // Gets world matrix that describes transformation as a 4 by 4 matrix.
         Mat getWorld() const;
         // Gets world matrix that describes transformation as a 4 by 4 matrix.
         void getWorld(Mat &result) const;
 
+    public:
         // Adds translation to this transform.
         Transform add(const Vec3 &translation) const;
         // Adds transformation to this transform.
@@ -148,7 +137,7 @@ namespace toolkit
         }
 
         // Combines the functions: <br/>
-        static Transform alignRotationToNormalAndSnapToGrid(const Vec3 &point, const Vec3 &normal, const Vec3 &normalOffset, const Transform &relativeTo, const Vec3 &gridSize, const FVec3 &scale = FVec3::One);
+        static Transform alignRotationToNormalAndSnapToGrid(const Vec3 &point, const Vec3 &normal, const Vec3 &normalOffset, const Transform &relativeTo, const Vec3 &gridSize, const FVec3 &scale = FVec3::kOne);
 
     public:
         TK_FORCE_INLINE Transform operator*(const Transform &other) const
@@ -173,24 +162,19 @@ namespace toolkit
 
         TK_FORCE_INLINE bool operator==(const Transform &other) const
         {
-            return Translation == other.Translation && Orientation == other.Orientation && Scale == other.Scale;
+            return translation == other.translation && orientation == other.orientation && scale == other.scale;
         }
 
         TK_FORCE_INLINE bool operator!=(const Transform &other) const
         {
-            return Translation != other.Translation || Orientation != other.Orientation || Scale != other.Scale;
+            return translation != other.translation || orientation != other.orientation || scale != other.scale;
         }
 
-        static bool nearEqual(const Transform &a, const Transform &b)
-        {
-            return Vec3::nearEqual(a.Translation, b.Translation) && Quat::nearEqual(a.Orientation, b.Orientation) && FVec3::nearEqual(a.Scale, b.Scale);
-        }
+    public:
+        static bool nearEqual(const Transform &a, const Transform &b);
+        static bool nearEqual(const Transform &a, const Transform &b, float epsilon);
 
-        static bool nearEqual(const Transform &a, const Transform &b, float epsilon)
-        {
-            return Vec3::nearEqual(a.Translation, b.Translation, epsilon) && Quat::nearEqual(a.Orientation, b.Orientation, epsilon) && FVec3::nearEqual(a.Scale, b.Scale, epsilon);
-        }
-
+    public:
         FVec3 getRight() const;
         FVec3 getLeft() const;
         FVec3 getUp() const;
@@ -200,14 +184,19 @@ namespace toolkit
 
         static Transform lerp(const Transform &t1, const Transform &t2, float amount);
         static void lerp(const Transform &t1, const Transform &t2, float amount, Transform &result);
+
+    public:
+        // The translation vector of the transform.
+        Vec3 translation;
+        // The rotation of the transform.
+        Quat orientation{};
+        // The scale vector of the transform.
+        FVec3 scale;
     };
 
-    namespace math
+    TK_FORCE_INLINE static bool nearEqual(const Transform &a, const Transform &b)
     {
-        TK_FORCE_INLINE static bool nearEqual(const Transform &a, const Transform &b)
-        {
-            return Transform::nearEqual(a, b);
-        }
+        return Transform::nearEqual(a, b);
     }
 
     template <>
@@ -226,7 +215,7 @@ namespace toolkit
     inline psize formatCustom<>(FormatBuffer &buf, const toolkit::Transform &t)
     {
         const psize beginUsed = buf.getUsed();
-        Formatter::format(buf, "Translation:{} Orientation:{} Scale:{}", t.Translation, t.Orientation, t.Scale);
+        Formatter::format(buf, "translation:%s orientation:%s scale:%s", t.translation, t.orientation, t.scale);
         return buf.getUsed() - beginUsed - 1;
     }
 }

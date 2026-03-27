@@ -10,6 +10,9 @@
 
 #include <toolkit/math/Vector2.hpp>
 #include <toolkit/math/Vector3.hpp>
+#include <toolkit/math/Vector4.hpp>
+#include <toolkit/math/geometry/Rect.hpp>
+#include <toolkit/utils/Color.hpp>
 
 namespace toolkit
 {
@@ -98,8 +101,8 @@ namespace toolkit
         }
         TK_FORCE_INLINE Half2(float x, float y)
         {
-            x = Float16Compressor::compress(x);
-            y = Float16Compressor::compress(y);
+            this->x = Float16Compressor::compress(x);
+            this->y = Float16Compressor::compress(y);
         }
         TK_FORCE_INLINE Half2(const FVec2 &v)
         {
@@ -128,9 +131,9 @@ namespace toolkit
         }
         TK_FORCE_INLINE Half3(float x, float y, float z)
         {
-            x = Float16Compressor::compress(x);
-            y = Float16Compressor::compress(y);
-            z = Float16Compressor::compress(z);
+            this->x = Float16Compressor::compress(x);
+            this->y = Float16Compressor::compress(y);
+            this->z = Float16Compressor::compress(z);
         }
         TK_FORCE_INLINE Half3(const FVec3 &v)
         {
