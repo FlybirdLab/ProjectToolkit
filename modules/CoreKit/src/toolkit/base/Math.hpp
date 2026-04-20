@@ -849,7 +849,30 @@ namespace toolkit
 
 	struct Pos
 	{
+		static const Pos Minimum;
+		static const Pos UnitX;
+
 		double x, y;
+
+		Pos()
+			: x(0.0), y(0.0)
+		{
+		}
+		Pos(double x, double y)
+			: x(x), y(y)
+		{
+		}
+		Pos(const Pos &other) = default;
+
+		static bool nearEqual(const Pos &a, const Pos &b, double epsilon = 1e-9)
+		{
+			return TkMathD::abs(a.x - b.x) < epsilon &&
+				   TkMathD::abs(a.y - b.y) < epsilon;
+		}
+		double sumValues() const
+		{
+			return x + y;
+		}
 
 		Pos operator+(const Pos &other) const
 		{
@@ -869,9 +892,33 @@ namespace toolkit
 		}
 		Pos operator/(double scalar) const
 		{
-			if (scalar == 0)
-				TK_ASSERT(false);
+			TK_ASSERT(scalar != 0.0);
 			return {x / scalar, y / scalar};
+		}
+		Pos &operator+=(const Pos &other)
+		{
+			x += other.x;
+			y += other.y;
+			return *this;
+		}
+		Pos &operator-=(const Pos &other)
+		{
+			x -= other.x;
+			y -= other.y;
+			return *this;
+		}
+		Pos &operator*=(double scalar)
+		{
+			x *= scalar;
+			y *= scalar;
+			return *this;
+		}
+		Pos &operator/=(double scalar)
+		{
+			TK_ASSERT(scalar != 0.0);
+			x /= scalar;
+			y /= scalar;
+			return *this;
 		}
 		Pos &operator=(const Pos &other) = default;
 		bool operator==(const Pos &other) const
@@ -883,12 +930,193 @@ namespace toolkit
 		{
 			return !(*this == other);
 		}
+		bool operator>(const Pos &other) const
+		{
+			return x > other.x && y > other.y;
+		}
+		bool operator<(const Pos &other) const
+		{
+			return x < other.x && y < other.y;
+		}
 	};
+	inline const Pos Pos::Minimum {kMinF64, kMinF64};
+	inline const Pos Pos::UnitX {1.0, 0.0};
 
 	struct Rect
 	{
+		struct PosAccessor
+		{
+			double *x = nullptr;
+			double *y = nullptr;
+
+			PosAccessor() = default;
+			PosAccessor(double &x, double &y)
+				: x(&x), y(&y)
+			{
+			}
+
+			operator Pos() const
+			{
+				return Pos(*x, *y);
+			}
+
+			PosAccessor &operator=(const Pos &value)
+			{
+				*x = value.x;
+				*y = value.y;
+				return *this;
+			}
+		};
+
 		double x, y, w, h;
-		
+		PosAccessor location;
+		PosAccessor size;
+
+		Rect()
+			: x{0}, y{0}, w{0}, h{0}, location(this->x, this->y), size(this->w, this->h)
+		{
+		}
+		Rect(double x, double y, double w, double h)
+			: x{x}, y{y}, w{w}, h{h}, location(this->x, this->y), size(this->w, this->h)
+		{
+		}
+		Rect(const Pos &a, const Pos &b)
+			: x{a.x}, y{a.y}, w{b.x}, h{b.y}, location(this->x, this->y), size(this->w, this->h)
+		{
+		}
+		Rect(const Rect &r)
+			: x{r.x}, y{r.y}, w{r.w}, h{r.h}, location(this->x, this->y), size(this->w, this->h)
+		{
+		}
+
+		Rect operator+(const Rect &other) const
+		{
+			return {x + other.x, y + other.y, w + other.w, h + other.h};
+		}
+		Rect operator-(const Rect &other) const
+		{
+			return {x - other.x, y - other.y, w - other.w, h - other.h};
+		}
+		Rect operator*(double scalar) const
+		{
+			return {x * scalar, y * scalar, w * scalar, h * scalar};
+		}
+		friend Rect operator*(double scalar, const Rect &rect)
+		{
+			return rect * scalar;
+		}
+		Rect operator/(double scalar) const
+		{
+			TK_ASSERT(scalar != 0.0);
+			return {x / scalar, y / scalar, w / scalar, h / scalar};
+		}
+		Rect &operator+=(const Rect &other)
+		{
+			x += other.x;
+			y += other.y;
+			w += other.w;
+			h += other.h;
+			return *this;
+		}
+		Rect &operator-=(const Rect &other)
+		{
+			x -= other.x;
+			y -= other.y;
+			w -= other.w;
+			h -= other.h;
+			return *this;
+		}
+		Rect &operator*=(double scalar)
+		{
+			x *= scalar;
+			y *= scalar;
+			w *= scalar;
+			h *= scalar;
+			return *this;
+		}
+		Rect &operator/=(double scalar)
+		{
+			TK_ASSERT(scalar != 0.0);
+			x /= scalar;
+			y /= scalar;
+			w /= scalar;
+			h /= scalar;
+			return *this;
+		}
+		Rect &operator=(const Rect &other)
+		{
+			x = other.x;
+			y = other.y;
+			w = other.w;
+			h = other.h;
+			return *this;
+		}
+		bool operator==(const Rect &other) const
+		{
+			constexpr double epsilon = 1e-9;
+			return TkMathD::abs(x - other.x) < epsilon &&
+				   TkMathD::abs(y - other.y) < epsilon &&
+				   TkMathD::abs(w - other.w) < epsilon &&
+				   TkMathD::abs(h - other.h) < epsilon;
+		}
+		bool operator!=(const Rect &other) const
+		{
+			return !(*this == other);
+		}
+
+		double getLeft() const
+		{
+			return x;
+		}
+		double getTop() const
+		{
+			return y;
+		}
+		double getRight() const
+		{
+			return x + w;
+		}
+		double getBottom() const
+		{
+			return y + h;
+		}
+		double getWidth() const
+		{
+			return w;
+		}
+		double getHeight() const
+		{
+			return h;
+		}
+		Pos getLocation() const
+		{
+			return {x, y};
+		}
+		Pos getSize() const
+		{
+			return {w, h};
+		}
+		Pos getUpperLeft() const
+		{
+			return {x, y};
+		}
+		Pos getUpperRight() const
+		{
+			return {x + w, y};
+		}
+		Pos getBottomLeft() const
+		{
+			return {x, y + h};
+		}
+		Pos getBottomRight() const
+		{
+			return {x + w, y + h};
+		}
+		Pos getCenter() const
+		{
+			return {x + w * 0.5, y + h * 0.5};
+		}
+
 		bool contains(const Pos &p) const
 		{
 			return p.x >= x &&

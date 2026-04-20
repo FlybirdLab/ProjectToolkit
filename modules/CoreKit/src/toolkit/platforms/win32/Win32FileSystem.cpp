@@ -15,9 +15,7 @@
 #include "toolkit/base/Math.hpp"
 #include "toolkit/types/DateTime.hpp"
 #include "toolkit/types/Path.hpp"
-
-#define NOMINMAX
-#include <Windows.h>
+#include <toolkit/platforms/win32/IncludeWindows.hpp>
 #include <ShlObj.h>
 #include <ShellAPI.h>
 #include <KnownFolders.h>

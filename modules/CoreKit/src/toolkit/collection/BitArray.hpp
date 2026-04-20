@@ -15,7 +15,7 @@
 namespace toolkit
 {
 
-    /// @brief Dynamic packed bit array backed by 64-bit storage words.
+    // Dynamic packed bit array backed by 64-bit storage words.
     class TkBitArray : protected TLinearContainerBase<u64>
     {
         using Base = TLinearContainerBase<u64>;
@@ -31,7 +31,7 @@ namespace toolkit
         static constexpr i32 kBitsPerItem = 64;
 
     public:
-        /// @brief Creates an empty bit array.
+        // Creates an empty bit array.
         TK_FORCE_INLINE TkBitArray(IAllocator &alloc = TkMemory::getDefault())
             : Base{alloc}
         {
@@ -46,7 +46,7 @@ namespace toolkit
         ~TkBitArray();
 
     public:
-        /// @brief Returns the raw word storage pointer.
+        // Returns the raw word storage pointer.
         TK_FORCE_INLINE u64 *get()
         {
             return m_data;
@@ -58,13 +58,13 @@ namespace toolkit
             return m_data;
         }
 
-        /// @brief Returns the number of bits stored in the array.
+        // Returns the number of bits stored in the array.
         TK_FORCE_INLINE i32 count() const
         {
             return m_count;
         }
 
-        /// @brief Returns the number of bits available without growing storage.
+        // Returns the number of bits available without growing storage.
         TK_FORCE_INLINE i32 capacity() const
         {
             return m_capacity;
@@ -88,31 +88,31 @@ namespace toolkit
             return get(index);
         }
 
-        /// @brief Returns the bit value at `index`.
+        // Returns the bit value at `index`.
         bool get(const i32 index) const;
-        /// @brief Sets the bit value at `index`.
+        // Sets the bit value at `index`.
         void set(const i32 index, const bool value);
 
     public:
-        /// @brief Clears all bits while preserving allocated storage.
+        // Clears all bits while preserving allocated storage.
         TK_FORCE_INLINE void clear()
         {
             m_count = 0;
         }
 
-        /// @brief Changes the bit capacity and optionally preserves contents.
+        // Changes the bit capacity and optionally preserves contents.
         void setCapacity(const i32 capacity, const bool preserveContents = true);
 
-        /// @brief Resizes the bit count and initializes new bits when growing.
+        // Resizes the bit count and initializes new bits when growing.
         void resize(const i32 size, const bool preserveContents = true);
         
-        /// @brief Ensures storage for at least `minCapacity` bits.
+        // Ensures storage for at least `minCapacity` bits.
         void ensureCapacity(const i32 minCapacity, const bool preserveContents = true);
 
-        /// @brief Sets every stored bit to the same value.
+        // Sets every stored bit to the same value.
         void setAll(const bool value);
 
-        /// @brief Appends one bit to the end of the array.
+        // Appends one bit to the end of the array.
         void add(const bool item);
 
         // Adds the specified item to the collection.
@@ -120,7 +120,7 @@ namespace toolkit
         // Adds the other collection to the collection.
         void add(const TkBitArray &other);
 
-        /// @brief Exchanges storage with another bit array that uses the same allocator.
+        // Exchanges storage with another bit array that uses the same allocator.
         void swap(TkBitArray &other);
 
     public:

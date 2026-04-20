@@ -18,12 +18,7 @@
 #define UNICODE
 #define _UNICODE
 
-#define NOMINMAX
-#ifdef MAX_PATH
-#undef MAX_PATH
-#endif
-#include "Win32.hpp"
-#include <WinSock2.h>
+#include <toolkit/platforms/win32/IncludeWindows.hpp>
 
 namespace toolkit
 {

@@ -16,7 +16,10 @@ namespace toolkit::type
 {
 
 #ifndef MAX_PATH
-    enum { MAX_PATH = 260 };
+    enum
+    {
+        MAX_PATH = 260
+    };
 #endif
 
     typedef int8_t i8;
@@ -44,7 +47,6 @@ namespace toolkit::type
 
     typedef u64 uintptr;
 #define POINTER_SIZE 8
-
 
     static_assert(sizeof(i8) == 1, "Invalid i8 type size.");
     static_assert(sizeof(i16) == 2, "Invalid i16 type size.");
@@ -109,11 +111,16 @@ namespace toolkit::type
     constexpr real kMinReal = kMinF32;
 #endif
 
-
     template <typename T, u32 count>
     constexpr u32 lengthOf(const T (&)[count])
     {
         return count;
+    }
+
+    template <typename T>
+    constexpr T enumAddFlags(T value, T flags)
+    {
+        return (T)((__underlying_type(T))value | (__underlying_type(T))flags);
     }
 
     enum class BucketState : byte

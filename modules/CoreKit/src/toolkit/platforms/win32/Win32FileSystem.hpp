@@ -14,9 +14,7 @@
 #include "toolkit/base/Function.hpp"
 #include "toolkit/types/String.hpp"
 #include "toolkit/collection/StaticArray.hpp"
-
-#define NOMINMAX
-#include <Windows.h>
+#include <toolkit/platforms/win32/IncludeWindows.hpp>
 
 namespace toolkit
 {

@@ -166,6 +166,8 @@ namespace toolkit
 		TK_FORCE_INLINE static void destructItems(T *dst, i32 count)
 			requires(!TTriviallyDestructibleType<T>)
 		{
+			if (dst == nullptr || count <= 0)
+				return;
 			while (count--)
 			{
 				dst->~T();

@@ -13,7 +13,7 @@
 namespace toolkit
 {
 
-	/// @brief Dynamic array with growable capacity and contiguous storage.
+	// Dynamic array with growable capacity and contiguous storage.
 	template <typename T>
 	class TkArray final : protected TLinearContainerBase<T>
 	{
@@ -27,13 +27,13 @@ namespace toolkit
 		using Base::stealStorageFrom;
 
 	public:
-		/// @brief Creates an empty array that uses the given allocator.
+		// Creates an empty array that uses the given allocator.
 		TK_FORCE_INLINE TkArray(IAllocator &alloc = TkMemory::getDefault())
 			: Base{alloc}, m_count{0}
 		{
 		}
 
-		/// @brief Creates an empty array with reserved storage for `capacity` items.
+		// Creates an empty array with reserved storage for `capacity` items.
 		explicit TkArray(const i32 capacity, IAllocator &alloc = TkMemory::getDefault())
 			: Base{alloc}, m_count{0}
 		{
@@ -169,17 +169,22 @@ namespace toolkit
 
 		~TkArray()
 		{
-			TkMemory::destructItems(this->m_data, m_count);
-			this->freeStorage(this->m_data);
+			T *data = this->m_data;
+			const i32 count = m_count;
+			this->m_data = nullptr;
+			this->m_capacity = 0;
+			m_count = 0;
+			TkMemory::destructItems(data, count);
+			this->freeStorage(data);
 		}
 
 	public:
-		/// @brief Returns the current number of initialized items.
+		// Returns the current number of initialized items.
 		TK_FORCE_INLINE i32 count() const
 		{
 			return m_count;
 		}
-		/// @brief Returns the amount of storage available without reallocation.
+		// Returns the amount of storage available without reallocation.
 		TK_FORCE_INLINE i32 capacity() const
 		{
 			return m_capacity;
@@ -198,7 +203,7 @@ namespace toolkit
 			return index < m_count && index >= 0;
 		}
 
-		/// @brief Returns the raw contiguous storage pointer.
+		// Returns the raw contiguous storage pointer.
 		TK_FORCE_INLINE T *get()
 		{
 			return m_data;
@@ -280,14 +285,14 @@ namespace toolkit
 		}
 
 	public:
-		/// @brief Clears all items but keeps the allocated storage.
+		// Clears all items but keeps the allocated storage.
 		TK_FORCE_INLINE void clear()
 		{
 			TkMemory::destructItems(m_data, m_count);
 			m_count = 0;
 		}
 
-		/// @brief Destroys pointed objects and then clears the array.
+		// Destroys pointed objects and then clears the array.
 		void clearDelete()
 			requires TPointerType<T>
 		{
@@ -306,7 +311,7 @@ namespace toolkit
 			clear();
 		}
 
-		/// @brief Changes storage capacity and optionally preserves existing items.
+		// Changes storage capacity and optionally preserves existing items.
 		void setCapacity(const i32 capacity, const bool preserveContents = true)
 		{
 			if (capacity == m_capacity)
@@ -330,7 +335,7 @@ namespace toolkit
 			m_count = count;
 		}
 
-		/// @brief Resizes the array and constructs or destroys items as needed.
+		// Resizes the array and constructs or destroys items as needed.
 		void resize(const i32 size, const bool preserveContents = true)
 		{
 			if (m_count > size)
@@ -343,7 +348,7 @@ namespace toolkit
 			m_count = size;
 		}
 
-		/// @brief Ensures the array can hold at least `minCapacity` items.
+		// Ensures the array can hold at least `minCapacity` items.
 		void ensureCapacity(const i32 minCapacity, const bool preserveContents = true)
 		{
 			if (m_capacity < minCapacity)
@@ -365,7 +370,7 @@ namespace toolkit
 				data[i] = value;
 		}
 
-		/// @brief Replaces the array contents with a copy of `data`.
+		// Replaces the array contents with a copy of `data`.
 		void set(const T *data, const i32 count)
 		{
 			ensureCapacity(count, false);
@@ -374,7 +379,7 @@ namespace toolkit
 			TkMemory::constructItems(m_data, data, m_count);
 		}
 
-		/// @brief Appends a single item to the end of the array.
+		// Appends a single item to the end of the array.
 		void add(const T &item)
 		{
 			ensureCapacity(m_count + 1);
@@ -421,7 +426,7 @@ namespace toolkit
 			m_count += count;
 		}
 
-		/// @brief Appends one default-constructed item and returns it.
+		// Appends one default-constructed item and returns it.
 		TK_FORCE_INLINE T &addOne()
 		{
 			ensureCapacity(m_count + 1);
@@ -438,7 +443,7 @@ namespace toolkit
 			m_count += count;
 		}
 
-		/// @brief Inserts an item at `index` and shifts later items to preserve order.
+		// Inserts an item at `index` and shifts later items to preserve order.
 		void insert(const i32 index, const T &item)
 		{
 			TK_ASSERT(index >= 0 && index <= m_count);
@@ -508,7 +513,7 @@ namespace toolkit
 			}
 		}
 
-		/// @brief Removes the item at `index` while preserving item order.
+		// Removes the item at `index` while preserving item order.
 		void removeAtKeepOrder(const i32 index)
 		{
 			TK_ASSERT(index < m_count && index >= 0);
@@ -547,7 +552,7 @@ namespace toolkit
 			}
 		}
 
-		/// @brief Removes the item at `index` by swapping in the last item.
+		// Removes the item at `index` by swapping in the last item.
 		void removeAt(const i32 index)
 		{
 			TK_ASSERT(index < m_count && index >= 0);
@@ -565,7 +570,7 @@ namespace toolkit
 			TkMemory::destructItems(m_data + m_count, 1);
 		}
 
-		/// @brief Exchanges contents with another array that uses the same allocator.
+		// Exchanges contents with another array that uses the same allocator.
 		void swap(TkArray &other)
 		{
 			TK_ASSERT(&m_alloc == &other.m_alloc);

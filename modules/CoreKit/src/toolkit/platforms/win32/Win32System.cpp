@@ -75,6 +75,12 @@ namespace toolkit
         return VirtualAlloc(nullptr, size, MEM_RESERVE, PAGE_READWRITE);
     }
 
+    void *System::allocatePages(u64 numPages, u64 pageSize)
+    {
+        const u64 numBytes = numPages * pageSize;
+        return VirtualAlloc(nullptr, (SIZE_T)numBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    }
+
     void System::commitMemory(void *ptr, psize size)
     {
         VirtualAlloc(ptr, size, MEM_COMMIT, PAGE_READWRITE);
@@ -124,11 +130,14 @@ namespace toolkit
         return rpaligned_realloc(ptr, align, size, newSize, 0);
     }
 
-    static struct RpLifetime {
-        RpLifetime() {
+    static struct RpLifetime
+    {
+        RpLifetime()
+        {
             rpmalloc_initialize(nullptr);
         }
-        ~RpLifetime() {
+        ~RpLifetime()
+        {
             rpmalloc_finalize();
         }
     } s_lifeTime;
@@ -309,7 +318,6 @@ namespace toolkit
                     dpiY = (i32)y;
                 }
             }
-
         }
 
         return (dpiX + dpiY) / 2;
@@ -1036,66 +1044,66 @@ namespace toolkit
     {
         __try
         {
-        constexpr ULONG flags =
-            GAA_FLAG_SKIP_ANYCAST |
-            GAA_FLAG_SKIP_MULTICAST |
-            GAA_FLAG_SKIP_DNS_SERVER;
+            constexpr ULONG flags =
+                GAA_FLAG_SKIP_ANYCAST |
+                GAA_FLAG_SKIP_MULTICAST |
+                GAA_FLAG_SKIP_DNS_SERVER;
 
-        ULONG bufLen = 0;
-        DWORD ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, nullptr, &bufLen);
-        if (ret != ERROR_BUFFER_OVERFLOW || bufLen == 0)
-            return ret == NO_ERROR ? NetConType::kNone : NetConType::kUnknown;
+            ULONG bufLen = 0;
+            DWORD ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, nullptr, &bufLen);
+            if (ret != ERROR_BUFFER_OVERFLOW || bufLen == 0)
+                return ret == NO_ERROR ? NetConType::kNone : NetConType::kUnknown;
 
-        auto *addrs = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(malloc(bufLen));
-        if (!addrs)
-            return NetConType::kUnknown;
+            auto *addrs = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(malloc(bufLen));
+            if (!addrs)
+                return NetConType::kUnknown;
 
-        TkMemory::memoryClear(addrs, bufLen);
-        ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, addrs, &bufLen);
-        if (ret != NO_ERROR)
-        {
+            TkMemory::memoryClear(addrs, bufLen);
+            ret = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, addrs, &bufLen);
+            if (ret != NO_ERROR)
+            {
+                free(addrs);
+                return NetConType::kUnknown;
+            }
+
+            NetConType result = NetConType::kNone;
+            for (auto *a = addrs; a != nullptr; a = a->Next)
+            {
+                if (a->OperStatus != IfOperStatusUp)
+                    continue;
+
+                switch (a->IfType)
+                {
+                case IF_TYPE_IEEE80211:
+                    result = NetConType::kWiFi;
+                    break;
+
+                case IF_TYPE_ETHERNET_CSMACD:
+                    result = NetConType::kEthernet;
+                    break;
+
+                case IF_TYPE_WWANPP:
+                case IF_TYPE_WWANPP2:
+                    result = NetConType::kCell;
+                    break;
+                    // case IF_TYPE_BLUETOOTH:
+                    //     result = NetConType::kBluetooth;
+                    //     break;
+
+                default:
+                    result = NetConType::kUnknown;
+                    break;
+                }
+
+                if (result == NetConType::kWiFi ||
+                    result == NetConType::kEthernet ||
+                    result == NetConType::kCell)
+                {
+                    break;
+                }
+            }
             free(addrs);
-            return NetConType::kUnknown;
-        }
-
-        NetConType result = NetConType::kNone;
-        for (auto *a = addrs; a != nullptr; a = a->Next)
-        {
-            if (a->OperStatus != IfOperStatusUp)
-                continue;
-
-            switch (a->IfType)
-            {
-            case IF_TYPE_IEEE80211:
-                result = NetConType::kWiFi;
-                break;
-
-            case IF_TYPE_ETHERNET_CSMACD:
-                result = NetConType::kEthernet;
-                break;
-
-            case IF_TYPE_WWANPP:
-            case IF_TYPE_WWANPP2:
-                result = NetConType::kCell;
-                break;
-                // case IF_TYPE_BLUETOOTH:
-                //     result = NetConType::kBluetooth;
-                //     break;
-
-            default:
-                result = NetConType::kUnknown;
-                break;
-            }
-
-            if (result == NetConType::kWiFi ||
-                result == NetConType::kEthernet ||
-                result == NetConType::kCell)
-            {
-                break;
-            }
-        }
-        free(addrs);
-        return result;
+            return result;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {

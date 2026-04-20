@@ -1,0 +1,16 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
+
+#pragma once
+
+#define TK_AUDIO_BACKEND_NONE      @TK_AUDIO_BACKEND_NONE@
+#define TK_AUDIO_BACKEND_XAUDIO    @TK_AUDIO_BACKEND_XAUDIO@
+#define TK_AUDIO_BACKEND_OPENAL    @TK_AUDIO_BACKEND_OPENAL@
+#define TK_AUDIO_BACKEND_COREAUDIO @TK_AUDIO_BACKEND_COREAUDIO@
+#define TK_AUDIO_BACKEND_ALSASOUND @TK_AUDIO_BACKEND_ALSASOUND@
+#define TK_CODECS_VORBIS @TK_CODECS_VORBIS@
+
+#define TK_AUDIO_BACKEND_NAME "@TK_AUDIO_BACKEND@"

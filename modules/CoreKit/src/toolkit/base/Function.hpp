@@ -691,7 +691,7 @@ namespace toolkit
 			if (!data)
 				return;
 			TkMutexGuard lock(data->mutex);
-			data->funcs.Remove(f);
+			data->funcs.remove(f);
 #endif
 		}
 

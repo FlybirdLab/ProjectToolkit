@@ -95,6 +95,7 @@ namespace toolkit
     {
     public:
         static void *reserveMemory(psize size);
+        static void* allocatePages(u64 numPages, u64 pageSize);
         static void commitMemory(void *ptr, psize size);
         static void releaseMemory(void *ptr, psize size);
 

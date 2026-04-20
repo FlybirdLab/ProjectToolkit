@@ -68,7 +68,7 @@ namespace toolkit
     typedef void *FileHandle;
     static constexpr FileHandle kInvalidFileHandle = nullptr;
 
-    typedef void* FileWatcherHandle;
+    typedef void *FileWatcherHandle;
     static constexpr FileWatcherHandle kInvalidFileWatcherHandle = nullptr;
 
     class TkFileSystem
@@ -157,7 +157,7 @@ namespace toolkit
         // Close a file watcher
         static void closeFileWatcher(FileWatcherHandle);
         // Get the event binder of file watcher
-        static TkAction<const TkString&, FileAction>& getEvent(FileWatcherHandle);
+        static TkAction<const TkString &, FileAction> &getEvent(FileWatcherHandle);
         // Is file watcher enabled
         static bool isEnabled(FileWatcherHandle);
     };

@@ -15,6 +15,8 @@ set(DEPS
 )
 set(HEAD
         "TK_DEBUG"
+        "TK_STATIC_PLUGINS"
+        "SANDBOX_AUDIO_DOC_DIR=\"${CMAKE_SOURCE_DIR}/docs/testdata/audio\""
 )
 set(SRCS
         ""
@@ -23,6 +25,10 @@ set(SRCS
 # dependencies
 ########################################################
 AddTkCore(INCS LNKS DEPS)
+AddTkWindow(INCS LNKS DEPS)
+AddTkMath(INCS LNKS DEPS)
+set(TK_AUDIO_BACKEND "xaudio")
+AddTkAudio(INCS LNKS DEPS)
 
 ########################################################
 # project configurations

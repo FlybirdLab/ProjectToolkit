@@ -5,3 +5,7 @@
 
 add_subdirectory(CoreKit)
 add_subdirectory(MathKit)
+add_subdirectory(WindowKit)
+add_subdirectory(AudioKit)
+add_subdirectory(LocaleKit)
+# add_subdirectory(NetKit)

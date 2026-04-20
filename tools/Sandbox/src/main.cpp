@@ -3,72 +3,161 @@
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
-#include "toolkit/base/Assert.hpp"
 
-#include <thread>
-#include <chrono>
 #include "toolkit/types/StringView.hpp"
-#include <iostream>
-
-#include <toolkit/common.hpp>
-#include <toolkit/memory/PageAllocator.hpp>
-#include <toolkit/memory/ArenaAllocator.hpp>
-
-#include <toolkit/memory/Memory.hpp>
-#include <toolkit/base/Format.hpp>
-
-#include <toolkit/memory/StackAllocator.hpp>
+#include <toolkit/audio/Audio.hpp>
+#include <toolkit/audio/AudioClip.hpp>
+#include <toolkit/audio/AudioDecoder.hpp>
+#include <toolkit/audio/AudioSource.hpp>
 #include <toolkit/debug/Logger.hpp>
-
-#include <toolkit/types/String.hpp>
-#include <toolkit/collection/Array.hpp>
-#include <toolkit/collection/BitArray.hpp>
-#include <toolkit/collection/ChunkedArray.hpp>
+#include <toolkit/io/FileStream.hpp>
+#include <toolkit/memory/Memory.hpp>
+#include <toolkit/platforms/System.hpp>
+#include <toolkit/threading/Thread.hpp>
+#include <toolkit/windowing/Window.hpp>
+#include <toolkit/windowing/WindowSystem.hpp>
 #include <toolkit/types/Span.hpp>
 
-#include <toolkit/platforms/System.hpp>
+#if TK_WINDOWS
+#include <Windows.h>
+#endif
 
-#include <toolkit/debug/Debug.hpp>
-
-#include <toolkit/threading/JobSys.hpp>
-#include <toolkit/base/Function.hpp>
-
-using namespace toolkit::type;
 using namespace toolkit;
 
-struct TestStruct
+namespace
 {
-    int a = 1000;
-    const char *b = "awa";
-};
-FORMAT_CUSTOM(TestStruct, "[a:%i, b:%s]", t.a, t.b);
+    bool buildClipFromMp3(const TkStringView &path, AudioClip &clip)
+    {
+        FileIStream *stream = FileIStream::open(path);
+        if (!stream)
+        {
+            LogError("Failed to open audio sample: %s", path.getText());
+            return false;
+        }
 
-int main(int argc, char **argv)
+        AudioDecoder *decoder = AudioDecoder::createDecoder(AudioCodecs::kMp3);
+        if (!decoder)
+        {
+            LogError("Failed to create MP3 decoder.");
+            TkMemory::deletePtr(stream);
+            return false;
+        }
+
+        AudioDataInfo info{};
+        TkArray<byte> pcm;
+
+        const bool decoded = decoder->convert(stream, info, pcm);
+
+        AudioDecoder::destroyDecoder(decoder);
+        TkMemory::deletePtr(stream);
+
+        if (!decoded)
+        {
+            LogError("Failed to decode audio sample: %s", path.getText());
+            return false;
+        }
+
+        AudioClip::Descriptor descriptor;
+        descriptor.info = info;
+        descriptor.is3D = false;
+        descriptor.streamable = false;
+        clip.setDescriptor(descriptor);
+        
+
+        if (!clip.setChunkData(0, TkSpan<const byte>(pcm.get(), pcm.count())))
+        {
+            LogError("Failed to upload decoded PCM data.");
+            pcm.clear();
+            return false;
+        }
+
+        pcm.clear();
+
+        if (clip.load())
+        {
+            LogError("Failed to load audio clip.");
+            return false;
+        }
+
+        return true;
+    }
+}
+
+int main(int, char **)
 {
-
     System::init();
     System::beforeRun();
-    System::logInfo();
-    TK_ASSERT(TkJobSys::init());
 
-    TkJobSys::setJobStartingOnDispatch(false);
+#if TK_WINDOWS
+    WindowSystem::init(GetModuleHandleW(nullptr));
+#else
+    WindowSystem::init(nullptr);
+#endif
 
-    std::atomic<i32> counter{0};
+    WindowParams params;
+    params.title = "Toolkit Sandbox";
+    params.size = Pos(960.0f, 540.0f);
+    params.startPos = WindowStartPos::kCenterScreen;
 
-    TkJobSys::dispatch([&](i32)
-                       { counter++; }, 10);
+    TkWindow *window = WindowSystem::createWindow(params);
+    if (!window)
+    {
+        LogError("Failed to create sandbox window.");
+        WindowSystem::dispose();
+        System::beforeQuit();
+        System::quit();
+        return 1;
+    }
 
-    // 应该还没跑
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    TK_ASSERT(counter.load() == 0);
+    if (!Audio::init())
+    {
+        LogError("Failed to initialize audio runtime.");
+        WindowSystem::dispose();
+        System::beforeQuit();
+        System::quit();
+        return 1;
+    }
 
-    TkJobSys::setJobStartingOnDispatch(true);
-    TkJobSys::wait();
+    Audio::setMuteOnFocusLoss(false);
+    Audio::setAppHasFocus(true);
+    Audio::setPaused(false);
+    Audio::setMasterVolume(1.0f);
 
-    TK_ASSERT(counter.load() == 10);
+    bool isRunning = true;
+    window->onClosed.bind([&]()
+                          { isRunning = false; });
+    window->show();
 
-    TkJobSys::beforeExit();
-    TkJobSys::dispose();
+    AudioClip clip;
+    const TkString mp3Path = TkString(SANDBOX_AUDIO_DOC_DIR) / "alive.mp3";
+    if (!buildClipFromMp3(mp3Path, clip))
+    {
+        Audio::dispose();
+        WindowSystem::dispose();
+        System::beforeQuit();
+        System::quit();
+        return 1;
+    }
+
+    AudioSource source;
+    source.setClip(&clip);
+    source.setAllowSpatialization(false);
+    source.setVolume(1.0f);
+    source.setPitch(1.0f);
+    source.play();
+
+    while (isRunning && !window->isClosed())
+    {
+        WindowSystem::update();
+        Audio::update();
+        TkThread::sleep(5);
+    }
+
+    source.stop();
+    source.setClip(nullptr);
+
+    Audio::dispose();
+    WindowSystem::dispose();
     System::beforeQuit();
     System::quit();
     return 0;

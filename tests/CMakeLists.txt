@@ -3,3 +3,6 @@
 
 add_subdirectory(CoreTest)
 add_subdirectory(MathTest)
+add_subdirectory(WindowTest)
+add_subdirectory(LocaleTest)
+add_subdirectory(AudioTest)

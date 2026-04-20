@@ -13,7 +13,7 @@
 #	include <pthread.h>
 #	include <semaphore.h>
 #else
-#	include <toolkit/platforms/win32/Win32.hpp>
+#	include <toolkit/platforms/win32/IncludeWindows.hpp>
 #endif
 
 namespace toolkit {
