@@ -51,13 +51,27 @@ namespace toolkit
     static TkArray<AxisEvaluation> AxesValues;
     static EventQueue InputEvents;
 
+    static i32 getActionStatePriority(const InputActionState state)
+    {
+        switch (state)
+        {
+        case InputActionState::kRelease:
+            return 4;
+        case InputActionState::kPress:
+            return 3;
+        case InputActionState::kPressing:
+            return 2;
+        case InputActionState::kWaiting:
+            return 1;
+        case InputActionState::kNone:
+        default:
+            return 0;
+        }
+    }
+
     static TkArray<TkWindow *> getInputWindowsSnapshot()
     {
-        TkArray<TkWindow *> windows;
-        WindowSystem::WindowSysMtx.lock();
-        windows = WindowSystem::Windows;
-        WindowSystem::WindowSysMtx.unlock();
-        return windows;
+        return WindowSystem::getWindowsSnapshot();
     }
 
     static TkWindow *findPrimaryInputWindow(const TkArray<TkWindow *> &windows)
@@ -80,13 +94,7 @@ namespace toolkit
     static bool hasInputFocus()
     {
         const auto windows = getInputWindowsSnapshot();
-        for (auto *window : windows)
-        {
-            if (window && window->getParams().allowInput && window->isFocused())
-                return true;
-        }
-
-        return false;
+        return findPrimaryInputWindow(windows) != nullptr;
     }
 
     static Pos screenToInputPosition(const Pos &screenPos)
@@ -607,9 +615,19 @@ namespace toolkit
         PROFILE();
         const u64 frame = ++s_FrameIndex;
         InputEvents.clear();
+        const auto windows = getInputWindowsSnapshot();
+        const bool inputFocused = [&windows]()
+        {
+            for (auto* window : windows)
+            {
+                if (window && window->getParams().allowInput && window->isFocused())
+                    return true;
+            }
+            return false;
+        }();
 
         // If application has no user focus then simply clear the state
-        if (!hasInputFocus())
+        if (!inputFocused)
         {
             if (InputSystem::Mouse)
                 InputSystem::Mouse->resetState();
@@ -670,14 +688,26 @@ namespace toolkit
             InputSystem::GamepadsChanged();
         }
 
-        const auto windows = getInputWindowsSnapshot();
         TkWindow *defaultWindow = findPrimaryInputWindow(windows);
+
+        // Lock the cursor to the active input window before virtual axis evaluation so recentering
+        // does not leak into the next frame as synthetic mouse delta.
+        const auto lockMode = Screen::getCursorLock();
+        if (lockMode == CursorLockMode::kLocked && InputSystem::Mouse)
+        {
+            if (auto *window = defaultWindow)
+            {
+                const Pos screenCenter = window->clientToScreen(window->getClientSize() * 0.5f);
+                if (screenCenter > Pos::Minimum)
+                    InputSystem::Mouse->setMousePosition(screenCenter);
+            }
+        }
 
         // Send input events for the focused window
         for (const auto &e : InputEvents)
         {
             auto window = e.Target ? e.Target : defaultWindow;
-            if (!window || !windows.contains(window) || window->isClosed())
+            if (!WindowSystem::isLiveWindow(window) || window->isClosed())
                 continue;
             switch (e.Type)
             {
@@ -724,7 +754,7 @@ namespace toolkit
         }
 
         // Skip virtual input processing if no input-enabled window is focused.
-        if (!hasInputFocus())
+        if (!inputFocused)
         {
             Axes.clear();
             Actions.clear();
@@ -785,11 +815,14 @@ namespace toolkit
             const TkStringView name = config.name;
             ActionData &data = Actions[name];
 
-            data.active = false;
-            data.state = InputActionState::kWaiting;
+            if (data.frameIndex != frame)
+            {
+                data.active = false;
+                data.state = InputActionState::kWaiting;
 
-            // Mark as updated in this frame
-            data.frameIndex = frame;
+                // Mark as updated in this frame. Duplicate mappings with the same name are initialized only once.
+                data.frameIndex = frame;
+            }
         }
         for (i32 i = 0; i < InputSystem::ActionMappings.count(); i++)
         {
@@ -811,19 +844,22 @@ namespace toolkit
                 isActive = InputSystem::getKeyUp(config.key) || InputSystem::getMouseButtonUp(config.mouseButton) || InputSystem::getGamepadButtonUp(config.gamepad, config.gamepadButton);
             }
 
-            if (InputSystem::getKeyDown(config.key) || InputSystem::getMouseButtonDown(config.mouseButton) || InputSystem::getGamepadButtonDown(config.gamepad, config.gamepadButton))
+            InputActionState candidateState = InputActionState::kWaiting;
+            if (InputSystem::getKeyUp(config.key) || InputSystem::getMouseButtonUp(config.mouseButton) || InputSystem::getGamepadButtonUp(config.gamepad, config.gamepadButton))
             {
-                data.state = InputActionState::kPress;
+                candidateState = InputActionState::kRelease;
+            }
+            else if (InputSystem::getKeyDown(config.key) || InputSystem::getMouseButtonDown(config.mouseButton) || InputSystem::getGamepadButtonDown(config.gamepad, config.gamepadButton))
+            {
+                candidateState = InputActionState::kPress;
             }
             else if (InputSystem::getKey(config.key) || InputSystem::getMouseButton(config.mouseButton) || InputSystem::getGamepadButton(config.gamepad, config.gamepadButton))
             {
-                data.state = InputActionState::kPressing;
-            }
-            else if (InputSystem::getKeyUp(config.key) || InputSystem::getMouseButtonUp(config.mouseButton) || InputSystem::getGamepadButtonUp(config.gamepad, config.gamepadButton))
-            {
-                data.state = InputActionState::kRelease;
+                candidateState = InputActionState::kPressing;
             }
 
+            if (getActionStatePriority(candidateState) > getActionStatePriority(data.state))
+                data.state = candidateState;
             data.active |= isActive;
         }
 
@@ -918,11 +954,20 @@ namespace toolkit
 
             auto &e = AxesValues[i];
             e.used = false;
-            e.prevKeyValue = keyRawValue;
+            e.prevKeyValue = keyValue;
 
-            // Select keyboard input or axis input (choose the higher absolute values)
-            e.value = TkMath::abs(keyValue) > TkMath::abs(axisValue) ? keyValue : axisValue;
-            e.rawValue = TkMath::abs(keyRawValue) > TkMath::abs(axisRawValue) ? keyRawValue : axisRawValue;
+            // Select keyboard input or axis input (choose the higher absolute value).
+            // Keep value/raw from the same candidate so smoothing and raw reporting do not get mixed.
+            if (TkMath::abs(keyValue) > TkMath::abs(axisValue))
+            {
+                e.value = keyValue;
+                e.rawValue = keyRawValue;
+            }
+            else
+            {
+                e.value = axisValue;
+                e.rawValue = axisRawValue;
+            }
 
             // Scale
             e.value *= config.scale;
@@ -962,33 +1007,32 @@ namespace toolkit
         }
 
         // Remove not used entries
+        TkArray<TkString> actionsToRemove;
         for (auto i = Actions.Begin(); i.isNotEnd(); ++i)
         {
             if (i->Value.frameIndex != frame)
             {
-                Actions.remove(i);
+                actionsToRemove.add(i->Key);
             }
         }
+        for (const TkString& key : actionsToRemove)
+            Actions.remove(key);
+
+        TkArray<TkString> axesToRemove;
         for (auto i = Axes.Begin(); i.isNotEnd(); ++i)
         {
             if (i->Value.frameIndex != frame)
             {
-                Axes.remove(i);
+                axesToRemove.add(i->Key);
             }
         }
-
-        // Lock the cursor to the active input window when requested.
-        const auto lockMode = Screen::getCursorLock();
-        if (lockMode == CursorLockMode::kLocked)
-        {
-            if (auto *window = findPrimaryInputWindow(windows))
-                InputSystem::setMousePosition(window->getClientSize() * 0.5f);
-        }
+        for (const TkString& key : axesToRemove)
+            Axes.remove(key);
 
         // Send events for the active actions and axes.
         for (auto i = Axes.Begin(); i.isNotEnd(); ++i)
         {
-            if (i->Value.value != i->Value.prevValue)
+            if (TkMath::abs(i->Value.value - i->Value.prevValue) > 0.0001f)
             {
                 InputSystem::AxisValueChanged(i->Key);
             }

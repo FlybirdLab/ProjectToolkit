@@ -2,4 +2,4 @@
 # Copyright (c) 2025 Flybird Games. All rights reserved.
 
 add_subdirectory(Sandbox)
-add_subdirectory(TkMoc)
+add_subdirectory(RkGen)

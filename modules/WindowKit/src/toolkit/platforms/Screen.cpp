@@ -13,10 +13,9 @@
 
 namespace toolkit {
 
-    static TkNullable<bool> s_fullscreen;
-    static TkNullable<Pos> s_size;
     static bool s_cursorVisible = true;
     static CursorLockMode s_cursorLock = CursorLockMode::kNone;
+    static CursorType s_lastVisibleCursor = CursorType::kDefault;
 
 
     bool Screen::getIsFullscreen()
@@ -28,7 +27,8 @@ namespace toolkit {
 
     void Screen::setIsFullscreen(bool value)
     {
-        s_fullscreen = value;
+        if (auto win = WindowSystem::getMainWindow())
+            win->setFullscreen(value);
     }
 
 
@@ -47,7 +47,8 @@ namespace toolkit {
             return;
         }
 
-        s_size = value;
+        if (auto win = WindowSystem::getMainWindow())
+            win->setClientSize(value);
     }
 
 
@@ -74,10 +75,19 @@ namespace toolkit {
     void Screen::setCursorVisible(const bool value)
     {
         const auto win = WindowSystem::getMainWindow();
-        //TODO if (win && Engine::hasGameViewportFocus())
-        // {
-        //     setCursor(win, value ? CursorType::kDefault : CursorType::kHidden);
-        // }
+        if (win != nullptr)
+        {
+            if (!value)
+            {
+                if (win->getCursor() != CursorType::kHidden)
+                    s_lastVisibleCursor = win->getCursor();
+                win->setCursor(CursorType::kHidden);
+            }
+            else
+            {
+                win->setCursor(s_lastVisibleCursor == CursorType::kHidden ? CursorType::kDefault : s_lastVisibleCursor);
+            }
+        }
         s_cursorVisible = value;
     }
 
@@ -91,15 +101,27 @@ namespace toolkit {
     void Screen::setCursorLock(CursorLockMode mode)
     {
         const auto win = WindowSystem::getMainWindow();
-        if (win && mode == CursorLockMode::kClipped)
+        if (win != nullptr)
         {
-            Rect bounds = win->getClientBounds();
-            win->startClippingCursor(bounds);
+            if (s_cursorLock == CursorLockMode::kClipped)
+                win->endClippingCursor();
+
+            if (mode == CursorLockMode::kNone)
+            {
+                win->endClippingCursor();
+                win->endTrackingMouse();
+            }
+            else if (mode == CursorLockMode::kClipped)
+            {
+                win->startClippingCursor(win->getClientBounds());
+            }
+            else if (mode == CursorLockMode::kLocked)
+            {
+                // Locked mode recenters the mouse in InputSystem::update and does not use ClipCursor.
+                win->endClippingCursor();
+            }
         }
-        else if (win && s_cursorLock == CursorLockMode::kClipped)
-        {
-            win->endClippingCursor();
-        }
+
         s_cursorLock = mode;
     }
 

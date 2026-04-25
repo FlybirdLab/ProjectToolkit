@@ -45,7 +45,7 @@ TEST(WindowingBasicsTest, EnumValuesAndDefaultParams)
     EXPECT_EQ(static_cast<int>(WindowStartPos::kManual), 2);
 
     WindowParams params;
-    EXPECT_EQ(&params.alloc, &TkMemory::getDefault());
+    EXPECT_EQ(params.alloc, &TkMemory::getDefault());
     EXPECT_TRUE(params.title.isEmpty());
     EXPECT_EQ(params.parent, nullptr);
     expectPosNear(params.pos, Pos(100.0, 400.0));
@@ -95,7 +95,7 @@ TEST(WindowingBasicsTest, WindowParamsCanBeCustomizedAndCopied)
     params.data = reinterpret_cast<void *>(0x5678);
 
     WindowParams copy = params;
-    EXPECT_EQ(&copy.alloc, &params.alloc);
+    EXPECT_EQ(copy.alloc, params.alloc);
     EXPECT_EQ(copy.title, "Configured");
     EXPECT_EQ(copy.parent, params.parent);
     expectPosNear(copy.pos, Pos(10.0, 20.0));
@@ -117,6 +117,14 @@ TEST(WindowingBasicsTest, WindowParamsCanBeCustomizedAndCopied)
     EXPECT_FALSE(copy.hasSizingFrame);
     EXPECT_FALSE(copy.showAfterFirstPaint);
     EXPECT_EQ(copy.data, params.data);
+
+    WindowParams assigned;
+    assigned = params;
+    EXPECT_EQ(assigned.alloc, params.alloc);
+    EXPECT_EQ(assigned.title, params.title);
+
+    assigned.alloc = nullptr;
+    EXPECT_EQ(assigned.alloc, nullptr);
 }
 
 TEST(WindowingBasicsTest, WindowParamsHeaderProvidesStandaloneTypes)

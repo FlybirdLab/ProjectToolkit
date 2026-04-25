@@ -1,4 +1,10 @@
-#include "Lexer.hpp"
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
+
+ #include "Lexer.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/types/String.hpp"
 #include "toolkit/types/StringBuilder.hpp"

@@ -91,18 +91,24 @@ namespace toolkit
         // Get the gamepad axis value.
         TK_FORCE_INLINE f32 getAxis(const GamepadAxis axis) const
         {
+            if (!isValidGamepadAxis(axis))
+                return 0.0f;
             return m_mappedState.axis[static_cast<i32>(axis)];
         }
 
         // Get the gamepad button state (true if being pressed during the current frame).
         TK_FORCE_INLINE bool getButton(const GamepadButton button) const
         {
+            if (!isValidGamepadButton(button))
+                return false;
             return m_mappedState.buttons[static_cast<i32>(button)];
         }
 
         // Get the gamepad button down state (true if was pressed during the current frame).
         TK_FORCE_INLINE bool getButtonDown(const GamepadButton button) const
         {
+            if (!isValidGamepadButton(button))
+                return false;
             return m_mappedState.buttons[static_cast<i32>(button)] && !m_mappedPrevState.buttons[static_cast<i32>(button)];
         }
 
@@ -112,6 +118,8 @@ namespace toolkit
         // Get the gamepad button up state (true if was released during the current frame).
         TK_FORCE_INLINE bool getButtonUp(const GamepadButton button) const
         {
+            if (!isValidGamepadButton(button))
+                return false;
             return !m_mappedState.buttons[static_cast<i32>(button)] && m_mappedPrevState.buttons[static_cast<i32>(button)];
         }
 
@@ -121,9 +129,13 @@ namespace toolkit
         {
         }
 
-        // Set the color of the gamepad light. Ignored if controller does not support this.
+        // Set the color of the gamepad light. Ignored if controller does not support this; platform implementations must clamp channels to [0, 1].
         virtual void setColor(float r, float g, float b, float a = 1)
         {
+            (void)r;
+            (void)g;
+            (void)b;
+            (void)a;
         }
 
         // Reset the color of the gamepad light to the default. Ignored if controller does not support this.

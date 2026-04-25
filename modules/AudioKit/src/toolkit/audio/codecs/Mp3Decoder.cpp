@@ -84,6 +84,9 @@ namespace toolkit
 
         close();
 
+        if (!isValid(stream, offset))
+            return false;
+
         m_stream = stream;
         m_ioCtx.stream = stream;
         m_ioCtx.baseOffset = offset;
@@ -106,6 +109,12 @@ namespace toolkit
         m_info.sampleRate = static_cast<u32>(m_exd.info.hz);
         m_info.numChannels = static_cast<u32>(m_exd.info.channels);
         m_info.bitDepth = 16;
+        if (m_info.numSamples == 0 || m_info.sampleRate == 0 || m_info.numChannels == 0)
+        {
+            close();
+            return false;
+        }
+
         info = m_info;
         return true;
     }
@@ -178,6 +187,9 @@ namespace toolkit
     {
         TK_ASSERT(stream);
 
+        const u32 savedPos = stream->pos();
+        stream->setPos(offset);
+
         Mp3StreamContext ctx;
         ctx.stream = stream;
         ctx.baseOffset = offset;
@@ -190,6 +202,8 @@ namespace toolkit
 
         TkArray<byte> probe;
         probe.resize(MINIMP3_BUF_SIZE);
-        return mp3dec_detect_cb(&io, probe.get(), probe.count()) == 0;
+        const bool valid = mp3dec_detect_cb(&io, probe.get(), probe.count()) == 0;
+        stream->setPos(savedPos);
+        return valid;
     }
 }

@@ -106,8 +106,13 @@ namespace toolkit {
                 const DWORD result = XInputGetState(i, &state);
                 if (result == ERROR_SUCCESS)
                 {
-                    InputSystem::Gamepads.add(TkMemory::newObject<Win32Gamepad>(TkMemory::getDefault(), i));
-                    InputSystem::onGamepadsChanged();
+                    auto *gamepad = TkMemory::newObject<Win32Gamepad>(TkMemory::getDefault(), i);
+                    if (gamepad != nullptr)
+                    {
+                        XInputGamepads[i] = true;
+                        InputSystem::Gamepads.add(gamepad);
+                        InputSystem::onGamepadsChanged();
+                    }
                 }
             }
         }
@@ -133,6 +138,8 @@ namespace toolkit {
         {
         case WM_CHAR:
         {
+            // The current input event model carries one UTF-16 wchar. BMP characters are preserved;
+            // surrogate-pair assembly for supplementary codepoints belongs in a future text layer.
             onCharInput(static_cast<wchar>(wParam), window);
             result = true;
             break;
@@ -158,6 +165,9 @@ namespace toolkit {
 
     bool Win32Mouse::wndProc(TkWindow *window, const UINT msg, WPARAM wParam, LPARAM lParam)
     {
+        if (window == nullptr || window->getNativeWindow() == nullptr || !window->getNativeWindow()->hasHWND())
+            return false;
+
         bool result = false;
 
         // Get mouse position in screen coordinates
@@ -262,8 +272,10 @@ namespace toolkit {
             if (delta != 0)
             {
                 const float deltaNormalized = static_cast<float>(delta) / WHEEL_DELTA;
-                // Use cached mouse position, the input pos is sometimes wrong in Win32
-                onMouseWheel(m_state.mousePos, deltaNormalized, window);
+                POINT wheelPoint;
+                wheelPoint.x = WINDOWS_GET_X_LPARAM(lParam);
+                wheelPoint.y = WINDOWS_GET_Y_LPARAM(lParam);
+                onMouseWheel(Pos(static_cast<float>(wheelPoint.x), static_cast<float>(wheelPoint.y)), deltaNormalized, window);
             }
             result = true;
             break;

@@ -58,8 +58,16 @@ namespace toolkit
         bool m_lastCursorHidden = false;
         int m_cursorHiddenSafetyCount = 0;
         bool m_isDuringMax = false;
+        bool m_destroying = false;
+        bool m_hasFullscreenRestore = false;
         HANDLE m_monitor = nullptr;
+        LONG m_restoreStyle = 0;
+        LONG m_restoreExStyle = 0;
+        WINDOWPLACEMENT m_restorePlacement{};
+        RECT m_restoreRect{};
         LONG m_clipCursorRect[4];
+        HICON m_bigIcon = nullptr;
+        HICON m_smallIcon = nullptr;
         i32 m_regionWidth = 0, _regionHeight = 0;
         Pos m_minScreenPos = {0, 0};
     };

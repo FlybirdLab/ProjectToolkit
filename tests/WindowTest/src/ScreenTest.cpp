@@ -46,9 +46,16 @@ TEST_F(WindowSystemFixture, ScreenUsesMainWindowClientConversions)
     EXPECT_EQ(Screen::getCursorLock(), CursorLockMode::kClipped);
     EXPECT_TRUE(window->isCursorClipping());
 
+    Screen::setCursorLock(CursorLockMode::kLocked);
+    EXPECT_EQ(Screen::getCursorLock(), CursorLockMode::kLocked);
+    EXPECT_FALSE(window->isCursorClipping());
+
+    window->startTrackingMouse(false);
+    EXPECT_TRUE(window->isMouseTracking());
     Screen::setCursorLock(CursorLockMode::kNone);
     EXPECT_EQ(Screen::getCursorLock(), CursorLockMode::kNone);
     EXPECT_FALSE(window->isCursorClipping());
+    EXPECT_FALSE(window->isMouseTracking());
 
     destroyTestWindow(window);
 }

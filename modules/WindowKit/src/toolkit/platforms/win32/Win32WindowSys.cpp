@@ -21,6 +21,7 @@
 #include <toolkit/windowing/Dialog.hpp>
 #include <toolkit/platforms/System.hpp>
 #include <toolkit/platforms/win32/ComPointer.hpp>
+#include <toolkit/collection/HashMap.hpp>
 
 #include <ShlObj.h>
 #include <ShObjIdl_core.h>
@@ -35,6 +36,54 @@ namespace toolkit
 
     const wchar *Win32WindowSys::s_AppWindowClass = L"ToolkitWindow";
     void *Win32WindowSys::s_Instance = nullptr;
+
+    namespace
+    {
+        bool s_initialized = false;
+        bool s_oleInitialized = false;
+        bool s_registeredClass = false;
+        TkHashMap<void*, TkWindow*> s_handleMap;
+
+        IAllocator& getWindowAllocator(const WindowParams& params)
+        {
+            return params.alloc != nullptr ? *params.alloc : TkMemory::getDefault();
+        }
+
+        bool containsWindowUnlocked(TkWindow* win)
+        {
+            for (TkWindow* window : WindowSystem::Windows)
+            {
+                if (window == win)
+                    return true;
+            }
+            return false;
+        }
+
+        void syncHandleMapUnlocked(TkWindow* win)
+        {
+            if (win == nullptr)
+                return;
+
+            void* handle = win->getWindowPtr();
+            if (handle != nullptr)
+                s_handleMap[handle] = win;
+        }
+
+        void removeHandleMapEntriesForWindowUnlocked(TkWindow* win)
+        {
+            if (win == nullptr)
+                return;
+
+            TkArray<void*> keysToRemove;
+            for (auto iterator = s_handleMap.Begin(); iterator.isNotEnd(); ++iterator)
+            {
+                if (iterator->Value == win)
+                    keysToRemove.add(iterator->Key);
+            }
+            for (void* key : keysToRemove)
+                s_handleMap.remove(key);
+        }
+    }
 
     LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
@@ -56,10 +105,12 @@ namespace toolkit
     void WindowSystem::init(void *hInstance)
     {
         TK_ASSERT(hInstance);
-        Win32WindowSys::s_Instance = hInstance;
+        if (s_initialized)
+            return;
 
         // Disable the process from being showing "ghosted" while not responding messages during slow tasks
         DisableProcessWindowsGhosting();
+        Win32WindowSys::s_Instance = hInstance;
 
         // Register window class
         ::WNDCLASSW windowsClass;
@@ -70,11 +121,39 @@ namespace toolkit
         windowsClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
         windowsClass.lpszClassName = Win32WindowSys::s_AppWindowClass;
         if (!::RegisterClassW(&windowsClass))
-            TK_ASSERT(false && "Window class registration failed!");
+        {
+            const DWORD error = ::GetLastError();
+            if (error != ERROR_CLASS_ALREADY_EXISTS)
+            {
+                Win32WindowSys::s_Instance = nullptr;
+                TK_ASSERT(false && "Window class registration failed!");
+                return;
+            }
+        }
+        else
+        {
+            s_registeredClass = true;
+        }
 
         // Init OLE
-        if (OleInitialize(nullptr) != S_OK)
+        const HRESULT oleResult = OleInitialize(nullptr);
+        if (oleResult == S_OK || oleResult == S_FALSE)
+        {
+            s_oleInitialized = true;
+        }
+        else
+        {
+            if (s_registeredClass)
+            {
+                ::UnregisterClassW(Win32WindowSys::s_AppWindowClass, (HINSTANCE)Win32WindowSys::s_Instance);
+                s_registeredClass = false;
+            }
+            Win32WindowSys::s_Instance = nullptr;
             TK_ASSERT(false && "OLE initalization failed!");
+            return;
+        }
+
+        s_initialized = true;
     }
 
     void WindowSystem::update()
@@ -94,15 +173,76 @@ namespace toolkit
 
     TkWindow *WindowSystem::getByWindowPtr(void *handle)
     {
-        TkWindow *result = nullptr;
-        WindowSysMtx.lock();
-        for (i32 i = 0; i < Windows.count(); i++)
-        {
-            TkWindow *window = Windows[i];
-            if (window == nullptr || window->getNativeWindow() == nullptr)
-                continue;
+        if (handle == nullptr)
+            return nullptr;
 
-            if (window->getWindowPtr() == handle)
+        WindowSysMtx.lock();
+        const auto iterator = s_handleMap.find(handle);
+        TkWindow* result = iterator.isEnd() ? nullptr : iterator->Value;
+        WindowSysMtx.unlock();
+        return result;
+    }
+
+    TkArray<TkWindow *> WindowSystem::getWindowsSnapshot()
+    {
+        TkArray<TkWindow *> result;
+        WindowSysMtx.lock();
+        result = Windows;
+        WindowSysMtx.unlock();
+        return result;
+    }
+
+    bool WindowSystem::isLiveWindow(TkWindow *win)
+    {
+        if (win == nullptr)
+            return false;
+
+        WindowSysMtx.lock();
+        const bool result = containsWindowUnlocked(win);
+        WindowSysMtx.unlock();
+        return result;
+    }
+
+    void WindowSystem::unregisterWindowHandle(void *handle)
+    {
+        if (handle == nullptr)
+            return;
+
+        WindowSysMtx.lock();
+        s_handleMap.remove(handle);
+        WindowSysMtx.unlock();
+    }
+
+    void WindowSystem::registerWnd(TkWindow *win)
+    {
+        if (win == nullptr)
+            return;
+
+        WindowSysMtx.lock();
+        if (!containsWindowUnlocked(win))
+            Windows.add(win);
+        syncHandleMapUnlocked(win);
+        WindowSysMtx.unlock();
+    }
+
+    void WindowSystem::unregisterWnd(TkWindow *win)
+    {
+        if (win == nullptr)
+            return;
+
+        WindowSysMtx.lock();
+        Windows.remove(win);
+        removeHandleMapEntriesForWindowUnlocked(win);
+        WindowSysMtx.unlock();
+    }
+
+    TkWindow *WindowSystem::getMainWindow()
+    {
+        WindowSysMtx.lock();
+        TkWindow* result = nullptr;
+        for (TkWindow* window : Windows)
+        {
+            if (window != nullptr && !window->isClosed())
             {
                 result = window;
                 break;
@@ -112,42 +252,63 @@ namespace toolkit
         return result;
     }
 
-    void WindowSystem::registerWnd(TkWindow *win)
-    {
-        WindowSysMtx.lock();
-        Windows.add(win);
-        WindowSysMtx.unlock();
-    }
-
-    void WindowSystem::unregisterWnd(TkWindow *win)
-    {
-        WindowSysMtx.lock();
-        Windows.remove(win);
-        WindowSysMtx.unlock();
-    }
-
-    TkWindow *WindowSystem::getMainWindow()
-    {
-        if (Windows.count() > 0)
-            return Windows[0];
-        return nullptr;
-    }
-
     void WindowSystem::dispose()
     {
-        TkArray<TkWindow *> windows;
-        WindowSysMtx.lock();
-        windows = Windows;
-        WindowSysMtx.unlock();
+        if (!s_initialized && Windows.isEmpty())
+            return;
 
+        TkArray<TkWindow *> windows = getWindowsSnapshot();
         for (TkWindow *window : windows)
         {
             if (window != nullptr)
                 destroyWindow(window);
         }
 
-        ::UnregisterClassW(Win32WindowSys::s_AppWindowClass, nullptr);
-        ::OleUninitialize();
+        WindowSysMtx.lock();
+        Windows.clear();
+        s_handleMap.clear();
+        WindowSysMtx.unlock();
+
+        if (s_registeredClass)
+        {
+            if (!::UnregisterClassW(Win32WindowSys::s_AppWindowClass, (HINSTANCE)Win32WindowSys::s_Instance))
+            {
+                const DWORD error = ::GetLastError();
+                TK_ASSERT(error == ERROR_CLASS_DOES_NOT_EXIST);
+            }
+            s_registeredClass = false;
+        }
+        if (s_oleInitialized)
+        {
+            ::OleUninitialize();
+            s_oleInitialized = false;
+        }
+
+        Win32WindowSys::s_Instance = nullptr;
+        s_initialized = false;
+    }
+
+    DialogResult Dialog::fromPlatformDialogResult(const int result)
+    {
+        switch (result)
+        {
+        case IDABORT:
+            return DialogResult::kAbort;
+        case IDCANCEL:
+            return DialogResult::kCancel;
+        case IDIGNORE:
+            return DialogResult::kIgnore;
+        case IDNO:
+            return DialogResult::kNo;
+        case IDOK:
+            return DialogResult::kOK;
+        case IDRETRY:
+            return DialogResult::kRetry;
+        case IDYES:
+            return DialogResult::kYes;
+        default:
+            return DialogResult::kNone;
+        }
     }
 
     DialogResult Dialog::msgBox(TkWindow *parent, const TkStringView &text, const TkStringView &caption, MsgBoxButtons buttons, MsgBoxIcon icon)
@@ -211,39 +372,7 @@ namespace toolkit
         // Show dialog
         int result = MessageBoxW(parent ? static_cast<HWND>(parent->getWindowPtr()) : nullptr, StringAsUTF16<>(text.get()).get(), StringAsUTF16<>(caption.get()).get(), flags);
 
-        // Translate result to dialog result
-        DialogResult dialogResult;
-        switch (result)
-        {
-        case IDABORT:
-            dialogResult = DialogResult::kAbort;
-            break;
-        case IDCANCEL:
-            dialogResult = DialogResult::kCancel;
-            break;
-        case IDCONTINUE:
-            dialogResult = DialogResult::kOK;
-            break;
-        case IDIGNORE:
-            dialogResult = DialogResult::kIgnore;
-            break;
-        case IDNO:
-            dialogResult = DialogResult::kNo;
-            break;
-        case IDOK:
-            dialogResult = DialogResult::kOK;
-            break;
-        case IDRETRY:
-            dialogResult = DialogResult::kRetry;
-            break;
-        case IDYES:
-            dialogResult = DialogResult::kYes;
-            break;
-        default:
-            dialogResult = DialogResult::kNone;
-            break;
-        }
-        return dialogResult;
+        return fromPlatformDialogResult(result);
     }
 
     bool WindowSystem::getHasFocus()
@@ -265,20 +394,43 @@ namespace toolkit
             resolvedParams.pos = Pos(parentBounds.location) + (Pos(parentBounds.size) - resolvedParams.size) * 0.5f;
         }
 
-        IAllocator& alloc = resolvedParams.alloc;
+        IAllocator& alloc = getWindowAllocator(resolvedParams);
         auto* ptr = TkMemory::newObject<TkWindow>(alloc, resolvedParams);
+        if (ptr == nullptr)
+            return nullptr;
+
         auto* nativeWnd = TkMemory::newObject<NativeWindow>(alloc, resolvedParams, ptr);
+        if (nativeWnd == nullptr)
+        {
+            TkMemory::deletePtr(alloc, ptr);
+            return nullptr;
+        }
+
         ptr->m_native = nativeWnd;
-        
+
+        if (!nativeWnd->hasHWND())
+        {
+            ptr->m_native = nullptr;
+            TkMemory::deletePtr(alloc, nativeWnd);
+            TkMemory::deletePtr(alloc, ptr);
+            return nullptr;
+        }
+
+        WindowSystem::registerWnd(ptr);
         return ptr;
     }
 
     void WindowSystem::destroyWindow(TkWindow* w)
     {
-        IAllocator& alloc = w->getParams().alloc;
+        if (w == nullptr)
+            return;
+
+        IAllocator& alloc = getWindowAllocator(w->getParams());
         if (w->getNativeWindow()) {
             TkMemory::deletePtr(alloc, w->getNativeWindow());
+            w->m_native = nullptr;
         }
+        WindowSystem::unregisterWnd(w);
         TkMemory::deletePtr(alloc, w);
     }
 
@@ -298,24 +450,23 @@ namespace toolkit
         m_state.maximized = false;
         m_state.fullscreen = p.fullscreen;
         m_state.isClosing = false;
+        m_state.closed = false;
         m_state.showAfterFirstPaint = p.showAfterFirstPaint;
         m_state.focused = false;
         m_state.suppressFocusEvents = false;
         m_track.mouseOffset = {0, 0};
 
-        WindowSystem::registerWnd((TkWindow *)this);
     }
 
     TkWindow::~TkWindow()
     {
-        WindowSystem::unregisterWnd((TkWindow *)this);
     }
 
     bool Dialog::showOpenFileDialog(TkWindow *parentWindow, const TkStringView &initialDirectory,
                                     const TkStringView &filter, bool multiSelect, const TkStringView &title,
                                     TkArray<TkString> &filenames)
     {
-        bool result = true;
+        bool result = false;
 
         // Allocate memory for the filenames
         const i32 maxFilenamesSize = (multiSelect ? 200 : 2) * MAX_PATH;
@@ -333,7 +484,7 @@ namespace toolkit
         of.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_ENABLESIZING | OFN_NOCHANGEDIR;
         of.lpstrTitle = title.hasChars() ? StringAsUTF16<>(title.get()).get() : nullptr;
         of.lpstrInitialDir = initialDirectory.hasChars() ? StringAsUTF16<>(initialDirectory.get()).get() : nullptr;
-        if (parentWindow)
+        if (parentWindow && WindowSystem::isLiveWindow(parentWindow))
             of.hwndOwner = static_cast<HWND>(parentWindow->getWindowPtr());
         if (multiSelect)
             of.Flags |= OFN_ALLOWMULTISELECT;
@@ -344,18 +495,18 @@ namespace toolkit
             // Get filenames
             wchar *ptr = of.lpstrFile;
             ptr[of.nFileOffset - 1] = 0;
-            const char *uptr = StringAsUTF8<>(ptr).get();
-            TkString directory = TkString(uptr);
+            TkString directory = StringAsUTF8<>(ptr).get();
             ptr += of.nFileOffset;
             while (*ptr)
             {
-                filenames.add(directory / uptr);
+                TkString filename = StringAsUTF8<>(ptr).get();
+                filenames.add(directory / filename);
                 ptr += lstrlenW(ptr);
                 if (multiSelect)
                     ptr++;
             }
 
-            result = false;
+            result = true;
         }
 
         return result;
@@ -363,7 +514,7 @@ namespace toolkit
 
     bool Dialog::showSaveFileDialog(TkWindow *parentWindow, const TkStringView &initialDirectory, const TkStringView &filter, bool multiSelect, const TkStringView &title, TkArray<TkString> &filenames)
     {
-        bool result = true;
+        bool result = false;
 
         // Allocate memory for the filenames
         i32 maxFilenamesSize = (multiSelect ? 200 : 2) * MAX_PATH;
@@ -381,7 +532,7 @@ namespace toolkit
         of.Flags = OFN_EXPLORER | OFN_ENABLESIZING | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
         of.lpstrTitle = title.hasChars() ? StringAsUTF16<>(title.get()).get() : nullptr;
         of.lpstrInitialDir = initialDirectory.hasChars() ? StringAsUTF16<>(initialDirectory.get()).get() : nullptr;
-        if (parentWindow)
+        if (parentWindow && WindowSystem::isLiveWindow(parentWindow))
             of.hwndOwner = static_cast<HWND>(parentWindow->getWindowPtr());
         if (multiSelect)
             of.Flags |= OFN_ALLOWMULTISELECT;
@@ -392,18 +543,18 @@ namespace toolkit
             // Get filenames
             wchar *ptr = of.lpstrFile;
             ptr[of.nFileOffset - 1] = 0;
-            const char *uptr = StringAsUTF8<>(ptr).get();
-            TkString directory = TkString(uptr);
+            TkString directory = StringAsUTF8<>(ptr).get();
             ptr += of.nFileOffset;
             while (*ptr)
             {
-                filenames.add(directory / uptr);
+                TkString filename = StringAsUTF8<>(ptr).get();
+                filenames.add(directory / filename);
                 ptr += lstrlenW(ptr);
                 if (multiSelect)
                     ptr++;
             }
 
-            result = false;
+            result = true;
         }
 
         return result;
@@ -411,7 +562,7 @@ namespace toolkit
 
     bool Dialog::showBrowseFolderDialog(TkWindow *parentWindow, const TkStringView &initialDirectory, const TkStringView &title, TkString &path)
     {
-        bool result = true;
+        bool result = false;
 
         // Randomly generated GUID used for storing the last location of this dialog
         const TkUuid folderGuid(0x53890ed9, 0xa55e47ba, 0xa970bdae, 0x72acedff);
@@ -430,10 +581,10 @@ namespace toolkit
             fd->SetClientGuid(*reinterpret_cast<const GUID *>(&folderGuid));
 
             ComPtr<IShellItem> defaultFolder;
-            if (SUCCEEDED(SHCreateItemFromParsingName(StringAsUTF16<>(initialDirectory.get()).get(), NULL, IID_PPV_ARGS(&defaultFolder))))
+            if (initialDirectory.hasChars() && SUCCEEDED(SHCreateItemFromParsingName(StringAsUTF16<>(initialDirectory.get()).get(), NULL, IID_PPV_ARGS(&defaultFolder))))
                 fd->SetFolder(defaultFolder);
 
-            HWND hwndOwner = parentWindow ? parentWindow->getNativeWindow()->getHWND() : NULL;
+            HWND hwndOwner = parentWindow && WindowSystem::isLiveWindow(parentWindow) && parentWindow->getNativeWindow() ? parentWindow->getNativeWindow()->getHWND() : NULL;
             if (SUCCEEDED(fd->Show(hwndOwner)))
             {
                 ComPtr<IShellItem> si;
@@ -444,7 +595,7 @@ namespace toolkit
                     {
                         path = StringAsUTF8<>(resultPath).get();
                         CoTaskMemFree(resultPath);
-                        result = false;
+                        result = true;
                     }
                 }
             }
@@ -455,6 +606,8 @@ namespace toolkit
 
     bool Dialog::showFileExplorer(const TkStringView &path)
     {
+        if (!path.hasChars())
+            return false;
         ProcessInitArgs procSettings;
         procSettings.file = path;
         procSettings.hiddenWindow = false;

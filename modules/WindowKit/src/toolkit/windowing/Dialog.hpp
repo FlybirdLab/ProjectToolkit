@@ -51,6 +51,8 @@ namespace toolkit
     class Dialog
     {
     public:
+        static DialogResult fromPlatformDialogResult(int result);
+
         // Display a message box with specified text.
         TK_FORCE_INLINE static DialogResult msgBox(const TkStringView &text)
         {

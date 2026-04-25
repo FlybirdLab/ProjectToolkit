@@ -10,7 +10,7 @@ TEST(WindowEventsTest, AllDispatchersInvokeBoundCallbacksWithExpectedData)
 {
     WindowEventGroup events;
 
-    char receivedChar = 0;
+    wchar receivedChar = 0;
     KeyboardKeys keyDown = KeyboardKeys::kNone;
     KeyboardKeys keyUp = KeyboardKeys::kNone;
     Pos mouseDownPos = Pos::Minimum;
@@ -43,7 +43,7 @@ TEST(WindowEventsTest, AllDispatchersInvokeBoundCallbacksWithExpectedData)
     ClosingReason closingReason = ClosingReason::kUnknown;
     bool closingCancelled = false;
 
-    events.onCharInput.bind([&](char c) { receivedChar = c; });
+    events.onCharInput.bind([&](wchar c) { receivedChar = c; });
     events.onKeyDown.bind([&](KeyboardKeys key) { keyDown = key; });
     events.onKeyUp.bind([&](KeyboardKeys key) { keyUp = key; });
     events.onMouseDown.bind([&](const Pos &pos, MouseButton button) { mouseDownPos = pos; mouseDownButton = button; });
@@ -71,7 +71,7 @@ TEST(WindowEventsTest, AllDispatchersInvokeBoundCallbacksWithExpectedData)
     bool leftButtonResult = false;
     bool cancel = false;
 
-    events.onCharInput('Z');
+    events.onCharInput(L'你');
     events.onKeyDown(KeyboardKeys::kF5);
     events.onKeyUp(KeyboardKeys::kEscape);
     events.onMouseDown(Pos(10.0, 20.0), MouseButton::kLeft);
@@ -91,7 +91,7 @@ TEST(WindowEventsTest, AllDispatchersInvokeBoundCallbacksWithExpectedData)
     events.onLeftButtonHit(WindowHitCodes::kClose, leftButtonResult);
     events.onClosing(ClosingReason::kUser, cancel);
 
-    EXPECT_EQ(receivedChar, 'Z');
+    EXPECT_EQ(receivedChar, L'你');
     EXPECT_EQ(keyDown, KeyboardKeys::kF5);
     EXPECT_EQ(keyUp, KeyboardKeys::kEscape);
     expectPosNear(mouseDownPos, Pos(10.0, 20.0));

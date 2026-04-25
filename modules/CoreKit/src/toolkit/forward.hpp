@@ -29,6 +29,8 @@ namespace toolkit {
 
 	class TkString;
 	class TkStringView;
+	class ISerializeModifier;
+	class ISerializable;
 
 	class TkThread;
 	class TkVersion;

@@ -122,6 +122,13 @@ namespace toolkit::type
     {
         return (T)((__underlying_type(T))value | (__underlying_type(T))flags);
     }
+    
+    // Returns true if given enum value has one or more enum flags set
+    template <typename T>
+    constexpr bool enumHasAnyFlags(T value, T flags)
+    {
+        return ((__underlying_type(T))value & (__underlying_type(T))flags) != 0;
+    }
 
     enum class BucketState : byte
     {

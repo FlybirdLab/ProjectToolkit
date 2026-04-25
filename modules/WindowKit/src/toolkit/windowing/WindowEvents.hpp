@@ -18,7 +18,8 @@ namespace toolkit
     class WindowEventGroup
     {
     public:
-        typedef TkAction<char> CharEvent;
+        // Character events carry one UTF-16 wchar. BMP characters are preserved; full codepoint assembly for surrogate pairs is a future input-text layer concern.
+        typedef TkAction<wchar> CharEvent;
         typedef TkAction<KeyboardKeys> KeyboardEvent;
         typedef TkAction<const Pos &> MouseEvent;
         typedef TkAction<const Pos &, MouseButton> MouseButtonEvent;

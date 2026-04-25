@@ -68,18 +68,24 @@ namespace toolkit
         // Get the mouse button state (true if being pressed during the current frame).
         TK_FORCE_INLINE bool getButton(MouseButton button) const
         {
+            if (!isValidMouseButton(button))
+                return false;
             return m_state.mouseButtons[static_cast<i32>(button)];
         }
 
         // Get the mouse button down state (true if was pressed during the current frame).
         TK_FORCE_INLINE bool getButtonDown(MouseButton button) const
         {
+            if (!isValidMouseButton(button))
+                return false;
             return m_state.mouseButtons[static_cast<i32>(button)] && !m_prevState.mouseButtons[static_cast<i32>(button)];
         }
 
         // Get the mouse button up state (true if was released during the current frame).
         TK_FORCE_INLINE bool getButtonUp(MouseButton button) const
         {
+            if (!isValidMouseButton(button))
+                return false;
             return !m_state.mouseButtons[static_cast<i32>(button)] && m_prevState.mouseButtons[static_cast<i32>(button)];
         }
 

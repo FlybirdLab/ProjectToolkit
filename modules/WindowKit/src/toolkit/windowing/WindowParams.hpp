@@ -24,7 +24,7 @@ namespace toolkit
 
     struct WindowParams
     {
-        IAllocator& alloc = TkMemory::getDefault();
+        IAllocator* alloc = &TkMemory::getDefault();
         TkString title;
         TkWindow *parent = nullptr;
         Pos pos = Pos(100, 400);
@@ -32,19 +32,19 @@ namespace toolkit
         Pos minSize = Pos(1, 1);
         Pos maxSize = Pos(0, 0);
         WindowStartPos startPos = WindowStartPos::kManual;
-        bool fullscreen : 1 = false;
-        bool hasBorder : 1  = true;
-        bool supportsTransparency : 1  = false;
-        bool showInTaskbar : 1  = true;
-        bool activateWhenFirstShown : 1  = true;
-        bool allowInput : 1  = true;
-        bool allowMinimize : 1  = true;
-        bool allowMaximize : 1  = true;
-        bool allowDragAndDrop : 1  = false;
-        bool isTopmost : 1  = false;
-        bool isRegularWindow : 1  = true;
-        bool hasSizingFrame : 1  = true;
-        bool showAfterFirstPaint : 1  = true;
+        bool fullscreen = false;
+        bool hasBorder = true;
+        bool supportsTransparency = false;
+        bool showInTaskbar = true;
+        bool activateWhenFirstShown = true;
+        bool allowInput = true;
+        bool allowMinimize = true;
+        bool allowMaximize = true;
+        bool allowDragAndDrop = false;
+        bool isTopmost = false;
+        bool isRegularWindow = true;
+        bool hasSizingFrame = true;
+        bool showAfterFirstPaint = true;
         void* data = nullptr;
     };
 

@@ -38,6 +38,9 @@ namespace toolkit
     public:
         // Gets the window by native handle.
         static TkWindow *getByWindowPtr(void *handle);
+        static TkArray<TkWindow *> getWindowsSnapshot();
+        static bool isLiveWindow(TkWindow *win);
+        static void unregisterWindowHandle(void *handle);
         // Used by platform window implementations.
         static void registerWnd(TkWindow *win);
         static void unregisterWnd(TkWindow *win);

@@ -37,6 +37,7 @@ AddRpmalloc(INCS LNKS)
 AddXXHash(INCS LNKS)
 AddConcurrentQueue(INCS LNKS)
 AddTracy(INCS LNKS)
+AddRapidJson(INCS LNKS)
 #################################################################
 # project configurations
 #################################################################

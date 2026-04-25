@@ -18,6 +18,8 @@ namespace toolkit
 
     void Mouse::onMouseDown(const Pos &position, const MouseButton button, TkWindow *target)
     {
+        if (!isValidMouseButton(button))
+            return;
         InputEvent &e = m_queue.addOne();
         e.Type = InputEventType::kMouseDown;
         e.Target = target;
@@ -36,6 +38,8 @@ namespace toolkit
 
     void Mouse::onMouseUp(const Pos &position, const MouseButton button, TkWindow *target)
     {
+        if (!isValidMouseButton(button))
+            return;
         InputEvent &e = m_queue.addOne();
         e.Type = InputEventType::kMouseUp;
         e.Target = target;
@@ -45,6 +49,8 @@ namespace toolkit
 
     void Mouse::onMouseDoubleClick(const Pos &position, const MouseButton button, TkWindow *target)
     {
+        if (!isValidMouseButton(button))
+            return;
         InputEvent &e = m_queue.addOne();
         e.Type = InputEventType::kMouseDoubleClick;
         e.Target = target;
@@ -80,8 +86,11 @@ namespace toolkit
     {
         InputDevice::resetState();
 
+        const Pos currentPos = m_state.mousePos;
         m_prevState.clear();
         m_state.clear();
+        m_prevState.mousePos = currentPos;
+        m_state.mousePos = currentPos;
     }
 
     bool Mouse::update(EventQueue &queue)
@@ -102,16 +111,22 @@ namespace toolkit
             {
             case InputEventType::kMouseDown:
             {
+                if (!isValidMouseButton(e.mouseData.button))
+                    break;
                 m_state.mouseButtons[static_cast<i32>(e.mouseData.button)] = true;
                 break;
             }
             case InputEventType::kMouseUp:
             {
+                if (!isValidMouseButton(e.mouseData.button))
+                    break;
                 m_state.mouseButtons[static_cast<i32>(e.mouseData.button)] = false;
                 break;
             }
             case InputEventType::kMouseDoubleClick:
             {
+                if (!isValidMouseButton(e.mouseData.button))
+                    break;
                 m_state.mouseButtons[static_cast<i32>(e.mouseData.button)] = true;
                 break;
             }

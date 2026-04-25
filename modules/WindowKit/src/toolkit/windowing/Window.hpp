@@ -22,6 +22,9 @@ namespace toolkit
     {
         friend class NativeWindow;
         friend class WindowSystem;
+        // Placeholder for graphics module
+        friend class GfxWindow;
+        friend class GfxSwapChain;
 
         struct WindowState
         {
@@ -30,6 +33,7 @@ namespace toolkit
             bool maximized : 1;
             bool fullscreen : 1;
             bool isClosing : 1;
+            bool closed : 1;
             bool showAfterFirstPaint : 1;
             bool focused : 1;
             bool suppressFocusEvents : 1;
@@ -172,10 +176,10 @@ namespace toolkit
         {
             return m_dpi;
         }
-        // Get the window DPI scale factor (1 is default). Includes custom DPI scale
+        // Get the window DPI scale factor (1 is default). This is windowDpi / 96, not multiplied by system scale.
         f32 getDpiScale() const
         {
-            return System::getDpiScale() * m_dpiScale; // TODO
+            return m_dpiScale;
         }
 
     public:
@@ -202,7 +206,7 @@ namespace toolkit
         void flashWindow();
 
     public:
-        // Start drag and drop operation
+        // Start drag and drop operation. Win32 active OLE drag is not implemented yet, so this currently returns DragDropEffect::kNone.
         DragDropEffect doDragDrop(const TkStringView &data);
 
         // Start the mouse tracking.
@@ -232,7 +236,7 @@ namespace toolkit
         // Ends the mouse tracking.
         void endTrackingMouse();
 
-        // Start the cursor clipping.
+        // Start cursor clipping with a screen-space rectangle. getClientBounds() already returns screen-space client bounds.
         void startClippingCursor(const Rect &bounds);
         // Get the value indicating whenever the cursor is being clipped.
         bool isCursorClipping() const

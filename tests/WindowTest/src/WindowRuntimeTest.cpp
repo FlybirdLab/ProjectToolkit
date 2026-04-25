@@ -18,6 +18,7 @@ TEST_F(WindowSystemFixture, RegisterCreateLookupAndDestroyWindow)
     TkWindow *window = createTestWindow("RuntimeA", Pos(160.0, 180.0), Pos(300.0, 220.0));
     ASSERT_NE(window, nullptr);
     EXPECT_EQ(WindowSystem::Windows.count(), initialCount + 1);
+    EXPECT_TRUE(WindowSystem::isLiveWindow(window));
     EXPECT_EQ(WindowSystem::getMainWindow(), window);
     EXPECT_EQ(WindowSystem::getByWindowPtr(window->getWindowPtr()), window);
     EXPECT_EQ(window->getParams().title, "RuntimeA");
@@ -26,7 +27,7 @@ TEST_F(WindowSystemFixture, RegisterCreateLookupAndDestroyWindow)
     EXPECT_FALSE(window->isClosed());
     EXPECT_FALSE(window->isFullscreen());
     EXPECT_TRUE(window->isWindowed());
-    EXPECT_FALSE(window->isFirstWindow());
+    EXPECT_TRUE(window->isFirstWindow());
     EXPECT_FALSE(window->isForegroundWindow());
     EXPECT_FALSE(window->isMinimized());
     EXPECT_FALSE(window->isMaximized());
@@ -37,6 +38,7 @@ TEST_F(WindowSystemFixture, RegisterCreateLookupAndDestroyWindow)
     EXPECT_GT(window->getDpiScale(), 0.0f);
 
     destroyTestWindow(window);
+    EXPECT_FALSE(WindowSystem::isLiveWindow(window));
     EXPECT_EQ(WindowSystem::Windows.count(), initialCount);
 }
 
@@ -95,6 +97,12 @@ TEST_F(WindowSystemFixture, TitlePositionSizeCursorTrackingAndClippingWork)
 {
     TkWindow *window = createTestWindow("RuntimeB", Pos(200.0, 210.0), Pos(280.0, 210.0), true);
     ASSERT_NE(window, nullptr);
+    int resizedCount = 0;
+    Pos resizedSize = Pos::Minimum;
+    window->onResized.bind([&](Pos size) {
+        ++resizedCount;
+        resizedSize = size;
+    });
 
     window->setTitle("UpdatedTitle");
     EXPECT_EQ(window->getTitle(), "UpdatedTitle");
@@ -114,6 +122,8 @@ TEST_F(WindowSystemFixture, TitlePositionSizeCursorTrackingAndClippingWork)
 
     window->setClientSize(Pos(310.0, 230.0));
     expectPosNear(window->getClientSize(), Pos(310.0, 230.0), 2.5);
+    EXPECT_GE(resizedCount, 1);
+    expectPosNear(resizedSize, window->getClientSize(), 2.5);
 
     window->setClientBounds(Rect(240.0, 260.0, 330.0, 240.0));
     expectRectNear(window->getClientBounds(), Rect(window->getClientPos(), window->getClientSize()), 2.5);
@@ -198,15 +208,18 @@ TEST_F(WindowSystemFixture, VisibilityFocusTriggersAndInputGatesBehaveAsImplemen
     EXPECT_FALSE(window->isVisible());
     window->show();
     window->setVisible(true);
+    window->show();
     EXPECT_TRUE(window->isVisible());
+    EXPECT_EQ(shownCount, 1);
 
     window->hide();
     window->setVisible(false);
+    window->hide();
     EXPECT_FALSE(window->isVisible());
     EXPECT_EQ(hiddenCount, 1);
 
     window->onShowTrigger();
-    EXPECT_EQ(shownCount, 1);
+    EXPECT_EQ(shownCount, 2);
 
     window->onResizeTrigger(444, 222);
     expectPosNear(resizedValue, Pos(444.0, 222.0));
@@ -254,7 +267,7 @@ TEST_F(WindowSystemFixture, VisibilityFocusTriggersAndInputGatesBehaveAsImplemen
     destroyTestWindow(window);
 }
 
-TEST_F(WindowSystemFixture, CloseHonorsCancellationForAppExitAndUnregistersAfterClose)
+TEST_F(WindowSystemFixture, CloseHonorsCancellationAndDestroyFinalizesUnregister)
 {
     WindowSystem system;
     const i32 initialCount = WindowSystem::Windows.count();
@@ -278,7 +291,30 @@ TEST_F(WindowSystemFixture, CloseHonorsCancellationForAppExitAndUnregistersAfter
     window->close(ClosingReason::kAppExit);
     EXPECT_FALSE(window->isVisible());
     EXPECT_EQ(closedCount, 1);
+    EXPECT_TRUE(window->isClosed());
+    EXPECT_TRUE(WindowSystem::isLiveWindow(window));
+    EXPECT_EQ(WindowSystem::Windows.count(), initialCount + 1);
+
+    destroyTestWindow(window);
     EXPECT_EQ(WindowSystem::Windows.count(), initialCount);
+}
+
+TEST_F(WindowSystemFixture, CloseSuccessfulEventOrderIsHiddenThenClosed)
+{
+    TkWindow *window = createTestWindow("CloseOrder", Pos(340.0, 360.0), Pos(220.0, 140.0));
+    ASSERT_NE(window, nullptr);
+
+    TkArray<i32> order;
+    window->onHidden.bind([&]() { order.add(1); });
+    window->onClosed.bind([&]() { order.add(2); });
+
+    window->show();
+    window->close(ClosingReason::kUser);
+
+    ASSERT_EQ(order.count(), 2);
+    EXPECT_EQ(order[0], 1);
+    EXPECT_EQ(order[1], 2);
+    EXPECT_TRUE(window->isClosed());
 
     destroyTestWindow(window);
 }

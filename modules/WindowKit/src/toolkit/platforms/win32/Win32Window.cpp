@@ -48,6 +48,54 @@ namespace toolkit
 
 namespace toolkit
 {
+    using GetDpiForWindowProc = UINT(STDAPICALLTYPE *)(HWND hwnd);
+
+    static GetDpiForWindowProc getCachedDpiForWindowProc()
+    {
+        static GetDpiForWindowProc proc = []() -> GetDpiForWindowProc
+        {
+            const HMODULE user32Dll = ::GetModuleHandleW(L"user32.dll");
+            if (!user32Dll)
+                return nullptr;
+            return reinterpret_cast<GetDpiForWindowProc>(::GetProcAddress(user32Dll, "GetDpiForWindow"));
+        }();
+        return proc;
+    }
+
+    static u32 queryWindowDpi(HWND hwnd)
+    {
+        if (auto proc = getCachedDpiForWindowProc())
+            return proc(hwnd);
+
+        if (HDC dc = ::GetDC(hwnd))
+        {
+            const u32 dpi = static_cast<u32>(::GetDeviceCaps(dc, LOGPIXELSX));
+            ::ReleaseDC(hwnd, dc);
+            return dpi > 0 ? dpi : System::getDpi();
+        }
+
+        return System::getDpi();
+    }
+
+    static RECT clientRectToWindowRect(HWND hwnd, const Rect &clientRect)
+    {
+        const float clientWidth = clientRect.w > 1.0f ? clientRect.w : 1.0f;
+        const float clientHeight = clientRect.h > 1.0f ? clientRect.h : 1.0f;
+        RECT winRect{
+            static_cast<LONG>(clientRect.x),
+            static_cast<LONG>(clientRect.y),
+            static_cast<LONG>(clientRect.x + clientWidth),
+            static_cast<LONG>(clientRect.y + clientHeight)};
+
+        WINDOWINFO winInfo;
+        TkMemory::memoryClear(&winInfo, sizeof(WINDOWINFO));
+        winInfo.cbSize = sizeof(winInfo);
+        if (::GetWindowInfo(hwnd, &winInfo))
+            ::AdjustWindowRectEx(&winRect, winInfo.dwStyle, FALSE, winInfo.dwExStyle);
+
+        return winRect;
+    }
+
     bool isWindowMaximized(HWND window)
     {
         WINDOWPLACEMENT placement;
@@ -138,18 +186,7 @@ namespace toolkit
         }
 
         // Query DPI
-        window->m_dpi = System::getDpi();
-        const HMODULE user32Dll = LoadLibraryW(L"user32.dll");
-        if (user32Dll)
-        {
-            typedef UINT(STDAPICALLTYPE * GetDpiForWindowProc)(HWND hwnd);
-            const GetDpiForWindowProc getDpiForWindowProc = (GetDpiForWindowProc)GetProcAddress(user32Dll, "GetDpiForWindow");
-            if (getDpiForWindowProc)
-            {
-                m_window->m_dpi = getDpiForWindowProc(m_handle);
-            }
-            FreeLibrary(user32Dll);
-        }
+        m_window->m_dpi = queryWindowDpi(m_handle);
         m_window->m_dpiScale = (float)m_window->m_dpi / (float)DefaultDPI;
 
 #if WINDOWS_USE_NEWER_BORDER_LESS
@@ -166,17 +203,44 @@ namespace toolkit
 
     NativeWindow::~NativeWindow()
     {
+        if (m_window != nullptr)
+        {
+            if (m_window->m_track.isClippingCursor)
+                m_window->endClippingCursor();
+            if (m_window->m_track.isTrackingMouse)
+                m_window->endTrackingMouse();
+        }
+
+        HWND iconOwner = m_handle;
         if (hasHWND())
         {
+            HWND handle = m_handle;
+            m_destroying = true;
             // Destroy window
-            if (DestroyWindow(m_handle) == 0)
+            if (DestroyWindow(handle) == 0 && IsWindow(handle))
             {
                 LogWarn("DestroyWindow failed! Error: 0x%x\n", GetLastError());
             }
 
             // Clear
             m_handle = nullptr;
-            m_window->m_state.visible = false;
+            if (m_window != nullptr)
+                m_window->m_state.visible = false;
+        }
+
+        if (m_bigIcon != nullptr)
+        {
+            if (iconOwner != nullptr && IsWindow(iconOwner))
+                SendMessageW(iconOwner, WM_SETICON, ICON_BIG, 0);
+            DestroyIcon(m_bigIcon);
+            m_bigIcon = nullptr;
+        }
+        if (m_smallIcon != nullptr)
+        {
+            if (iconOwner != nullptr && IsWindow(iconOwner))
+                SendMessageW(iconOwner, WM_SETICON, ICON_SMALL, 0);
+            DestroyIcon(m_smallIcon);
+            m_smallIcon = nullptr;
         }
     }
 
@@ -187,10 +251,10 @@ namespace toolkit
 
     void TkWindow::show()
     {
+        if (m_native == nullptr || !m_native->hasHWND() || m_state.closed)
+            return;
         if (!m_state.visible)
         {
-            TK_ASSERT(m_native->hasHWND());
-
             m_state.suppressFocusEvents = true;
             ShowWindow(m_native->m_handle, (m_params.allowInput && m_params.activateWhenFirstShown) ? SW_SHOW : SW_SHOWNA);
             m_state.suppressFocusEvents = false;
@@ -206,16 +270,19 @@ namespace toolkit
             }
 #endif
 
+            if (m_state.visible)
+                return;
             m_state.visible = true;
+            onShown();
         }
     }
 
     void TkWindow::hide()
     {
+        if (m_native == nullptr || !m_native->hasHWND() || m_state.closed)
+            return;
         if (m_state.visible)
         {
-            TK_ASSERT(m_native->hasHWND());
-
             m_state.suppressFocusEvents = true;
             ::ShowWindow(m_native->m_handle, SW_HIDE);
             m_state.suppressFocusEvents = false;
@@ -232,7 +299,9 @@ namespace toolkit
 
     void TkWindow::minimize()
     {
-        if (!m_params.allowMinimize)
+        if (!m_params.allowMinimize || m_native == nullptr || !m_native->hasHWND())
+            return;
+        if (isFullscreen())
             return;
         TK_ASSERT(m_native->hasHWND());
         ShowWindow(m_native->m_handle, SW_MINIMIZE);
@@ -240,7 +309,9 @@ namespace toolkit
 
     void TkWindow::maximize()
     {
-        if (!m_params.allowMaximize)
+        if (!m_params.allowMaximize || m_native == nullptr || !m_native->hasHWND())
+            return;
+        if (isFullscreen())
             return;
         TK_ASSERT(m_native->hasHWND());
         m_native->m_isDuringMax = true;
@@ -250,6 +321,8 @@ namespace toolkit
 
     void TkWindow::setBorderless(bool isBorderless, bool maximized)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         if (isFullscreen())
@@ -331,24 +404,30 @@ namespace toolkit
 
     void TkWindow::restore()
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
+        if (isFullscreen())
+            return;
         TK_ASSERT(m_native->hasHWND());
         ::ShowWindow(m_native->m_handle, SW_RESTORE);
     }
 
     bool TkWindow::isClosed() const
     {
-        return !m_native->hasHWND();
+        return m_state.closed || m_native == nullptr || !m_native->hasHWND();
     }
 
     bool TkWindow::isForegroundWindow() const
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return false;
         return ::GetForegroundWindow() == m_native->m_handle;
     }
 
     void TkWindow::close(ClosingReason reason)
     {
         // Prevent from calling close during or after close action
-        if (m_state.isClosing)
+        if (m_state.isClosing || m_state.closed)
             return;
         m_state.isClosing = true;
 
@@ -361,10 +440,20 @@ namespace toolkit
             return;
         }
 
-        hide();
+        if (m_state.visible)
+            hide();
         if (m_native && m_native->hasHWND())
         {
-            ::DestroyWindow(m_native->m_handle);
+            HWND handle = m_native->m_handle;
+            if (::DestroyWindow(handle) == 0 && ::IsWindow(handle))
+            {
+                LogWarn("DestroyWindow failed during close. Error: 0x%x", GetLastError());
+                m_state.isClosing = false;
+            }
+            else if (!m_state.closed)
+            {
+                onClosedTrigger();
+            }
         }
         else
         {
@@ -374,6 +463,8 @@ namespace toolkit
 
     void TkWindow::bringToFront(bool force)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         if (m_params.isRegularWindow)
@@ -408,6 +499,8 @@ namespace toolkit
 
     void TkWindow::setClientBounds(const Rect &clientArea)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         // Check if position or/and size will change
@@ -417,53 +510,38 @@ namespace toolkit
         if (!changeLocation && !changeSize)
             return;
 
-        // Get values data
-        i32 x = (i32)clientArea.x;
-        i32 y = (i32)clientArea.y;
-        i32 width = (i32)clientArea.w;
-        i32 height = (i32)clientArea.h;
-
-        if (changeSize)
-        {
-            m_clientSize = {clientArea.w, clientArea.h};
-
-            // Update GUI
-            onResizeTrigger(width, height);
-        }
-
-        // Check if need to adjust window rectangle
-        if (m_params.hasBorder)
-        {
-            // Get window info
-            WINDOWINFO winInfo;
-            TkMemory::memoryClear(&winInfo, sizeof(WINDOWINFO));
-            winInfo.cbSize = sizeof(winInfo);
-            GetWindowInfo(m_native->m_handle, &winInfo);
-
-            // Adjust rectangle from client size to window size
-            RECT winRect = {0, 0, width, height};
-            AdjustWindowRectEx(&winRect, winInfo.dwStyle, FALSE, winInfo.dwExStyle);
-            width = winRect.right - winRect.left;
-            height = winRect.bottom - winRect.top;
-
-            // Little hack but works great
-            winRect = {x, y, width, height};
-            AdjustWindowRectEx(&winRect, winInfo.dwStyle, FALSE, winInfo.dwExStyle);
-            x = winRect.left;
-            y = winRect.top;
-        }
+        const Rect clampedClientArea{
+            clientArea.x,
+            clientArea.y,
+            clientArea.w > 1.0f ? clientArea.w : 1.0f,
+            clientArea.h > 1.0f ? clientArea.h : 1.0f};
+        const RECT winRect = m_params.hasBorder
+            ? clientRectToWindowRect(m_native->m_handle, clampedClientArea)
+            : RECT{
+                  static_cast<LONG>(clampedClientArea.x),
+                  static_cast<LONG>(clampedClientArea.y),
+                  static_cast<LONG>(clampedClientArea.x + clampedClientArea.w),
+                  static_cast<LONG>(clampedClientArea.y + clampedClientArea.h)};
+        const i32 x = winRect.left;
+        const i32 y = winRect.top;
+        const i32 width = winRect.right - winRect.left;
+        const i32 height = winRect.bottom - winRect.top;
 
         // Change window size and location
-        SetWindowPos(m_native->m_handle, nullptr, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+        if (!SetWindowPos(m_native->m_handle, nullptr, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE))
+            return;
 
         if (changeSize)
         {
+            m_native->checkForWindowResize();
             m_native->updateRegion();
         }
     }
 
     void TkWindow::setPos(const Pos &position)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         // Cache data
@@ -476,6 +554,8 @@ namespace toolkit
 
     void TkWindow::setClientPos(const Pos &position)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         // Cache data
@@ -485,17 +565,7 @@ namespace toolkit
         // Check if need to adjust window rectangle
         if (m_params.hasBorder)
         {
-            // Get window info
-            WINDOWINFO winInfo;
-            TkMemory::memoryClear(&winInfo, sizeof(WINDOWINFO));
-            winInfo.cbSize = sizeof(winInfo);
-            GetWindowInfo(m_native->m_handle, &winInfo);
-
-            // Adjust rectangle from client size to window size
-            RECT winRect = {x, y, 666, 69};
-            AdjustWindowRectEx(&winRect, winInfo.dwStyle, FALSE, winInfo.dwExStyle);
-
-            // Calculate window size
+            const RECT winRect = clientRectToWindowRect(m_native->m_handle, Rect{static_cast<float>(x), static_cast<float>(y), 1.0f, 1.0f});
             x = winRect.left;
             y = winRect.top;
         }
@@ -506,8 +576,7 @@ namespace toolkit
 
     bool TkWindow::isFirstWindow() const
     {
-        //TODO
-        return false;
+        return WindowSystem::getMainWindow() == this;
     }
 
     bool TkWindow::isFullscreen() const
@@ -517,18 +586,130 @@ namespace toolkit
 
     void TkWindow::setFullscreen(bool isFullscreen)
     {
-        m_native->m_isSwitchingFullScreen = true;
+        if (m_native == nullptr || !m_native->hasHWND() || m_state.fullscreen == isFullscreen)
+            return;
 
-        TK_ASSERT(m_native->hasHWND());
+        m_native->m_isSwitchingFullScreen = true;
 
         LogInfo("Changing window fullscreen mode to %v", isFullscreen);
 
-        if (!isFullscreen)
+        HWND hwnd = m_native->m_handle;
+        bool changed = false;
+        if (isFullscreen)
         {
-            ShowWindow(m_native->m_handle, SW_NORMAL);
+            m_native->m_restorePlacement.length = sizeof(WINDOWPLACEMENT);
+            SetLastError(ERROR_SUCCESS);
+            m_native->m_restoreStyle = GetWindowLong(hwnd, GWL_STYLE);
+            const DWORD styleError = GetLastError();
+            SetLastError(ERROR_SUCCESS);
+            m_native->m_restoreExStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            const DWORD exStyleError = GetLastError();
+            if (styleError != ERROR_SUCCESS || exStyleError != ERROR_SUCCESS || !GetWindowPlacement(hwnd, &m_native->m_restorePlacement) || !GetWindowRect(hwnd, &m_native->m_restoreRect))
+            {
+                LogWarn("Failed to capture window state before fullscreen. Error: 0x%x", GetLastError());
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            m_native->m_hasFullscreenRestore = true;
+
+            HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO monitorInfo;
+            monitorInfo.cbSize = sizeof(MONITORINFO);
+            if (!GetMonitorInfoW(monitor, &monitorInfo))
+            {
+                LogWarn("Failed to query monitor info for fullscreen. Error: 0x%x", GetLastError());
+                m_native->m_hasFullscreenRestore = false;
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+
+            LONG style = m_native->m_restoreStyle;
+            style &= ~(WS_CAPTION | WS_THICKFRAME | WS_BORDER | WS_DLGFRAME | WS_MAXIMIZEBOX);
+            style |= WS_POPUP;
+            SetLastError(ERROR_SUCCESS);
+            if (SetWindowLong(hwnd, GWL_STYLE, style) == 0 && GetLastError() != ERROR_SUCCESS)
+            {
+                LogWarn("Failed to set fullscreen window style. Error: 0x%x", GetLastError());
+                m_native->m_hasFullscreenRestore = false;
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            SetLastError(ERROR_SUCCESS);
+            if (SetWindowLong(hwnd, GWL_EXSTYLE, m_native->m_restoreExStyle & ~(WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE)) == 0 && GetLastError() != ERROR_SUCCESS)
+            {
+                LogWarn("Failed to set fullscreen ex style. Error: 0x%x", GetLastError());
+                SetWindowLong(hwnd, GWL_STYLE, m_native->m_restoreStyle);
+                m_native->m_hasFullscreenRestore = false;
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            changed = SetWindowPos(
+                hwnd,
+                HWND_TOP,
+                monitorInfo.rcMonitor.left,
+                monitorInfo.rcMonitor.top,
+                monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
+                monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+                SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE) != 0;
+            if (!changed)
+            {
+                LogWarn("Failed to enter fullscreen. Error: 0x%x", GetLastError());
+                SetWindowLong(hwnd, GWL_STYLE, m_native->m_restoreStyle);
+                SetWindowLong(hwnd, GWL_EXSTYLE, m_native->m_restoreExStyle);
+                SetWindowPlacement(hwnd, &m_native->m_restorePlacement);
+                m_native->m_hasFullscreenRestore = false;
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+        }
+        else if (m_native->m_hasFullscreenRestore)
+        {
+            SetLastError(ERROR_SUCCESS);
+            if (SetWindowLong(hwnd, GWL_STYLE, m_native->m_restoreStyle) == 0 && GetLastError() != ERROR_SUCCESS)
+            {
+                LogWarn("Failed to restore fullscreen window style. Error: 0x%x", GetLastError());
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            SetLastError(ERROR_SUCCESS);
+            if (SetWindowLong(hwnd, GWL_EXSTYLE, m_native->m_restoreExStyle) == 0 && GetLastError() != ERROR_SUCCESS)
+            {
+                LogWarn("Failed to restore fullscreen ex style. Error: 0x%x", GetLastError());
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            if (!SetWindowPlacement(hwnd, &m_native->m_restorePlacement))
+            {
+                LogWarn("Failed to restore fullscreen placement. Error: 0x%x", GetLastError());
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            changed = SetWindowPos(
+                hwnd,
+                nullptr,
+                m_native->m_restoreRect.left,
+                m_native->m_restoreRect.top,
+                m_native->m_restoreRect.right - m_native->m_restoreRect.left,
+                m_native->m_restoreRect.bottom - m_native->m_restoreRect.top,
+                SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE) != 0;
+            if (!changed)
+            {
+                LogWarn("Failed to exit fullscreen. Error: 0x%x", GetLastError());
+                m_native->m_isSwitchingFullScreen = false;
+                return;
+            }
+            m_native->m_hasFullscreenRestore = false;
+        }
+        else
+        {
+            changed = true;
         }
 
-        m_state.fullscreen = isFullscreen;
+        if (changed)
+        {
+            m_state.fullscreen = isFullscreen;
+            m_native->checkForWindowResize();
+        }
 
         m_native->m_isSwitchingFullScreen = false;
     }
@@ -554,6 +735,8 @@ namespace toolkit
 
     Pos TkWindow::getPos() const
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return Pos{0, 0};
         TK_ASSERT(m_native->hasHWND());
 
         RECT rect;
@@ -563,6 +746,8 @@ namespace toolkit
 
     Pos TkWindow::getSize() const
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return Pos{0, 0};
         TK_ASSERT(m_native->hasHWND());
 
         RECT rect;
@@ -577,6 +762,8 @@ namespace toolkit
 
     Pos TkWindow::screenToClient(const Pos &screenPos) const
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return Pos{0, 0};
         TK_ASSERT(m_native->hasHWND());
 
         POINT p;
@@ -588,6 +775,8 @@ namespace toolkit
 
     Pos TkWindow::clientToScreen(const Pos &clientPos) const
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return Pos{0, 0};
         TK_ASSERT(m_native->hasHWND());
 
         if (m_state.minimized)
@@ -605,6 +794,8 @@ namespace toolkit
 
     void TkWindow::flashWindow()
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         if (isFocused())
@@ -632,24 +823,36 @@ namespace toolkit
 
     float TkWindow::getOpacity() const
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return 1.0f;
         TK_ASSERT(m_native->hasHWND());
 
-        COLORREF color;
-        BYTE alpha;
-        DWORD flags;
-        ::GetLayeredWindowAttributes(m_native->m_handle, &color, &alpha, &flags);
+        COLORREF color = 0;
+        BYTE alpha = 255;
+        DWORD flags = 0;
+        if (!(GetWindowLong(m_native->m_handle, GWL_EXSTYLE) & WS_EX_LAYERED))
+            return 1.0f;
+        if (!::GetLayeredWindowAttributes(m_native->m_handle, &color, &alpha, &flags))
+            return 1.0f;
         return (float)alpha / 255.0f;
     }
 
     void TkWindow::setOpacity(f32 opacity)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
+        LONG exStyle = GetWindowLong(m_native->m_handle, GWL_EXSTYLE);
+        if (!(exStyle & WS_EX_LAYERED))
+            SetWindowLong(m_native->m_handle, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
         ::SetLayeredWindowAttributes(m_native->m_handle, 0, static_cast<BYTE>(TkMath::saturate(opacity) * 255), LWA_ALPHA);
     }
 
     void TkWindow::focus()
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
         if (GetFocus() != m_native->m_handle)
         {
@@ -664,6 +867,8 @@ namespace toolkit
 
     void TkWindow::setTitle(const TkStringView &title)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         if (::SetWindowTextW(m_native->m_handle, StringAsUTF16<>(title.get()).get()))
@@ -674,6 +879,8 @@ namespace toolkit
 
     void TkWindow::startTrackingMouse(bool useMouseScreenOffset)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         TK_ASSERT(m_native->hasHWND());
 
         if (!m_track.isTrackingMouse)
@@ -706,6 +913,8 @@ namespace toolkit
 
     void TkWindow::startClippingCursor(const Rect &bounds)
     {
+        if (m_native == nullptr || !m_native->hasHWND())
+            return;
         m_track.isClippingCursor = true;
         *(RECT *)m_native->m_clipCursorRect = {
             (LONG)bounds.getUpperLeft().x,
@@ -731,14 +940,45 @@ namespace toolkit
 
     void TkWindow::setCursor(CursorType type)
     {
+        if (static_cast<i32>(type) < 0 || type >= CursorType::MAX)
+            type = CursorType::kDefault;
         // Base
         m_cursor = type;
 
-        m_native->updateCursor();
+        if (m_native != nullptr && m_native->hasHWND())
+            m_native->updateCursor();
     }
 
     void TkWindow::setIcon(const TkStringView icon)
     {
+        if (m_native == nullptr || !m_native->hasHWND() || !icon.hasChars())
+            return;
+
+        const auto path = StringAsUTF16<>(icon.get());
+        HICON bigIcon = static_cast<HICON>(LoadImageW(nullptr, path.get(), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE));
+        HICON smallIcon = static_cast<HICON>(LoadImageW(nullptr, path.get(), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE));
+        if (bigIcon == nullptr && smallIcon == nullptr)
+        {
+            LogWarn("Failed to load window icon.");
+            return;
+        }
+
+        if (bigIcon != nullptr)
+        {
+            HICON old = m_native->m_bigIcon;
+            SendMessageW(m_native->m_handle, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(bigIcon));
+            m_native->m_bigIcon = bigIcon;
+            if (old != nullptr)
+                DestroyIcon(old);
+        }
+        if (smallIcon != nullptr)
+        {
+            HICON old = m_native->m_smallIcon;
+            SendMessageW(m_native->m_handle, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(smallIcon));
+            m_native->m_smallIcon = smallIcon;
+            if (old != nullptr)
+                DestroyIcon(old);
+        }
     }
 
     void NativeWindow::checkForWindowResize()
@@ -747,11 +987,13 @@ namespace toolkit
         if (m_window->m_state.minimized)
             return;
 
-        TK_ASSERT(hasHWND());
+        if (!hasHWND())
+            return;
 
         // Cache client size
         RECT rect;
-        GetClientRect(m_handle, &rect);
+        if (!GetClientRect(m_handle, &rect))
+            return;
         i32 width = TkMath::max(rect.right - rect.left, 0L);
         i32 height = TkMath::max(rect.bottom - rect.top, 0L);
 
@@ -762,55 +1004,37 @@ namespace toolkit
             const HMONITOR monitor = MonitorFromWindow(m_handle, MONITOR_DEFAULTTONEAREST);
             MONITORINFO monitorInfo;
             monitorInfo.cbSize = sizeof(MONITORINFO);
-            GetMonitorInfoW(monitor, &monitorInfo);
-
-            auto cwidth = monitorInfo.rcWork.right - monitorInfo.rcWork.left;
-            auto cheight = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top;
-            if (width > cwidth && height > cheight)
+            if (GetMonitorInfoW(monitor, &monitorInfo))
             {
-                width = cwidth;
-                height = cheight;
-                SetWindowPos(m_handle, HWND_TOP, monitorInfo.rcWork.left, monitorInfo.rcWork.top, width, height, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+                auto cwidth = monitorInfo.rcWork.right - monitorInfo.rcWork.left;
+                auto cheight = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top;
+                if (width > cwidth && height > cheight)
+                {
+                    width = cwidth;
+                    height = cheight;
+                    SetWindowPos(m_handle, HWND_TOP, monitorInfo.rcWork.left, monitorInfo.rcWork.top, width, height, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+                }
             }
         }
-        m_window->m_clientSize = Pos(static_cast<float>(width), static_cast<float>(height));
+
+        const Pos newSize(static_cast<float>(width), static_cast<float>(height));
+        if (!Pos::nearEqual(m_window->m_clientSize, newSize))
+        {
+            m_window->m_clientSize = newSize;
+            m_window->onResizeTrigger(width, height);
+        }
     }
 
     void NativeWindow::updateCursor()
     {
-        // Don't hide cursor when window is not focused
+        if (!hasHWND())
+            return;
+
+        // Don't hide cursor when window is not focused. Use WM_SETCURSOR/SetCursor only; do not touch ShowCursor's global counter.
         if (m_window->m_cursor == CursorType::kHidden && m_window->m_state.focused)
         {
-            if (!m_lastCursorHidden)
-            {
-                m_lastCursorHidden = true;
-                while (::ShowCursor(FALSE) >= 0)
-                {
-                    if (m_cursorHiddenSafetyCount >= 100)
-                    {
-                        LogWarn("Cursor has failed to hide.");
-                        break;
-                    }
-                    m_cursorHiddenSafetyCount += 1;
-                }
-                m_cursorHiddenSafetyCount = 0;
-            }
             ::SetCursor(nullptr);
             return;
-        }
-        else if (m_lastCursorHidden)
-        {
-            m_lastCursorHidden = false;
-            while (::ShowCursor(TRUE) < 0)
-            {
-                if (m_cursorHiddenSafetyCount >= 100)
-                {
-                    LogWarn("Cursor has failed to show.");
-                    break;
-                }
-                m_cursorHiddenSafetyCount += 1;
-            }
-            m_cursorHiddenSafetyCount = 0;
         }
 
         i32 index = 0;
@@ -852,7 +1076,7 @@ namespace toolkit
             index = 10;
             break;
         default:
-            LogWarn("Unsupported type.");
+            index = 0;
             break;
         }
 
@@ -872,8 +1096,10 @@ namespace toolkit
                 IDC_WAIT,
             };
 
-        TK_ASSERT(index >= 0 && index < lengthOf(cursors));
-        const HCURSOR cursor = LoadCursorW(nullptr, cursors[index]);
+        static HCURSOR cursorCache[lengthOf(cursors)] = {};
+        if (cursorCache[index] == nullptr)
+            cursorCache[index] = LoadCursorW(nullptr, cursors[index]);
+        const HCURSOR cursor = cursorCache[index] != nullptr ? cursorCache[index] : LoadCursorW(nullptr, IDC_ARROW);
         ::SetCursor(cursor);
     }
 
@@ -1236,6 +1462,24 @@ namespace toolkit
             }
             break;
         }
+        case WM_SHOWWINDOW:
+        {
+            const bool visible = wParam == TRUE;
+            if (visible && !m_window->m_state.visible)
+            {
+                m_window->m_state.visible = true;
+                m_window->onShown();
+            }
+            else if (!visible && m_window->m_state.visible)
+            {
+                m_window->endClippingCursor();
+                m_window->endTrackingMouse();
+                m_window->m_state.visible = false;
+                m_window->m_state.showAfterFirstPaint = m_window->m_params.showAfterFirstPaint;
+                m_window->onHidden();
+            }
+            break;
+        }
         case WM_DPICHANGED:
         {
             // Maybe https://stackoverflow.com/a/45110656
@@ -1327,8 +1571,10 @@ namespace toolkit
         {
             if (!m_window->m_state.isClosing)
                 m_window->m_state.isClosing = true;
+            HWND destroyedHandle = m_handle;
             m_handle = nullptr;
             m_window->m_state.visible = false;
+            WindowSystem::unregisterWindowHandle(destroyedHandle);
             m_window->onClosedTrigger();
             return 0;
         }
@@ -1346,6 +1592,8 @@ namespace toolkit
     DragDropEffect TkWindow::doDragDrop(const TkStringView &data)
     {
         (void)data;
+        // Active OLE drag is intentionally unsupported for now. WindowParams::allowDragAndDrop
+        // only controls receiving drops; this API is fixed to kNone until a real DoDragDrop path exists.
         return DragDropEffect::kNone;
     }
 
@@ -1363,11 +1611,16 @@ namespace toolkit
 
     void TkWindow::onClosedTrigger()
     {
-        if (!m_state.isClosing)
-            m_state.isClosing = true;
+        if (m_state.closed)
+            return;
+
+        m_state.isClosing = true;
+        m_state.closed = true;
+        m_state.visible = false;
+        endClippingCursor();
+        endTrackingMouse();
 
         onClosed();
-        WindowSystem::unregisterWnd(static_cast<TkWindow *>(this));
     }
 
     void TkWindow::onGotFocusTrigger()

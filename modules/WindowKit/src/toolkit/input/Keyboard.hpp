@@ -37,18 +37,24 @@ namespace toolkit
         // Get keyboard key state.
         TK_FORCE_INLINE bool getKey(KeyboardKeys key) const
         {
+            if (!isValidKey(key))
+                return false;
             return m_state.keys[static_cast<i32>(key)];
         }
 
         // Get keyboard key down state.
         TK_FORCE_INLINE bool getKeyDown(KeyboardKeys key) const
         {
+            if (!isValidKey(key))
+                return false;
             return m_state.keys[static_cast<i32>(key)] && !m_prevState.keys[static_cast<i32>(key)];
         }
 
         // Get keyboard key up state.
         TK_FORCE_INLINE bool getKeyUp(KeyboardKeys key) const
         {
+            if (!isValidKey(key))
+                return false;
             return !m_state.keys[static_cast<i32>(key)] && m_prevState.keys[static_cast<i32>(key)];
         }
 

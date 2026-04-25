@@ -308,6 +308,18 @@ namespace toolkit
         kMax
     };
 
+    TK_FORCE_INLINE bool isValidKey(const KeyboardKeys key)
+    {
+        const i32 value = static_cast<i32>(key);
+        return value > static_cast<i32>(KeyboardKeys::kNone) && value < static_cast<i32>(KeyboardKeys::kMax);
+    }
+
+    TK_FORCE_INLINE bool isValidMouseButton(const MouseButton button)
+    {
+        const i32 value = static_cast<i32>(button);
+        return value > static_cast<i32>(MouseButton::kNone) && value < static_cast<i32>(MouseButton::kMax);
+    }
+
 // The maximum amount of supported gamepads connected at once.
 #define MAX_GAMEPADS 8
 
@@ -354,6 +366,18 @@ namespace toolkit
         kRightStickRight = 24,
         kMax
     };
+
+    TK_FORCE_INLINE bool isValidGamepadAxis(const GamepadAxis axis)
+    {
+        const i32 value = static_cast<i32>(axis);
+        return value > static_cast<i32>(GamepadAxis::kNone) && value < static_cast<i32>(GamepadAxis::kMax);
+    }
+
+    TK_FORCE_INLINE bool isValidGamepadButton(const GamepadButton button)
+    {
+        const i32 value = static_cast<i32>(button);
+        return value > static_cast<i32>(GamepadButton::kNone) && value < static_cast<i32>(GamepadButton::kMax);
+    }
 
     // The input action event trigger modes.
     enum class InputActionMode

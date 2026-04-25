@@ -64,7 +64,7 @@ namespace
         clip.setDescriptor(descriptor);
         
 
-        if (!clip.setChunkData(0, TkSpan<const byte>(pcm.get(), pcm.count())))
+        if (clip.setChunkData(0, TkSpan<const byte>(pcm.get(), pcm.count())))
         {
             LogError("Failed to upload decoded PCM data.");
             pcm.clear();
@@ -128,33 +128,35 @@ int main(int, char **)
                           { isRunning = false; });
     window->show();
 
-    AudioClip clip;
-    const TkString mp3Path = TkString(SANDBOX_AUDIO_DOC_DIR) / "alive.mp3";
-    if (!buildClipFromMp3(mp3Path, clip))
     {
-        Audio::dispose();
-        WindowSystem::dispose();
-        System::beforeQuit();
-        System::quit();
-        return 1;
+        AudioClip clip;
+        const TkString mp3Path = TkString(SANDBOX_AUDIO_DOC_DIR) / "alive.mp3";
+        if (!buildClipFromMp3(mp3Path, clip))
+        {
+            Audio::dispose();
+            WindowSystem::dispose();
+            System::beforeQuit();
+            System::quit();
+            return 1;
+        }
+
+        AudioSource source;
+        source.setClip(&clip);
+        source.setAllowSpatialization(false);
+        source.setVolume(1.0f);
+        source.setPitch(1.0f);
+        source.play();
+
+        while (isRunning && !window->isClosed())
+        {
+            WindowSystem::update();
+            Audio::update();
+            TkThread::sleep(5);
+        }
+
+        source.stop();
+        source.setClip(nullptr);
     }
-
-    AudioSource source;
-    source.setClip(&clip);
-    source.setAllowSpatialization(false);
-    source.setVolume(1.0f);
-    source.setPitch(1.0f);
-    source.play();
-
-    while (isRunning && !window->isClosed())
-    {
-        WindowSystem::update();
-        Audio::update();
-        TkThread::sleep(5);
-    }
-
-    source.stop();
-    source.setClip(nullptr);
 
     Audio::dispose();
     WindowSystem::dispose();

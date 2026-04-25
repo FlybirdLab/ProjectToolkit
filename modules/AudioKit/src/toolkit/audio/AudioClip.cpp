@@ -213,7 +213,7 @@ namespace toolkit
     bool AudioClip::setChunkData(i32 chunkIndex, const TkSpan<const byte> &chunkData)
     {
         if (chunkIndex < 0 || chunkIndex >= AUDIO_CLIP_MAX_CHUNKS)
-            return false;
+            return true;
 
         TkMutexGuard guard(m_mutex);
 
@@ -231,7 +231,7 @@ namespace toolkit
             m_totalChunksSize += m_chunks[i].count();
 
         rebuildBufferStartTimes();
-        return true;
+        return false;
     }
 
     void AudioClip::clearChunkData()

@@ -24,8 +24,6 @@ namespace toolkit
 
     TkStringView Keyboard::getInputText() const
     {
-        const auto utf8 = StringAsUTF8<>(m_state.text, m_state.textLen);
-        m_inputTextUtf8 = utf8.get();
         return TkStringView(m_inputTextUtf8);
     }
 
@@ -52,7 +50,7 @@ namespace toolkit
 
     void Keyboard::onKeyUp(KeyboardKeys key, TkWindow *target)
     {
-        if (key >= KeyboardKeys::kMax)
+        if (!isValidKey(key))
             return;
         InputEvent &e = m_queue.addOne();
         e.Type = InputEventType::kKeyUp;
@@ -62,7 +60,7 @@ namespace toolkit
 
     void Keyboard::onKeyDown(KeyboardKeys key, TkWindow *target)
     {
-        if (key >= KeyboardKeys::kMax)
+        if (!isValidKey(key))
             return;
         InputEvent &e = m_queue.addOne();
         e.Type = InputEventType::kKeyDown;
@@ -76,6 +74,7 @@ namespace toolkit
 
         m_prevState.clear();
         m_state.clear();
+        m_inputTextUtf8.clear();
     }
 
     bool Keyboard::update(EventQueue &queue)
@@ -123,6 +122,10 @@ namespace toolkit
                 break;
             }
         }
+
+        m_state.text[m_state.textLen] = 0;
+        const auto utf8 = StringAsUTF8<>(m_state.text, m_state.textLen);
+        m_inputTextUtf8 = utf8.get();
 
         // Send events further
         queue.add(m_queue);

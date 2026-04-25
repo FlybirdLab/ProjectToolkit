@@ -1,11 +1,11 @@
-project(TkMoc)
+project(ReflectTest)
 #################################################################
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_OBJC_STANDARD 17)
 set(CMAKE_OBJCXX_STANDARD 17)
 #################################################################
 set(INCS
-        "${CMAKE_SOURCE_DIR}/tools/TkMoc/src"
+        "${CMAKE_SOURCE_DIR}/tests/ReflectTest/src"
 )
 set(LNKS
         ""
@@ -15,6 +15,7 @@ set(DEPS
 )
 set(HEAD
         "TK_DEBUG"
+        "TK_STATIC_PLUGINS"
 )
 set(SRCS
         ""
@@ -23,7 +24,8 @@ set(SRCS
 # dependencies
 ########################################################
 AddTkCore(INCS LNKS DEPS)
-
+AddTkReflect(INCS LNKS DEPS)
+AddGTest(INCS LNKS)
 ########################################################
 # project configurations
 ########################################################
@@ -33,19 +35,22 @@ file(GLOB_RECURSE SRC
         "src/*.mm"
         "src/*.c"
 )
-add_executable(TkMoc
+add_executable(ReflectTest
         ${SRC}
         ${SRCS}
 )
-add_dependencies(TkMoc
+add_dependencies(ReflectTest
         ${DEPS}
 )
-target_include_directories(TkMoc PRIVATE
+target_include_directories(ReflectTest PRIVATE
         ${INCS}
 )
-target_link_libraries(TkMoc PRIVATE
+target_link_libraries(ReflectTest PRIVATE
         ${LNKS}
 )
-target_compile_definitions(TkMoc PRIVATE
+target_compile_definitions(ReflectTest PRIVATE
         ${HEAD}
+)
+target_compile_options(ReflectTest PRIVATE
+        "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
 )
