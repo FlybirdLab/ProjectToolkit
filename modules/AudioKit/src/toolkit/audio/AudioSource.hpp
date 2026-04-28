@@ -76,6 +76,8 @@ namespace toolkit
         void resetMotionTracking();
 
         u32 getSourceId() const;
+        // Internal backend hook used when native devices/contexts are rebuilt.
+        // Regular gameplay code must not mutate native source ids directly.
         void setSourceId(u32 id) {
             m_sourceId = id;
         }
@@ -85,7 +87,7 @@ namespace toolkit
         bool ensureSourceCreated();
         void syncNativeSpatialState();
         void requestClipStreamingUpdate();
-        void syncStreamingBuffers();
+        bool syncStreamingBuffers();
         void playInternal();
         void destroyNativeSource();
 
@@ -107,6 +109,7 @@ namespace toolkit
         bool m_allowSpatialization = true;
         bool m_isActuallyPlaying = false;
         bool m_startingPlayback = false;
+        bool m_pendingStreamingPlay = false;
         bool m_needToUpdateStreamingBuffers = false;
         State m_state = State::kStopped;
         i32 m_streamingFirstChunk = 0;

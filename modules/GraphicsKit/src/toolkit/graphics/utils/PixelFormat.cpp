@@ -1546,7 +1546,7 @@ namespace toolkit
         const FVec4 v10 = Read((const byte *)data + rowPitch * uvNext.y + PixelSize * uvFloor.x);
         const FVec4 v11 = Read((const byte *)data + rowPitch * uvNext.y + PixelSize * uvNext.x);
 
-        FVec4 result = FVec4::lerp(FVec4::lerp(v00, v01, uvFraction.x), FVec4::Lerp(v10, v11, uvFraction.x), uvFraction.y);
+        FVec4 result = FVec4::lerp(FVec4::lerp(v00, v01, uvFraction.x), FVec4::lerp(v10, v11, uvFraction.x), uvFraction.y);
         return *(Color *)&result;
     }
 

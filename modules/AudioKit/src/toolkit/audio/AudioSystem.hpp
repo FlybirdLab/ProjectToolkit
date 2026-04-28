@@ -17,7 +17,8 @@ namespace toolkit
     {
         kFrontLeft = 0,
         kFrontRight = 1,
-        kFontCenter = 2,
+        kFrontCenter = 2,
+        kFontCenter = kFrontCenter,
         kBackLeft = 3,
         kBackRight = 4,
         kSideLeft = 5,
@@ -52,6 +53,7 @@ namespace toolkit
     };
 
     // Supports multi-channel (incl. stereo) audio playback for spatial sources (3D), otherwise 3d audio needs to be in mono format.
+    // This enum currently represents single feature values, not a public combinable bitmask contract.
     enum class AudioFeatureFlags
     {
         kNone = 0,
@@ -114,6 +116,7 @@ namespace toolkit
         static void getQueuedBuffersCount(u32 sourceID, i32 &queuedBuffersCount);
         static void queueBuffer(u32 sourceID, u32 bufferID);
         static void dequeueProcessedBuffers(u32 sourceID);
+        static void clearQueuedBuffers(u32 sourceID);
     };
 
     class ANativeBuffer
@@ -121,7 +124,7 @@ namespace toolkit
     public:
         static u32 create();
         static void destroy(u32 bufferID);
-        static void write(u32 bufferID, byte *samples, const AudioDataInfo &info);
+        static bool write(u32 bufferID, const byte *samples, const AudioDataInfo &info);
     };
 
     class AudioSystem
@@ -135,7 +138,7 @@ namespace toolkit
         inline static bool s_muteOnFocusLoss = true;
         // Enables or disables HRTF audio for in-engine processing of 3D audio (if supported by platform).
         // If enabled, the user should be using two-channel/headphones audio output and have all other surround virtualization disabled (Atmos, DTS:X, vendor specific, etc.)
-        inline static bool s_enableHRTF = false;
+        inline static bool s_enableHRTF = true;
 
     public:
         static const char *getName();

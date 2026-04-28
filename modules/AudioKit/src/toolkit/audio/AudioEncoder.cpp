@@ -5,7 +5,7 @@
  */
 
 #include "AudioEncoder.hpp"
-#include "codecs/OggEncorder.hpp"
+#include "codecs/OggEncoder.hpp"
 #include "toolkit/debug/Logger.hpp"
 
 namespace toolkit

@@ -23,3 +23,8 @@ TEST(DialogMappingTest, EmptyFileExplorerPathFailsSafely)
 {
     EXPECT_FALSE(Dialog::showFileExplorer(""));
 }
+
+TEST(DialogPureMappingTest, FileDialogCancelAndInvalidParentNeedPlatformDialogShim)
+{
+    GTEST_SKIP() << "TODO: route Win32 open/save/browse dialogs through an injectable shim so cancel and invalid-parent paths can be tested without showing modal UI.";
+}

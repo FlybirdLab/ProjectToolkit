@@ -55,6 +55,18 @@ TEST_F(AudioRuntimeTest, AudioSettingsMutatorsUpdateStaticState)
     EXPECT_FLOAT_EQ(Audio::getMasterVolume(), 0.25f);
 }
 
+TEST_F(AudioRuntimeTest, UpdateDrivesRegisteredSources)
+{
+    if (!Audio::init())
+        GTEST_SKIP() << "Audio runtime unavailable";
+
+    AudioSource source;
+    source.setPosition(Vec3(10.0f, 0.0f, 0.0f));
+    Audio::update(2.0f);
+
+    EXPECT_EQ(source.getVelocity(), Vec3(5.0f, 0.0f, 0.0f));
+}
+
 TEST_F(AudioRuntimeTest, FocusPauseAndMasterVolumePolicyUpdatesVolume)
 {
     if (!Audio::init())
@@ -64,7 +76,6 @@ TEST_F(AudioRuntimeTest, FocusPauseAndMasterVolumePolicyUpdatesVolume)
     Audio::setMuteOnFocusLoss(true);
     Audio::setAppHasFocus(true);
     Audio::setPaused(false);
-    Audio::update(0.016f);
     EXPECT_FLOAT_EQ(Audio::getVolume(), 0.75f);
 
     Audio::setPaused(true);

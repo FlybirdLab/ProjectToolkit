@@ -26,7 +26,6 @@ set(SRCS
 AddTkCore(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
 
-set(TK_AUDIO_BACKEND "xaudio")
 AddTkAudio(INCS LNKS DEPS)
 
 AddGTest(INCS LNKS)

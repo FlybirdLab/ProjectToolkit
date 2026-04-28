@@ -5,12 +5,15 @@
 # TkCore module index file
 
 function(AddTkCore incVar lnkVar depVar)
+    set(concurrent_header "")
+    AddConcurrentQueue(NULL concurrent_header)
 
     list(APPEND ${depVar} "TkCore")
     list(APPEND ${incVar}
         "${CMAKE_SOURCE_DIR}/modules/CoreKit/src"
+        "${CMAKE_SOURCE_DIR}/libs/concurrent_queue/include"
     )
-
+    
     IF(WIN32)
         list(APPEND ${lnkVar} "TkCore")
     ELSEIF(APPLE)

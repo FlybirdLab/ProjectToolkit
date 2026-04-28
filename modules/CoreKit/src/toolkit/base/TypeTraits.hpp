@@ -125,6 +125,16 @@ namespace toolkit
     {
     };
 
+    template <typename T, typename = void>
+    struct TIsCompleteType : TBoolConstant<false>
+    {
+    };
+
+    template <typename T>
+    struct TIsCompleteType<T, std::void_t<decltype(sizeof(T))>> : TBoolConstant<true>
+    {
+    };
+
     ////////////////////////////////////////////////////////////////////////////////////
 
     template <typename T>
@@ -234,11 +244,23 @@ namespace toolkit
 
     ////////////////////////////////////////////////////////////////////////////////////
 
+    template <typename T, bool IsComplete = TIsCompleteType<TRemoveCVT<T>>::Value>
+    struct TIsPODTypeImpl : TBoolConstant<
+        TIsEnum<T>::Value ||
+        TIsPointer<T>::Value>
+    {
+    };
+
     template <typename T>
-    struct TIsPODType : TBoolConstant<
+    struct TIsPODTypeImpl<T, true> : TBoolConstant<
         std::is_trivially_copyable_v<TRemoveCVT<T>> ||
         TIsEnum<T>::Value ||
         TIsPointer<T>::Value>
+    {
+    };
+
+    template <typename T>
+    struct TIsPODType : TIsPODTypeImpl<T>
     {
     };
 
@@ -254,9 +276,21 @@ namespace toolkit
     {
     };
 
+    template <typename T, bool IsComplete = TIsCompleteType<TRemoveCVT<T>>::Value>
+    struct TIsTriviallyDestructibleImpl : TBoolConstant<
+        TIsEnum<T>::Value ||
+        TIsPointer<T>::Value>
+    {
+    };
+
     template <typename T>
-    struct TIsTriviallyDestructible : TBoolConstant<
+    struct TIsTriviallyDestructibleImpl<T, true> : TBoolConstant<
         std::is_enum_v<T> || std::is_trivially_destructible_v<T>>
+    {
+    };
+
+    template <typename T>
+    struct TIsTriviallyDestructible : TIsTriviallyDestructibleImpl<T>
     {
     };
 
@@ -337,17 +371,13 @@ namespace toolkit
     concept TEnumType = std::is_enum_v<T>;
 
     template <typename T>
-    concept TPODType =
-        std::is_trivially_copyable_v<TRemoveCVT<T>> ||
-        std::is_enum_v<T> ||
-        std::is_pointer_v<std::remove_cv_t<T>>;
+    concept TPODType = (TIsPODType<T>::Value == true);
 
     template <typename T>
     concept TTriviallyConstructibleType = TPODType<T>;
 
     template <typename T>
-    concept TTriviallyDestructibleType =
-        std::is_enum_v<T> || std::is_trivially_destructible_v<T>;
+    concept TTriviallyDestructibleType = (TIsTriviallyDestructible<T>::Value == true);
 
     template <typename T>
     concept TTriviallyCopyAssignableType =

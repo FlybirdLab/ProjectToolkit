@@ -127,3 +127,32 @@ TEST(AudioToolTest, Convert24To32BitsHelperIsConsistent)
     const byte input[] = {0x00, 0x00, 0x80};
     EXPECT_EQ(AudioTool::convert24To32Bits(input), kMinI32);
 }
+
+TEST(AudioToolTest, NullAndZeroInputsAreNoOps)
+{
+    byte output[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    AudioTool::convertToMono(nullptr, output, 16, 2, 2);
+    AudioTool::convertToMono(output, nullptr, 16, 2, 2);
+    AudioTool::convertToMono(output, output, 16, 2, 0);
+    AudioTool::convertBitDepth(nullptr, 16, output, 32, 2);
+    AudioTool::convertBitDepth(output, 16, nullptr, 32, 2);
+    AudioTool::convertToFloat(nullptr, 16, reinterpret_cast<float *>(output), 2);
+    AudioTool::convertFromFloat(nullptr, reinterpret_cast<i32 *>(output), 2);
+
+    EXPECT_EQ(output[0], 1);
+    EXPECT_EQ(output[7], 8);
+}
+
+TEST(AudioToolTest, ConvertFromFloatClampsAndHandlesNonFinite)
+{
+    const float input[] = {-2.0f, -1.0f, 1.0f, 2.0f, std::numeric_limits<float>::quiet_NaN()};
+    i32 output[5] = {};
+
+    AudioTool::convertFromFloat(input, output, 5);
+
+    EXPECT_EQ(output[0], kMinI32);
+    EXPECT_EQ(output[1], kMinI32);
+    EXPECT_EQ(output[2], kMaxI32);
+    EXPECT_EQ(output[3], kMaxI32);
+    EXPECT_EQ(output[4], 0);
+}

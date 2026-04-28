@@ -5,6 +5,7 @@ function(AddTkAudio incVar lnkVar depVar)
 
     list(APPEND ${depVar} "TkAudio")
     list(APPEND ${incVar}
+        "${CMAKE_BINARY_DIR}/modules/AudioKit/generated"
         "${CMAKE_SOURCE_DIR}/modules/AudioKit/src"
     )
 

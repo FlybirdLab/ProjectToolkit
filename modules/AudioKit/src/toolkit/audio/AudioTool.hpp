@@ -29,7 +29,8 @@ namespace toolkit
         // Converts a 24-bit signed integer into a 32-bit signed integer.
         TK_FORCE_INLINE static i32 convert24To32Bits(const byte *input)
         {
-            return (input[2] << 24) | (input[1] << 16) | (input[0] << 8);
+            const u32 value = (static_cast<u32>(input[2]) << 24) | (static_cast<u32>(input[1]) << 16) | (static_cast<u32>(input[0]) << 8);
+            return static_cast<i32>(value);
         }
     };
 

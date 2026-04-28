@@ -62,6 +62,7 @@ target_compile_definitions(TkCore PRIVATE
 
         TK_DEBUG
         TK_ENABLE_SIMD
+        TK_STATIC_PLUGINS
 )
 target_compile_options(TkCore PRIVATE 
         "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"

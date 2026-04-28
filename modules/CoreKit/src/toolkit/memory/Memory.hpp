@@ -9,6 +9,7 @@
 
 namespace toolkit
 {
+#define TK_SAFE_DELETE(x) if(x) { ::toolkit::TkMemory::deletePtr(TkMemory::getDefault(), (x)); (x) = nullptr; }
 
 	struct AllocatorBase
 	{

@@ -32,7 +32,10 @@ AddTkCore(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
 
 AddMiniMp3(INCS LNKS)
-# AddVorbis(INCS LNKS)
+option(TK_AUDIO_ENABLE_OGG "Enable Ogg Vorbis codec" OFF)
+if(TK_AUDIO_ENABLE_OGG)
+    AddVorbis(INCS LNKS)
+endif()
 #################################################################
 # backend option
 #################################################################
@@ -55,10 +58,7 @@ else()
     set(TK_AUDIO_BACKEND_DEFAULT openal)
 endif()
 
-set(TK_AUDIO_BACKEND "xaudio")
-if(NOT DEFINED TK_AUDIO_BACKEND)
-    set(TK_AUDIO_BACKEND "${TK_AUDIO_BACKEND_DEFAULT}" CACHE STRING "TkAudio backend")
-endif()
+set(TK_AUDIO_BACKEND "${TK_AUDIO_BACKEND_DEFAULT}" CACHE STRING "TkAudio backend")
 
 string(TOLOWER "${TK_AUDIO_BACKEND}" TK_AUDIO_BACKEND)
 set(TK_AUDIO_BACKEND "${TK_AUDIO_BACKEND}" CACHE STRING "TkAudio backend" FORCE)
@@ -78,6 +78,9 @@ set(TK_AUDIO_BACKEND_OPENAL 0)
 set(TK_AUDIO_BACKEND_ALSASOUND 0)
 set(TK_AUDIO_BACKEND_COREAUDIO 0)
 set(TK_CODECS_VORBIS 0)
+if(TK_AUDIO_ENABLE_OGG)
+    set(TK_CODECS_VORBIS 1)
+endif()
 
 if(TK_AUDIO_BACKEND STREQUAL "none")
     set(TK_AUDIO_BACKEND_NONE 1)
@@ -121,9 +124,10 @@ message(STATUS "TkAudio backend: ${TK_AUDIO_BACKEND}")
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/toolkit/audio/environment.hpp.in"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/toolkit/audio/environment.hpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/toolkit/audio/environment.hpp"
     @ONLY
 )
+set(TK_AUDIO_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 #################################################################
 # project configurations
@@ -137,18 +141,14 @@ file(GLOB_RECURSE src
 add_library(TkAudio STATIC
         ${src}
 )
-target_include_directories(TkAudio PRIVATE
+target_include_directories(TkAudio PUBLIC
+        "${TK_AUDIO_GENERATED_DIR}"
         ${INCS}
 )
 target_link_libraries(TkAudio PRIVATE
         ${LNKS}
 )
 target_compile_definitions(TkAudio PRIVATE
-        _XOPEN_SOURCE
-        _LIBCPP_DRIVERKIT
-
-        TK_DEBUG
-        TK_ENABLE_SIMD
         TK_STATIC_PLUGINS
 )
 target_compile_options(TkAudio PRIVATE 

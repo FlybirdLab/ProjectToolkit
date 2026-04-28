@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "GfxBuffer.hpp"
+#include <toolkit/graphics/GfxBuffer.hpp>
 #include <toolkit/graphics/common.hpp>
 
 namespace toolkit

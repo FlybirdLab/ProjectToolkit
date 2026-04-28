@@ -11,7 +11,7 @@
 namespace toolkit
 {
     // Constant Buffer object used to pass parameters to the shaders on GPU
-    class TK_API GPUConstantBuffer : public GfxResource
+    class TK_API GfxConstantBuffer : public GfxResource
     {
     public:
         // Gets the buffer size (in bytes).

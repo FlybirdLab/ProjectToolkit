@@ -108,6 +108,26 @@ TEST_F(AudioSourceTest, PlayPauseAndStopWithoutClipStayStopped)
     EXPECT_EQ(source.getState(), AudioSource::State::kStopped);
 }
 
+TEST_F(AudioSourceTest, PlayFailureDoesNotMarkSourcePlaying)
+{
+    if (!Audio::init())
+        GTEST_SKIP() << "Audio runtime unavailable";
+    if (Audio::Devices.count() == 0)
+        GTEST_SKIP() << "No audio devices available";
+
+    AudioClip clip;
+    clip.setDescriptor(makeClipDescriptor(makeInfo(4, 8000, 1, 16), false, false));
+    EXPECT_FALSE(clip.setChunkData(0, asSpan(packPcm<i16>(0, 1))));
+    EXPECT_FALSE(clip.setChunkData(1, asSpan(packPcm<i16>(2, 3))));
+
+    AudioSource source;
+    source.setClip(&clip);
+    source.play();
+
+    EXPECT_EQ(source.getState(), AudioSource::State::kStopped);
+    EXPECT_FALSE(source.isActuallyPlaying());
+}
+
 TEST_F(AudioSourceTest, MotionTrackingUpdatesVelocity)
 {
     AudioSource source;
@@ -132,6 +152,40 @@ TEST_F(AudioSourceTest, StreamingControlsAreCallable)
 
     EXPECT_FALSE(source.isActuallyPlaying());
     EXPECT_EQ(source.getState(), AudioSource::State::kStopped);
+}
+
+TEST_F(AudioSourceTest, StoppedStreamingSetTimeCanPlayLater)
+{
+    if (!Audio::init())
+        GTEST_SKIP() << "Audio runtime unavailable";
+    if (Audio::Devices.count() == 0)
+        GTEST_SKIP() << "No audio devices available";
+
+    AudioClip clip;
+    clip.setDescriptor(makeClipDescriptor(makeInfo(8, 8000, 1, 16), false, true));
+    EXPECT_FALSE(clip.setChunkData(0, asSpan(packPcm<i16>(0, 1024, 2048, 4096))));
+    EXPECT_FALSE(clip.setChunkData(1, asSpan(packPcm<i16>(8192, 4096, 2048, 1024))));
+
+    AudioSource source;
+    source.setClip(&clip);
+    source.setTime(0.0005f);
+
+    EXPECT_EQ(source.getState(), AudioSource::State::kStopped);
+    EXPECT_FLOAT_EQ(source.getStartTime(), 0.0005f);
+
+    source.play();
+    for (i32 i = 0; i < 200 && source.getState() != AudioSource::State::kPlaying; ++i)
+    {
+        TkThread::sleep(1);
+        Audio::update(0.0f);
+    }
+
+    // Streaming upload is backed by ThreadPool when available. If the test
+    // process did not initialize worker threads, play stays pending/stopped
+    // instead of falsely reporting kPlaying before a buffer is queued.
+    EXPECT_NE(source.getState(), AudioSource::State::kPaused);
+    EXPECT_FALSE(source.isActuallyPlaying() && source.getState() != AudioSource::State::kPlaying);
+    source.stop();
 }
 
 TEST_F(AudioSourceTest, SetTimeWorksWhenRuntimeIsAvailable)

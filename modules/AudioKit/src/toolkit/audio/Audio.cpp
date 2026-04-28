@@ -7,6 +7,7 @@
 #include "Audio.hpp"
 #include "AudioSystem.hpp"
 #include "AudioListener.hpp"
+#include "AudioSource.hpp"
 
 #include "toolkit/collection/Array.hpp"
 #include "toolkit/base/Function.hpp"
@@ -110,6 +111,30 @@ namespace toolkit
                 if (listener != nullptr && listener->isActive())
                     listener->update(deltaTime);
             }
+
+            TkArray<AudioSource *> sources;
+            sources.ensureCapacity(Sources.count());
+            for (i32 i = 0; i < Sources.count(); ++i)
+                sources.add(Sources[i]);
+
+            for (i32 i = 0; i < sources.count(); ++i)
+            {
+                AudioSource *source = sources[i];
+                if (source != nullptr)
+                    source->updateVelocityFromPositionDelta(deltaTime);
+            }
+        }
+
+        TkArray<AudioSource *> sources;
+        sources.ensureCapacity(Sources.count());
+        for (i32 i = 0; i < Sources.count(); ++i)
+            sources.add(Sources[i]);
+
+        for (i32 i = 0; i < sources.count(); ++i)
+        {
+            AudioSource *source = sources[i];
+            if (source != nullptr)
+                source->update();
         }
 
         // Keep runtime volume in sync with master/pause/focus-loss policy.
@@ -185,6 +210,7 @@ namespace toolkit
     void Audio::setMasterVolume(float value)
     {
         g_masterVolume = TkMath::saturate(value);
+        applyRuntimeVolume();
     }
 
     float Audio::getVolume()

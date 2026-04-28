@@ -40,7 +40,7 @@ namespace toolkit
         if (alError != 0)                                                                                                          \
         {                                                                                                                          \
             const char *errorStr = openal::getOpenALErrorString(alError);                                                          \
-            LogError("[OpenAL] method {0} failed with error 0x{1:X}:{2} (at line {3})", #method, alError, errorStr, __LINE__ - 1); \
+            LogError("[OpenAL] method %s failed with error 0x%X:%s (at line %i)", #method, alError, errorStr, __LINE__ - 1); \
         }                                                                                                                          \
     }
 #else
@@ -438,10 +438,6 @@ namespace toolkit
         alSourceRewind(sourceID);
         ALC_CHECK_ERROR(alSourceRewind);
         alSourcef(sourceID, AL_SEC_OFFSET, 0.0f);
-
-        // Unset streaming buffers
-        alSourcei(sourceID, AL_BUFFER, 0);
-        ALC_CHECK_ERROR(alSourcei);
     }
 
     void ANativeSource::setCurrentBufferTime(u32 sourceID, f32 value)
@@ -492,12 +488,36 @@ namespace toolkit
 
     void ANativeSource::dequeueProcessedBuffers(u32 sourceID)
     {
-        i32 numProcessedBuffers;
+        i32 numProcessedBuffers = 0;
         alGetSourcei(sourceID, AL_BUFFERS_PROCESSED, &numProcessedBuffers);
+        if (numProcessedBuffers <= 0)
+            return;
+        numProcessedBuffers = TkMath::clamp(numProcessedBuffers, 0, AUDIO_MAX_SOURCE_BUFFERS);
         TkStaticArray<ALuint, AUDIO_MAX_SOURCE_BUFFERS> buffers;
         buffers.resize(numProcessedBuffers);
         alSourceUnqueueBuffers(sourceID, numProcessedBuffers, buffers.get());
         ALC_CHECK_ERROR(alSourceUnqueueBuffers);
+    }
+
+    void ANativeSource::clearQueuedBuffers(u32 sourceID)
+    {
+        alSourceStop(sourceID);
+        ALC_CHECK_ERROR(alSourceStop);
+
+        i32 queuedBuffers = 0;
+        alGetSourcei(sourceID, AL_BUFFERS_QUEUED, &queuedBuffers);
+        queuedBuffers = TkMath::clamp(queuedBuffers, 0, AUDIO_MAX_SOURCE_BUFFERS);
+        if (queuedBuffers > 0)
+        {
+            TkStaticArray<ALuint, AUDIO_MAX_SOURCE_BUFFERS> buffers;
+            buffers.resize(queuedBuffers);
+            alSourceUnqueueBuffers(sourceID, queuedBuffers, buffers.get());
+            ALC_CHECK_ERROR(alSourceUnqueueBuffers);
+        }
+
+        alSourcei(sourceID, AL_BUFFER, 0);
+        ALC_CHECK_ERROR(alSourcei);
+        alSourcef(sourceID, AL_SEC_OFFSET, 0.0f);
     }
 
     u32 ANativeBuffer::create()
@@ -514,9 +534,11 @@ namespace toolkit
         ALC_CHECK_ERROR(alDeleteBuffers);
     }
 
-    void ANativeBuffer::write(u32 bufferID, byte *samples, const AudioDataInfo &info)
+    bool ANativeBuffer::write(u32 bufferID, const byte *samples, const AudioDataInfo &info)
     {
         PROFILE();
+        if (bufferID == 0 || samples == nullptr || info.numSamples == 0 || info.sampleRate == 0 || info.numChannels == 0 || info.bitDepth == 0)
+            return false;
 
         // Pick the format for the audio data (it might not be supported natively)
         ALenum format = openal::getOpenALBufferFormat(info.numChannels, info.bitDepth);
@@ -556,7 +578,7 @@ namespace toolkit
                 const u32 bufferSize = info.numSamples * (info.bitDepth / 8);
                 byte *sampleBuffer = (byte *)TkMemory::allocate(TkMemory::getDefault(), bufferSize);
                 for (u32 i = 0; i < info.numSamples; i++)
-                    sampleBuffer[i] = ((i8 *)samples)[i] + 128;
+                    sampleBuffer[i] = static_cast<byte>(static_cast<i8>(samples[i]) + 128);
 
                 alBufferData(bufferID, format, sampleBuffer, bufferSize, info.sampleRate);
                 ALC_CHECK_ERROR(alBufferData);
@@ -593,7 +615,7 @@ namespace toolkit
                 byte *sampleBuffer = (byte *)TkMemory::allocate(TkMemory::getDefault(), bufferSize);
 
                 for (u32 i = 0; i < info.numSamples; i++)
-                    sampleBuffer[i] = ((i8 *)samples)[i] + 128;
+                    sampleBuffer[i] = static_cast<byte>(static_cast<i8>(samples[i]) + 128);
 
                 format = openal::getOpenALBufferFormat(info.numChannels, 16);
                 alBufferData(bufferID, format, sampleBuffer, bufferSize, info.sampleRate);
@@ -611,7 +633,9 @@ namespace toolkit
         if (!format)
         {
             LogError("Not supported audio data format for OpenAL device: BitDepth=%i, NumChannels=%i", info.bitDepth, info.numChannels);
+            return false;
         }
+        return true;
     }
 
     const char *AudioSystem::getName()
@@ -681,7 +705,7 @@ namespace toolkit
         {
             activeDeviceIndex = -1;
             const auto err = alGetError();
-            LogWarn("[OpenAL] Failed to open default OpenAL device. Error: 0x{0:X}", err);
+            LogWarn("[OpenAL] Failed to open default OpenAL device. Error: 0x%X", err);
         }
         else
         {
@@ -744,7 +768,7 @@ namespace toolkit
 
             if (openal::s_device == nullptr)
             {
-                LogWarn("Failed to open OpenAL device ({0}).", name);
+                LogWarn("Failed to open OpenAL device (%s).", name);
                 return false;
             }
         }
@@ -787,7 +811,7 @@ namespace toolkit
 
         for (i32 i = 0; i < devices.count(); i++)
         {
-            LogInfo("{0}{1}",
+            LogInfo("%s%s",
                     i == activeDeviceIndex ? "[active] " : "",
                     devices[i].name);
         }

@@ -7,6 +7,12 @@
 #pragma once
 
 namespace toolkit {
+
+   class GfxResource;
+   class GfxResourceView;
+   class GfxTextureView;
+   class GfxConstantBuffer;
+   class GfxDevice;
    class GfxBuffer;
    class GfxTexture;
    class GfxSampler;

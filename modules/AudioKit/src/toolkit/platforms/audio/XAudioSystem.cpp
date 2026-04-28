@@ -10,6 +10,7 @@
 
 #if TK_AUDIO_BACKEND_XAUDIO
 
+#include <toolkit/base/Assert.hpp>
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/collection/Array.hpp>
 #include "toolkit/threading/Sync.hpp"
@@ -482,10 +483,6 @@ namespace toolkit
             AUDIO_ERROR_CHECK(Stop);
             aSource->isPlaying = false;
 
-            // Unset streaming buffers to rewind
-            hr = aSource->voice->FlushSourceBuffers();
-            AUDIO_ERROR_CHECK(FlushSourceBuffers);
-            TkThread::sleep(10); // TODO: find a better way to handle case when VoiceCallback::OnBufferEnd is called after source was stopped thus BuffersProcessed != 0, probably via buffers contexts ptrs
             aSource->buffersProcessed = 0;
             aSource->callback.peekSamples();
         }
@@ -586,8 +583,20 @@ namespace toolkit
         auto aSource = xaudio::getSource(sourceID);
         if (aSource && aSource->voice)
         {
+            aSource->buffersProcessed = 0;
+        }
+    }
+
+    void ANativeSource::clearQueuedBuffers(u32 sourceID)
+    {
+        auto aSource = xaudio::getSource(sourceID);
+        if (aSource && aSource->voice)
+        {
             const HRESULT hr = aSource->voice->FlushSourceBuffers();
             AUDIO_ERROR_CHECK(FlushSourceBuffers);
+            aSource->startTimeForQueueBuffer = 0.0f;
+            aSource->lastBufferStartTime = 0.0f;
+            aSource->lastBufferStartSamplesPlayed = 0;
             aSource->buffersProcessed = 0;
         }
     }
@@ -630,18 +639,22 @@ namespace toolkit
         aBuffer = nullptr;
     }
 
-    void ANativeBuffer::write(u32 bufferID, byte *samples, const AudioDataInfo &info)
+    bool ANativeBuffer::write(u32 bufferID, const byte *samples, const AudioDataInfo &info)
     {
-        TK_CHECK(info.numChannels <= MAX_INPUT_CHANNELS);
+        if (bufferID == 0 || samples == nullptr || info.numSamples == 0 || info.bitDepth == 0 || info.numChannels == 0 || info.numChannels > MAX_INPUT_CHANNELS)
+            return false;
 
         xaudio::s_mtx.lock();
         xaudio::Buffer *aBuffer = xaudio::s_buf[bufferID - 1];
         xaudio::s_mtx.unlock();
+        if (aBuffer == nullptr)
+            return false;
 
         const u32 samplesLength = info.numSamples * info.bitDepth / 8;
 
         aBuffer->info = info;
         aBuffer->data.set(samples, samplesLength);
+        return true;
     }
 
     const char *AudioSystem::getName()

@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <toolkit/graphics/PixelFormat.hpp>
+#include <toolkit/graphics/utils/PixelFormat.hpp>
 #include <toolkit/graphics/GfxResource.hpp>
 #include <toolkit/math/Vector2.hpp>
 #include <toolkit/graphics/common.hpp>
@@ -72,31 +72,33 @@ namespace toolkit
         // Copies the backbuffer contents to the destination texture.
         virtual void copyBackbuffer(class GfxContext *context, GfxTexture *dst) = 0;
 
-        // Checks if task is ready to render.
-        virtual bool isReady() const
-        {
-            // Skip rendering for the hidden windows
-            return getWidth() > 0 && (m_window->isVisible() || m_window->m_state.showAfterFirstPaint);
-        }
+        // Checks if the swapchain is ready for rendering or presenting.
+        virtual bool isReady() const = 0;
 
         // Creates GPU async task that will gather render target data from the GPU.
         virtual class TkTask *downloadDataAsync(class TextureData &result);
 
     public:
-        // Begin task rendering.
-        virtual void begin(class RenderTask *task)
+        // Begin rendering to the swapchain back buffer.
+        virtual void begin()
         {
         }
-        // End task rendering.
-        virtual void end(RenderTask *task);
+        // End rendering to the swapchain back buffer.
+        virtual void end();
         // Present back buffer to the output.
-        virtual void present(bool vsync);
+        virtual void present(bool vsync) = 0;
         // Resize output back buffer.
         virtual bool resize(i32 width, i32 height) = 0;
 
         GfxResType getType() const final override;
+        TkString toString() const;
 
     protected:
+        void onPresented()
+        {
+            ++m_presentCount;
+        }
+
         i32 m_width = 0;
         i32 m_height = 0;
         u64 m_presentCount = 0;

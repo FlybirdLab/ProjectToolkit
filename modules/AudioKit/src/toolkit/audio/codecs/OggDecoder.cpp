@@ -10,6 +10,7 @@
 #include "toolkit/base/Math.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/io/Stream.hpp"
+#include "toolkit/memory/Memory.hpp"
 #include <vorbis/codec.h>
 
 namespace toolkit
@@ -68,7 +69,10 @@ namespace toolkit
         OggVorbisDecoder *decoderData = static_cast<OggVorbisDecoder *>(data);
         if (decoderData == nullptr || decoderData->stream == nullptr)
             return 0;
-        return static_cast<long>(decoderData->stream->pos() - decoderData->offset);
+        const u32 pos = decoderData->stream->pos();
+        if (pos < decoderData->offset)
+            return 0;
+        return static_cast<long>(pos - decoderData->offset);
     }
 
     bool OggVorbisDecoder::open(ITkStream *stream, AudioDataInfo &info, u32 offset)
@@ -110,7 +114,20 @@ namespace toolkit
 
         info.numChannels = vorbisInfo->channels;
         info.sampleRate = vorbisInfo->rate;
-        info.numSamples = static_cast<u32>(ov_pcm_total(&file, -1) * vorbisInfo->channels);
+        const ogg_int64_t totalFrames = ov_pcm_total(&file, -1);
+        if (totalFrames < 0)
+            info.numSamples = 0;
+        else if (static_cast<uint64_t>(totalFrames) * static_cast<uint64_t>(vorbisInfo->channels) > static_cast<uint64_t>(kMaxU32))
+        {
+            ov_clear(&file);
+            file = {};
+            this->stream = nullptr;
+            this->offset = 0;
+            this->channelCount = 0;
+            return false;
+        }
+        else
+            info.numSamples = static_cast<u32>(totalFrames) * static_cast<u32>(vorbisInfo->channels);
         info.bitDepth = 16;
 
         channelCount = info.numChannels;
@@ -126,8 +143,13 @@ namespace toolkit
 
     void OggVorbisDecoder::read(byte *samples, u32 numSamples)
     {
+        readSamples(samples, numSamples);
+    }
+
+    u32 OggVorbisDecoder::readSamples(byte *samples, u32 numSamples)
+    {
         if (samples == nullptr || numSamples == 0 || file.datasource == nullptr)
-            return;
+            return 0;
 
         u32 numReadSamples = 0;
         while (numReadSamples < numSamples)
@@ -145,6 +167,9 @@ namespace toolkit
                 break;
             }
         }
+        if (numReadSamples < numSamples)
+            TkMemory::memoryClear(samples, static_cast<psize>((numSamples - numReadSamples) * sizeof(i16)));
+        return numReadSamples;
     }
 
     bool OggVorbisDecoder::isValid(ITkStream *stream, u32 offset)

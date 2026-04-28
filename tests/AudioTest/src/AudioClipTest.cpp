@@ -95,6 +95,12 @@ TEST_F(AudioClipTest, BufferStartTimesAndBufferIndexQueriesAreStable)
     EXPECT_FLOAT_EQ(offset, 0.25f);
     EXPECT_EQ(clip.getFirstBufferIndex(0.75f, offset), 1);
     EXPECT_FLOAT_EQ(offset, 0.25f);
+    EXPECT_EQ(clip.getFirstBufferIndex(-1.0f, offset), 0);
+    EXPECT_FLOAT_EQ(offset, 0.0f);
+    EXPECT_EQ(clip.getFirstBufferIndex(1.0f, offset), 1);
+    EXPECT_FLOAT_EQ(offset, 0.5f);
+    EXPECT_EQ(clip.getFirstBufferIndex(99.0f, offset), 1);
+    EXPECT_FLOAT_EQ(offset, 0.5f);
 }
 
 TEST_F(AudioClipTest, InvalidChunkIndicesAndEmptyClipsReportFailure)
@@ -131,6 +137,47 @@ TEST_F(AudioClipTest, LoadAndUnloadNonStreamableClipUseBuffers)
     EXPECT_EQ(clip.getAllocatedResidency(), 1);
 
     clip.unload();
+    EXPECT_TRUE(clip.getBuffers().isEmpty());
+}
+
+TEST_F(AudioClipTest, LoadedClipMutationReleasesOldBuffers)
+{
+    if (!Audio::init())
+        GTEST_SKIP() << "Audio runtime unavailable";
+    if (Audio::Devices.count() == 0)
+        GTEST_SKIP() << "No audio devices available";
+
+    AudioClip clip;
+    clip.setDescriptor(makeClipDescriptor(makeInfo(2, 8000, 1, 16), false, false));
+    EXPECT_FALSE(clip.setChunkData(0, asSpan(packPcm<i16>(0, 100))));
+    ASSERT_FALSE(clip.load());
+    ASSERT_FALSE(clip.getBuffers().isEmpty());
+    EXPECT_NE(clip.getBuffers()[0], 0u);
+
+    clip.setChunkData(0, asSpan(packPcm<i16>(200, 300)));
+    EXPECT_TRUE(clip.getBuffers().isEmpty());
+
+    ASSERT_FALSE(clip.load());
+    EXPECT_EQ(clip.getBuffers().count(), 1);
+    EXPECT_NE(clip.getBuffers()[0], 0u);
+
+    clip.setDescriptor(makeClipDescriptor(makeInfo(2, 16000, 1, 16), false, false));
+    EXPECT_TRUE(clip.getBuffers().isEmpty());
+}
+
+TEST_F(AudioClipTest, NonStreamingMultiChunkLoadIsRejected)
+{
+    if (!Audio::init())
+        GTEST_SKIP() << "Audio runtime unavailable";
+    if (Audio::Devices.count() == 0)
+        GTEST_SKIP() << "No audio devices available";
+
+    AudioClip clip;
+    clip.setDescriptor(makeClipDescriptor(makeInfo(4, 8000, 1, 16), false, false));
+    EXPECT_FALSE(clip.setChunkData(0, asSpan(packPcm<i16>(0, 1))));
+    EXPECT_FALSE(clip.setChunkData(1, asSpan(packPcm<i16>(2, 3))));
+
+    EXPECT_TRUE(clip.load());
     EXPECT_TRUE(clip.getBuffers().isEmpty());
 }
 

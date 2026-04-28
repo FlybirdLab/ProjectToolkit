@@ -5,8 +5,9 @@
  */
 
 #include "GfxBuffer.hpp"
-
+#include "GfxManager.hpp"
 #include "GfxVertexLayout.hpp"
+#include "async/GfxTasks.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/threading/Task.hpp"
 #include "toolkit/threading/Thread.hpp"
@@ -239,7 +240,7 @@ namespace toolkit
         const auto desc = m_desc.toStagingReadback();
         TkMutexGuard gpuLock(GfxDevice::sInstance->mtx);
         auto *staging = GfxDevice::sInstance->createBuffer("Staging.Readback");
-        if (staging->init(desc))
+        if (!staging->init(desc))
         {
             staging->releaseData();
             TkMemory::deletePtr(staging);
@@ -253,7 +254,7 @@ namespace toolkit
         const auto desc = m_desc.toStagingUpload();
         TkMutexGuard gpuLock(GfxDevice::sInstance->mtx);
         auto *staging = GfxDevice::sInstance->createBuffer("Staging.Upload");
-        if (staging->init(desc))
+        if (!staging->init(desc))
         {
             staging->releaseData();
             TkMemory::deletePtr(staging);
@@ -325,7 +326,7 @@ namespace toolkit
     class BufferDownloadDataTask : public ThreadPoolTask
     {
     private:
-        BufferReference m_buffer;
+        GfxBufferReference m_buffer;
         GfxBuffer *m_staging;
         ByteCollection &m_data;
 
@@ -385,7 +386,7 @@ namespace toolkit
         }
 
         // Create async resource copy task
-        auto copyTask = TkMemory::newObject<GfxCopyResource>(TkMemory::getDefault(), this, staging);
+        auto copyTask = TkMemory::newObject<GfxCopyResourceTask>(TkMemory::getDefault(), this, staging);
         // TK_ASSERT(copyTask->hasReference(this) && copyTask->HasReference(staging));
 
         // Create task to copy downloaded data to ByteCollection
@@ -423,12 +424,12 @@ namespace toolkit
             return;
         }
 
-        if (m_desc.usage == GfxResourceUsage::kDefault && GfxDevice::sInstance->IsRendering())
+        if (m_desc.usage == GfxResourceUsage::kDefault && GfxDevice::sInstance->isRendering())
         {
             // Upload using the context (will use internal staging buffer inside command buffer)
-            RenderContext::GPULocker.Lock();
-            GfxDevice::sInstance->getMainContext()->UpdateBuffer(this, data, size);
-            RenderContext::GPULocker.Unlock();
+            GfxManager::sharedMutex.lock();
+            GfxDevice::sInstance->getMainContext()->updateBuffer(this, data, size);
+            GfxManager::sharedMutex.unlock();
             return;
         }
 

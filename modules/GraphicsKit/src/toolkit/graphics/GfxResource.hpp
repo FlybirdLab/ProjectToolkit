@@ -43,10 +43,7 @@ namespace toolkit
         NON_COPYABLE(GfxResource);
 
         GfxResource();
-        virtual ~GfxResource()
-        {
-            releaseData();
-        }
+        virtual ~GfxResource();
 
     public:
         // Points to the cache used by the resource for the resource visibility/usage detection. Written during rendering when resource is used.
@@ -373,7 +370,7 @@ namespace toolkit
     };
 
     typedef GfxResourceProperty<GfxResource> GfxResourceReference;
-    typedef GfxResourceProperty<GfxTexture> GPUTextureReference;
-    typedef GfxResourceProperty<GfxBuffer> BufferReference;
+    typedef GfxResourceProperty<GfxTexture> GfxTextureReference;
+    typedef GfxResourceProperty<GfxBuffer> GfxBufferReference;
 
 }

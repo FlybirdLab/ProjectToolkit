@@ -42,7 +42,9 @@ namespace toolkit
                     FVec3(1.0, 0.0, 0.0).getNormalized(),
                 };
             const FVec3 sourceInListenerSpace = (FVec3)listenerTransform.worldToLocal(source.pos);
-            const FVec3 sourceToListener = FVec3::normalize(sourceInListenerSpace);
+            FVec3 sourceToListener(0.0f, 0.0f, -1.0f);
+            if (sourceInListenerSpace.lengthSquared() > TkMath::ZeroTolerance)
+                sourceToListener = FVec3::normalize(sourceInListenerSpace);
             float sqGainsSum = 0.0f;
             for (i32 i = 0; i < channelCount; i++)
             {
@@ -53,8 +55,17 @@ namespace toolkit
                 sqGainsSum += sqGain;
                 mix.channels[i] = sqGain;
             }
-            for (i32 i = 0; i < channelCount; i++)
-                mix.channels[i] = TkMath::sqrt(mix.channels[i] / sqGainsSum);
+            if (sqGainsSum > TkMath::ZeroTolerance)
+            {
+                for (i32 i = 0; i < channelCount; i++)
+                    mix.channels[i] = TkMath::sqrt(mix.channels[i] / sqGainsSum);
+            }
+            else
+            {
+                const f32 fallbackGain = channelCount > 0 ? 1.0f / TkMath::sqrt(static_cast<f32>(channelCount)) : 1.0f;
+                for (i32 i = 0; i < channelCount; i++)
+                    mix.channels[i] = fallbackGain;
+            }
 
             // Calculate doppler
             const FVec3 velocityInListenerSpace = (FVec3)listenerTransform.worldToLocalVector(source.velocity - listener.velocity);
@@ -70,8 +81,9 @@ namespace toolkit
         }
         else
         {
-            const float panLeft = TkMath::min(1.0f - source.pan, 1.0f);
-            const float panRight = TkMath::min(1.0f + source.pan, 1.0f);
+            const float panAngle = (TkMath::clamp(source.pan, -1.0f, 1.0f) + 1.0f) * TkMath::PI * 0.25f;
+            const float panLeft = TkMath::cos(panAngle);
+            const float panRight = TkMath::sin(panAngle);
             switch (channelCount)
             {
             case 1:

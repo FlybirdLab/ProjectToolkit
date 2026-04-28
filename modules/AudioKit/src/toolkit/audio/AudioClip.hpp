@@ -49,6 +49,10 @@ namespace toolkit
         bool isStreamable() const;
         bool isStreamingTaskActive() const;
         f32 getLength() const;
+        TK_FORCE_INLINE i32 getTotalChunks() const
+        {
+            return m_totalChunks;
+        }
 
         f32 getBufferStartTime(i32 bufferIndex) const;
         i32 getFirstBufferIndex(f32 time, f32 &offset) const;
@@ -68,7 +72,7 @@ namespace toolkit
         i32 getAllocatedResidency() const;
         bool canBeUpdated() const;
         TkTask *updateAllocation(i32 residency);
-        TkTask *createStreamingTask(i32 residency);
+        TkTask *createStreamingTask(i32 requestedChunks);
         void cancelStreamingTasks();
 
         TK_FORCE_INLINE const TkStaticArray<u32, AUDIO_CLIP_MAX_CHUNKS> &getBuffers() const
@@ -99,7 +103,7 @@ namespace toolkit
         mutable TkMutex m_mutex{};
         StreamingTask *m_streamingTask = nullptr;
         i32 m_totalChunks = 0;
-        i32 m_totalChunksSize = 0;
+        psize m_totalChunksSize = 0;
         f32 m_bufferStartTimes[AUDIO_CLIP_MAX_CHUNKS + 1]{};
         bool m_isLoaded = false;
     };

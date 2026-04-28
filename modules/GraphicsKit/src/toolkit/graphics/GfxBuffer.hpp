@@ -7,7 +7,7 @@
 #pragma once
 
 #include <toolkit/graphics/common.hpp>
-#include <toolkit/graphics/PixelFormat.hpp>
+#include <toolkit/graphics/utils/PixelFormat.hpp>
 #include <toolkit/graphics/GfxResource.hpp>
 
 namespace toolkit

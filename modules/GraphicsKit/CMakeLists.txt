@@ -24,6 +24,114 @@ set(HEAD
         ""
 )
 #################################################################
+# backend option
+#################################################################
+set(TK_GRAPHICS_BACKEND_VALUES
+        none
+        null
+        directx11
+        directx12
+        vulkan
+        opengl
+        opengles
+        metal
+)
+
+if(WIN32)
+    set(TK_GRAPHICS_BACKEND_DEFAULT directx12)
+elseif(APPLE)
+    set(TK_GRAPHICS_BACKEND_DEFAULT metal)
+elseif(UNIX AND NOT APPLE)
+    set(TK_GRAPHICS_BACKEND_DEFAULT vulkan)
+else()
+    set(TK_GRAPHICS_BACKEND_DEFAULT null)
+endif()
+
+set(TK_GRAPHICS_BACKEND "${TK_GRAPHICS_BACKEND_DEFAULT}" CACHE STRING "TkGraphics backend")
+
+string(TOLOWER "${TK_GRAPHICS_BACKEND}" TK_GRAPHICS_BACKEND)
+set(TK_GRAPHICS_BACKEND "${TK_GRAPHICS_BACKEND}" CACHE STRING "TkGraphics backend" FORCE)
+set_property(CACHE TK_GRAPHICS_BACKEND PROPERTY STRINGS ${TK_GRAPHICS_BACKEND_VALUES})
+
+list(FIND TK_GRAPHICS_BACKEND_VALUES "${TK_GRAPHICS_BACKEND}" TK_GRAPHICS_BACKEND_INDEX)
+if(TK_GRAPHICS_BACKEND_INDEX EQUAL -1)
+    message(FATAL_ERROR
+            "Invalid TK_GRAPHICS_BACKEND='${TK_GRAPHICS_BACKEND}'. "
+            "Valid values are: ${TK_GRAPHICS_BACKEND_VALUES}"
+    )
+endif()
+
+set(TK_GRAPHICS_BACKEND_NONE 0)
+set(TK_GRAPHICS_BACKEND_NULL 0)
+set(TK_GRAPHICS_BACKEND_DIRECTX11 0)
+set(TK_GRAPHICS_BACKEND_DIRECTX12 0)
+set(TK_GRAPHICS_BACKEND_VULKAN 0)
+set(TK_GRAPHICS_BACKEND_OPENGL 0)
+set(TK_GRAPHICS_BACKEND_OPENGLES 0)
+set(TK_GRAPHICS_BACKEND_METAL 0)
+
+if(TK_GRAPHICS_BACKEND STREQUAL "none")
+    set(TK_GRAPHICS_BACKEND_NONE 1)
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "null")
+    set(TK_GRAPHICS_BACKEND_NULL 1)
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "directx11")
+    if(NOT WIN32)
+        message(FATAL_ERROR "TkGraphics backend 'directx11' is only supported on Windows")
+    endif()
+    set(TK_GRAPHICS_BACKEND_DIRECTX11 1)
+    list(APPEND LNKS d3d11.lib dxgi.lib dxguid.lib d3dcompiler.lib)
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "directx12")
+    if(NOT WIN32)
+        message(FATAL_ERROR "TkGraphics backend 'directx12' is only supported on Windows")
+    endif()
+    set(TK_GRAPHICS_BACKEND_DIRECTX12 1)
+    list(APPEND LNKS d3d12.lib dxgi.lib dxguid.lib d3dcompiler.lib)
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "vulkan")
+    set(TK_GRAPHICS_BACKEND_VULKAN 1)
+    find_package(Vulkan REQUIRED)
+    list(APPEND INCS ${Vulkan_INCLUDE_DIRS})
+    list(APPEND LNKS ${Vulkan_LIBRARIES})
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "opengl")
+    set(TK_GRAPHICS_BACKEND_OPENGL 1)
+    find_package(OpenGL REQUIRED)
+    list(APPEND LNKS OpenGL::GL)
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "opengles")
+    set(TK_GRAPHICS_BACKEND_OPENGLES 1)
+    message(FATAL_ERROR "TkGraphics backend 'opengles' is not wired yet")
+
+elseif(TK_GRAPHICS_BACKEND STREQUAL "metal")
+    if(NOT APPLE)
+        message(FATAL_ERROR "TkGraphics backend 'metal' is only supported on Apple platforms")
+    endif()
+    set(TK_GRAPHICS_BACKEND_METAL 1)
+    find_library(METAL_FRAMEWORK Metal REQUIRED)
+    find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+    find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    list(APPEND LNKS
+            ${METAL_FRAMEWORK}
+            ${QUARTZCORE_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
+    )
+
+endif()
+
+message(STATUS "TkGraphics backend: ${TK_GRAPHICS_BACKEND}")
+
+#################################################################
+# generate environment header
+#################################################################
+configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/toolkit/graphics/environment.hpp.in"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/toolkit/graphics/environment.hpp"
+        @ONLY
+)
+#################################################################
 # dependencies
 #################################################################
 SetPlatformDeps(INCS LNKS)
@@ -40,10 +148,45 @@ file(GLOB_RECURSE src
         "src/*.mm"
         "src/*.c"
 )
+list(FILTER src EXCLUDE REGEX ".*/backends/null/.*")
+list(FILTER src EXCLUDE REGEX ".*/backends/dx11/.*")
+list(FILTER src EXCLUDE REGEX ".*/backends/dx12/.*")
+list(FILTER src EXCLUDE REGEX ".*/backends/vulkan/.*")
+list(FILTER src EXCLUDE REGEX ".*/backends/opengl/.*")
+list(FILTER src EXCLUDE REGEX ".*/backends/opengles/.*")
+list(FILTER src EXCLUDE REGEX ".*/backends/metal/.*")
+
+if(TK_GRAPHICS_BACKEND_NULL)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/null/*.cpp" "src/toolkit/graphics/backends/null/*.c" "src/toolkit/graphics/backends/null/*.m" "src/toolkit/graphics/backends/null/*.mm")
+    list(APPEND src ${backend_src})
+elseif(TK_GRAPHICS_BACKEND_DIRECTX11)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/dx11/*.cpp" "src/toolkit/graphics/backends/dx11/*.c")
+    list(APPEND src ${backend_src})
+elseif(TK_GRAPHICS_BACKEND_DIRECTX12)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/dx12/*.cpp" "src/toolkit/graphics/backends/dx12/*.c")
+    list(APPEND src ${backend_src})
+elseif(TK_GRAPHICS_BACKEND_VULKAN)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/vulkan/*.cpp" "src/toolkit/graphics/backends/vulkan/*.c")
+    list(APPEND src ${backend_src})
+elseif(TK_GRAPHICS_BACKEND_OPENGL)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/opengl/*.cpp" "src/toolkit/graphics/backends/opengl/*.c")
+    list(APPEND src ${backend_src})
+elseif(TK_GRAPHICS_BACKEND_OPENGLES)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/opengles/*.cpp" "src/toolkit/graphics/backends/opengles/*.c")
+    list(APPEND src ${backend_src})
+elseif(TK_GRAPHICS_BACKEND_METAL)
+    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/metal/*.cpp" "src/toolkit/graphics/backends/metal/*.m" "src/toolkit/graphics/backends/metal/*.mm")
+    list(APPEND src ${backend_src})
+endif()
+
 add_library(TkGraphics STATIC
         ${src}
 )
-target_include_directories(TkGraphics PRIVATE
+target_include_directories(TkGraphics
+    PUBLIC
+        "${CMAKE_CURRENT_BINARY_DIR}/generated"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    PRIVATE
         ${INCS}
 )
 target_link_libraries(TkGraphics PRIVATE

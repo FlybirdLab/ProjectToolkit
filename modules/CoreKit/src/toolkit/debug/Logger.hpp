@@ -103,7 +103,7 @@ namespace toolkit
             emitLog(buf.getPointer(), LogLevel::kDebug);
 #else
             (void)fmtStr;
-            (void)args...;
+            (void)sizeof...(args);
 #endif
         }
         TK_FORCE_INLINE void debug(const char *msg)

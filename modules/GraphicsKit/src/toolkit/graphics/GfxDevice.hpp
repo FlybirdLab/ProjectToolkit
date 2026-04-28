@@ -6,12 +6,8 @@
 
 #pragma once
 
-#include "FormatSupport.hpp"
-#include "GfxAdapter.hpp"
-#include "GfxBuffer.hpp"
-#include "GfxLimits.hpp"
-#include "GfxResource.hpp"
-#include "GfxVertexLayout.hpp"
+#include <toolkit/graphics/utils/FormatSupport.hpp>
+#include <toolkit/graphics/GfxLimits.hpp>
 #include "toolkit/threading/Sync.hpp"
 #include "toolkit/windowing/Window.hpp"
 #include <toolkit/collection/Array.hpp>
@@ -43,14 +39,20 @@ namespace toolkit
     public:
         // The singleton instance of the graphics device.
         static GfxDevice *sInstance;
+        static GfxDevice *getInstance()
+        {
+            return sInstance;
+        }
 
     protected:
         // State
         DeviceState m_state;
         GfxBackendType m_backend;
         bool m_isRendering;
+        bool m_isDisposing;
         bool m_wasVSyncUsed;
         i32 m_drawGpuEventIndex;
+        u64 m_frameIndex;
         GfxShaderProfile m_shaderProfile;
         GfxFeatureLevel m_featureLevel;
 
@@ -59,8 +61,6 @@ namespace toolkit
         PrivateData *m_res;
         TkArray<GfxResource *> m_resources;
         TkMutex m_resourcesLock;
-
-        void onRequestingExit();
 
     protected:
         GfxDevice(GfxBackendType type, GfxShaderProfile profile);
@@ -80,9 +80,6 @@ namespace toolkit
 
         // The available video output modes.
         TkArray<VideoOutputMode> outputs;
-        // The current task being executed.
-        class RenderTask *current;
-
         // The supported features for the specified format (index is the pixel format value).
         FormatFeatures features[static_cast<i32>(PixelFormat::MAX)];
         // Get the supported features for the specified format (index is the pixel format value).
@@ -109,6 +106,16 @@ namespace toolkit
             return m_isRendering;
         }
 
+        TK_FORCE_INLINE bool isDisposing() const
+        {
+            return m_isDisposing;
+        }
+
+        TK_FORCE_INLINE u64 getFrameIndex() const
+        {
+            return m_frameIndex;
+        }
+
         // Returns true if VSync was used during the last frame present.
         TK_FORCE_INLINE bool wasVSyncUsed() const
         {
@@ -130,26 +137,35 @@ namespace toolkit
         // Get the main GPU context.
         virtual class GfxContext *getMainContext() = 0;
         // Get the adapter device.
-        virtual GfxAdapter *getAdapter() const = 0;
+        virtual class GfxAdapter *getAdapter() const = 0;
         // Get the native pointer to the underlying graphics device. It's a low-level platform-specific handle.
         virtual void *getNativePtr() const = 0;
 
         // Get the amount of memory usage by all the GPU resources (in bytes).
-        u64 getMemoryUsage() const;
+        u64 getMemoryUsage();
 
         // Get the list with all active GPU resources.
-        TkArray<GfxResource *> getResources() const;
+        TkArray<GfxResource *> getResources();
         // Get the GPU asynchronous work manager.
         class GfxTaskManager *getTaskManager() const;
+        GfxPipelineState *getCopyLinearPS() const;
+        GfxPipelineState *getClearPS() const;
+        GfxPipelineState *getDecodeYUY2PS() const;
+        GfxPipelineState *getDecodeNV12PS() const;
+        GfxBuffer *getFullscreenTriangleVB() const;
 
     public:
         // Init device resources
         virtual bool init();
-        // Load private device content (called when Content Pool is created)
-        virtual bool loadContent();
+        // Initialize private RHI resources.
+        virtual bool initInternalResources();
         // Checks if GPU can render frame now (all data is ready), otherwise will skip frame rendering.
         virtual bool canDraw();
-        // Call frame rendering and process data using GPU
+        // Begins a GPU frame. Does not submit higher-level rendering or present swapchains.
+        virtual void beginFrame();
+        // Ends a GPU frame. Does not submit higher-level rendering or present swapchains.
+        virtual void endFrame();
+        // Compatibility wrapper for beginFrame/endFrame.
         virtual void draw();
         // Clean all allocated data by device
         virtual void dispose();
@@ -161,14 +177,16 @@ namespace toolkit
         void removeResource(GfxResource *resource);
 
         // Dumps all GPU resources information to the log.
-        void dumpResourcesToLog() const;
+        void dumpResourcesToLog();
+        void onDeviceLostOrFatalError();
 
     protected:
         virtual void preDispose();
+        void preDispose(bool waitForGpu);
 
-        // Called during Draw method before any frame rendering initialization. Cannot be used to submit commands to GPU.
+        // Compatibility wrapper for beginFrame().
         virtual void drawBegin();
-        // Called during Draw method after rendering. Cannot be used to submit commands to GPU.
+        // Compatibility wrapper for endFrame().
         virtual void drawEnd();
 
         // Called during Draw method after rendering begin. Can be used to submit commands to the GPU after opening GPU command list.

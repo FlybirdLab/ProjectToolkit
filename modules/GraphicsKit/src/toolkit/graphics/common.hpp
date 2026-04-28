@@ -8,7 +8,7 @@
 
 #include <toolkit/common.hpp>
 #include <toolkit/graphics/typedef.hpp>
-#include <toolkit/graphics/environment.hpp>
+#include "environment.hpp"
 
 #include <toolkit/base/Enum.hpp>
 #include <toolkit/base/Hash.hpp>
@@ -17,6 +17,11 @@ namespace toolkit
 {
     // Shader program type
     TK_DECLARE_ENUM_EX_6(ShaderStage, i32, 0, Vertex, Hull, Domain, Geometry, Pixel, Compute);
+
+    // Helper type used to synchronize CPU and GPU work
+    typedef u64 GfxSyncPoint;
+    // Default latency (in frames) between CPU and GPU used for async gpu jobs
+    static constexpr u32 kGfxAsyncLatency = 2;
 
     // Shader macro definition structure
     struct ShaderMacro
@@ -97,6 +102,7 @@ namespace toolkit
         kOpenGLES3_1,
         kNull,
         kVulkan,
+        kMetal,
 
         kMax
     };
@@ -167,9 +173,9 @@ namespace toolkit
     // Primitive culling mode.
     enum class GfxCullMode : byte
     {
-        kBack = 0,
-        kFront,
-        kNone,
+        kNormal = 0,
+        kInverted = 1,
+        kTwoSided = 2,
     };
 
     // Comparison function mode.

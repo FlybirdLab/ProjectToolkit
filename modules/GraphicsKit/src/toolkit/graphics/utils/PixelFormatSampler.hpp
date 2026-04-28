@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <toolkit/graphics/PixelFormat.hpp>
+#include <toolkit/graphics/utils/PixelFormat.hpp>
 #include <toolkit/math/Vector4.hpp>
 
 namespace toolkit

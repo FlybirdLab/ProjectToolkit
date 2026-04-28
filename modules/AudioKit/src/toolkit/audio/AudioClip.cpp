@@ -7,6 +7,7 @@
 #include <toolkit/audio/AudioClip.hpp>
 
 #include <toolkit/audio/AudioSystem.hpp>
+#include <toolkit/audio/AudioTool.hpp>
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/memory/Memory.hpp>
 #include <toolkit/types/Span.hpp>
@@ -23,88 +24,8 @@ namespace toolkit
         }
 
         result.resize(info.numSamples);
-        if (info.bitDepth == 8)
-        {
-            for (i32 i = 0; i < info.numSamples; ++i)
-            {
-                const f32 sample = static_cast<f32>(data[i]);
-                result[i] = (sample - 128.0f) / 127.0f;
-            }
-            return false;
-        }
-
-        if (info.bitDepth == 16)
-        {
-            const auto *samples = reinterpret_cast<const i16 *>(data.get());
-            for (i32 i = 0; i < info.numSamples; ++i)
-            {
-                result[i] = static_cast<f32>(samples[i]) / 32767.0f;
-            }
-            return false;
-        }
-
-        const auto *samples = reinterpret_cast<const i32 *>(data.get());
-        for (i32 i = 0; i < info.numSamples; ++i)
-        {
-            result[i] = static_cast<f32>(samples[i] / 2147483647.0);
-        }
+        AudioTool::convertToFloat(data.get(), info.bitDepth, result.get(), info.numSamples);
         return false;
-    }
-
-    static void convertToMono(const TkArray<byte> &data, AudioDataInfo &info, TkArray<byte> &monoData)
-    {
-        if (info.numChannels <= 1)
-            return;
-
-        const u32 bytesPerSample = info.bitDepth / 8;
-        const u32 frameCount = info.numSamples / info.numChannels;
-        monoData.resize(static_cast<i32>(frameCount * bytesPerSample));
-
-        if (info.bitDepth == 8)
-        {
-            const auto *src = data.get();
-            auto *dst = monoData.get();
-            for (u32 frame = 0; frame < frameCount; ++frame)
-            {
-                u32 sum = 0;
-                for (u32 channel = 0; channel < info.numChannels; ++channel)
-                {
-                    sum += src[frame * info.numChannels + channel];
-                }
-                dst[frame] = static_cast<byte>(sum / info.numChannels);
-            }
-        }
-        else if (info.bitDepth == 16)
-        {
-            const auto *src = reinterpret_cast<const i16 *>(data.get());
-            auto *dst = reinterpret_cast<i16 *>(monoData.get());
-            for (u32 frame = 0; frame < frameCount; ++frame)
-            {
-                i32 sum = 0;
-                for (u32 channel = 0; channel < info.numChannels; ++channel)
-                {
-                    sum += src[frame * info.numChannels + channel];
-                }
-                dst[frame] = static_cast<i16>(sum / static_cast<i32>(info.numChannels));
-            }
-        }
-        else if (info.bitDepth == 32)
-        {
-            const auto *src = reinterpret_cast<const i32 *>(data.get());
-            auto *dst = reinterpret_cast<i32 *>(monoData.get());
-            for (u32 frame = 0; frame < frameCount; ++frame)
-            {
-                i64 sum = 0;
-                for (u32 channel = 0; channel < info.numChannels; ++channel)
-                {
-                    sum += src[frame * info.numChannels + channel];
-                }
-                dst[frame] = static_cast<i32>(sum / static_cast<i64>(info.numChannels));
-            }
-        }
-
-        info.numChannels = 1;
-        info.numSamples = frameCount;
     }
 
     AudioClip::StreamingTask::StreamingTask(AudioClip *clip)
@@ -152,7 +73,14 @@ namespace toolkit
 
     void AudioClip::setDescriptor(const Descriptor &descriptor)
     {
+        cancelStreamingTasks();
+
         TkMutexGuard guard(m_mutex);
+        if (m_isLoaded)
+        {
+            releaseBuffers();
+            m_isLoaded = false;
+        }
         m_descriptor = descriptor;
         rebuildBufferStartTimes();
     }
@@ -206,8 +134,9 @@ namespace toolkit
             }
         }
 
-        offset = 0.0f;
-        return 0;
+        const i32 lastChunk = m_totalChunks - 1;
+        offset = time - m_bufferStartTimes[lastChunk];
+        return lastChunk;
     }
 
     bool AudioClip::setChunkData(i32 chunkIndex, const TkSpan<const byte> &chunkData)
@@ -215,7 +144,14 @@ namespace toolkit
         if (chunkIndex < 0 || chunkIndex >= AUDIO_CLIP_MAX_CHUNKS)
             return true;
 
+        cancelStreamingTasks();
+
         TkMutexGuard guard(m_mutex);
+        if (m_isLoaded)
+        {
+            releaseBuffers();
+            m_isLoaded = false;
+        }
 
         if (m_chunks.count() <= chunkIndex)
             m_chunks.resize(chunkIndex + 1);
@@ -228,7 +164,7 @@ namespace toolkit
         m_totalChunks = m_chunks.count();
         m_totalChunksSize = 0;
         for (i32 i = 0; i < m_totalChunks; ++i)
-            m_totalChunksSize += m_chunks[i].count();
+            m_totalChunksSize += static_cast<psize>(m_chunks[i].count());
 
         rebuildBufferStartTimes();
         return false;
@@ -256,15 +192,21 @@ namespace toolkit
         if (m_totalChunksSize <= 0)
             return false;
 
-        resultData.resize(m_totalChunksSize);
-        i32 offset = 0;
+        if (m_totalChunksSize > static_cast<psize>(kMaxI32))
+        {
+            LogWarn("AudioClip data is too large to extract into TkArray.");
+            return true;
+        }
+
+        resultData.resize(static_cast<i32>(m_totalChunksSize));
+        psize offset = 0;
         for (i32 i = 0; i < m_totalChunks; ++i)
         {
             const auto &chunk = m_chunks[i];
             if (chunk.count() > 0)
             {
                 TkMemory::memoryCopy(resultData.get() + offset, chunk.get(), static_cast<psize>(chunk.count()));
-                offset += chunk.count();
+                offset += static_cast<psize>(chunk.count());
             }
         }
 
@@ -291,6 +233,14 @@ namespace toolkit
         if (m_totalChunks <= 0)
             return true;
 
+        if (!m_descriptor.streamable && m_totalChunks != 1)
+        {
+            LogWarn("Non-streaming AudioClip must contain exactly one chunk.");
+            releaseBuffers();
+            m_isLoaded = false;
+            return true;
+        }
+
         releaseBuffers();
         m_buffers.resize(m_totalChunks);
         m_buffers.setAll(0);
@@ -300,7 +250,11 @@ namespace toolkit
         {
             m_buffers[0] = ANativeBuffer::create();
             if (writeBuffer(0))
+            {
+                releaseBuffers();
+                m_isLoaded = false;
                 return true;
+            }
         }
 
         m_isLoaded = true;
@@ -342,16 +296,21 @@ namespace toolkit
 
     TkTask *AudioClip::updateAllocation(i32 residency)
     {
+        // Dynamic residency changes are not implemented yet. Streaming currently
+        // uploads chunks requested through createStreamingTask().
         (void)residency;
         return nullptr;
     }
 
-    TkTask *AudioClip::createStreamingTask(i32 residency)
+    TkTask *AudioClip::createStreamingTask(i32 requestedChunks)
     {
         TkMutexGuard guard(m_mutex);
-        if (!TkMath::isInRange(residency, 0, m_totalChunks) || m_streamingTask != nullptr)
+        if (!TkMath::isInRange(requestedChunks, 0, m_totalChunks) || m_streamingTask != nullptr)
             return nullptr;
 
+        // The current streaming task consumes the explicit chunk queue built by
+        // AudioSource. requestedChunks documents that queue size until dynamic
+        // residency management is implemented.
         m_streamingTask = TkMemory::newObject<StreamingTask>(TkMemory::getDefault(), this);
         return m_streamingTask;
     }
@@ -362,13 +321,11 @@ namespace toolkit
         {
             TkMutexGuard guard(m_mutex);
             task = m_streamingTask;
+            m_streamingTask = nullptr;
         }
 
         if (task != nullptr)
-        {
             task->cancel();
-            task->wait();
-        }
     }
 
     void AudioClip::rebuildBufferStartTimes()
@@ -395,32 +352,60 @@ namespace toolkit
         if (chunkIndex < 0 || chunkIndex >= m_totalChunks || chunkIndex >= m_buffers.count())
             return true;
 
-        if (m_buffers[chunkIndex] == 0)
-            m_buffers[chunkIndex] = ANativeBuffer::create();
-
         const auto &chunk = m_chunks[chunkIndex];
         if (chunk.isEmpty())
         {
-            LogWarn("AudioClip chunk {0} has no data.", chunkIndex);
+            LogWarn("AudioClip chunk %i has no data.", chunkIndex);
             return true;
         }
 
         AudioDataInfo info = m_descriptor.info;
-        TkArray<byte> uploadData(chunk);
+        const byte *uploadData = chunk.get();
         const u32 bytesPerSample = info.bitDepth / 8;
-        if (bytesPerSample == 0 || info.numChannels == 0)
+        if ((info.bitDepth != 8 && info.bitDepth != 16 && info.bitDepth != 24 && info.bitDepth != 32) || bytesPerSample == 0 || info.numChannels == 0)
             return true;
 
-        info.numSamples = static_cast<u32>(uploadData.count()) / bytesPerSample;
+        if ((chunk.count() % static_cast<i32>(bytesPerSample)) != 0)
+            return true;
+
+        info.numSamples = static_cast<u32>(chunk.count()) / bytesPerSample;
+        if (info.numSamples == 0 || (info.numSamples % info.numChannels) != 0)
+            return true;
 
         TkArray<byte> monoData;
         if (info.numChannels > 1 && is3D() && (AudioSystem::getFeatures() != AudioFeatureFlags::kSpatialMultiChannel))
         {
-            convertToMono(uploadData, info, monoData);
-            uploadData = monoData;
+            const u32 frameCount = info.numSamples / info.numChannels;
+            const u64 monoBytes = static_cast<u64>(frameCount) * bytesPerSample;
+            if (monoBytes > static_cast<u64>(kMaxI32))
+                return true;
+            monoData.resize(static_cast<i32>(monoBytes));
+            AudioTool::convertToMono(uploadData, monoData.get(), info.bitDepth, frameCount, info.numChannels);
+            uploadData = monoData.get();
+            info.numChannels = 1;
+            info.numSamples = frameCount;
         }
 
-        ANativeBuffer::write(m_buffers[chunkIndex], uploadData.get(), info);
+        bool createdBuffer = false;
+        if (m_buffers[chunkIndex] == 0)
+        {
+            m_buffers[chunkIndex] = ANativeBuffer::create();
+            createdBuffer = true;
+        }
+
+        if (m_buffers[chunkIndex] == 0)
+            return true;
+
+        if (!ANativeBuffer::write(m_buffers[chunkIndex], uploadData, info))
+        {
+            LogWarn("AudioClip failed to upload native buffer for chunk %i.", chunkIndex);
+            if (createdBuffer)
+            {
+                ANativeBuffer::destroy(m_buffers[chunkIndex]);
+                m_buffers[chunkIndex] = 0;
+            }
+            return true;
+        }
         return false;
     }
 

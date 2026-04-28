@@ -78,14 +78,19 @@ namespace toolkit
     }
     void ANativeSource::getProcessedBuffersCount(u32 sourceID, i32 &processedBuffersCount)
     {
+        processedBuffersCount = 0;
     }
     void ANativeSource::getQueuedBuffersCount(u32 sourceID, i32 &queuedBuffersCount)
     {
+        queuedBuffersCount = 0;
     }
     void ANativeSource::queueBuffer(u32 sourceID, u32 bufferID)
     {
     }
     void ANativeSource::dequeueProcessedBuffers(u32 sourceID)
+    {
+    }
+    void ANativeSource::clearQueuedBuffers(u32 sourceID)
     {
     }
 
@@ -96,8 +101,9 @@ namespace toolkit
     void ANativeBuffer::destroy(u32 bufferID)
     {
     }
-    void ANativeBuffer::write(u32 bufferID, byte *samples, const AudioDataInfo &info)
+    bool ANativeBuffer::write(u32 bufferID, const byte *samples, const AudioDataInfo &info)
     {
+        return true;
     }
 
     const char *AudioSystem::getName()

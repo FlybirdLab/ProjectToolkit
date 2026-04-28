@@ -1,10 +1,21 @@
-/*
- * @Author: cubevlmu khfahqp@gmail.com
- * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
- */
-
 #pragma once
+
+#define TK_GRAPHICS_BACKEND_NONE 0
+#define TK_GRAPHICS_BACKEND_NULL 0
+#define TK_GRAPHICS_BACKEND_DIRECTX11 1
+#define TK_GRAPHICS_BACKEND_DIRECTX12 0
+#define TK_GRAPHICS_BACKEND_VULKAN 0
+#define TK_GRAPHICS_BACKEND_OPENGL 0
+#define TK_GRAPHICS_BACKEND_OPENGLES 0
+#define TK_GRAPHICS_BACKEND_METAL 0
+
+#define GFX_API_NULL TK_GRAPHICS_BACKEND_NULL
+#define GFX_API_DIRECTX11 TK_GRAPHICS_BACKEND_DIRECTX11
+#define GFX_API_DIRECTX12 TK_GRAPHICS_BACKEND_DIRECTX12
+#define GFX_API_VULKAN TK_GRAPHICS_BACKEND_VULKAN
+#define GFX_API_OPENGL TK_GRAPHICS_BACKEND_OPENGL
+#define GFX_API_OPENGLES TK_GRAPHICS_BACKEND_OPENGLES
+#define GFX_API_METAL TK_GRAPHICS_BACKEND_METAL
 
 // Maximum allowed amount of shader program permutations
 #define SHADER_PERMUTATIONS_MAX_COUNT 16
@@ -54,12 +65,10 @@
 // True if allow graphics profile events and markers
 #define GFX_ALLOW_PROFILE_EVENTS (TK_DEBUG)
 
-// True if allow hardware tessellation shaders (Hull and Domain shaders)
 #ifndef GFX_ALLOW_TESSELLATION_SHADERS
 #define GFX_ALLOW_TESSELLATION_SHADERS 1
 #endif
 
-// True if allow geometry shaders
 #ifndef GFX_ALLOW_GEOMETRY_SHADERS
 #define GFX_ALLOW_GEOMETRY_SHADERS 1
 #endif
@@ -86,16 +95,14 @@
 // True if use debug tools and flow for shaders
 #define GFX_USE_SHADERS_DEBUG_LAYER (TK_DEBUG)
 
-// Maximum size of the texture that is supported by the engine (specific platforms can have lower limit)
+// Maximum size of the texture that is supported by the RHI.
 #define GFX_MAX_TEXTURE_SIZE 16384
 #define GFX_MAX_TEXTURE_MIP_LEVELS 15
 #define GFX_MAX_TEXTURE_ARRAY_SIZE 1024
 
-// Validate configuration
 #if !TK_DEBUG
 #undef GFX_ENABLE_ASSERTION
 #define GFX_ENABLE_ASSERTION 0
 #endif
 
-// Helper macro for defining shader structures wrappers in C++ that match HLSL constant buffers
 #define GFX_CB_STRUCT(_declaration) TK_ALIGN_BEGIN(GFX_SHADER_DATA_ALIGNMENT) TK_PACK_BEGIN() struct _declaration PACK_END() TK_ALIGN_END(GFX_SHADER_DATA_ALIGNMENT)

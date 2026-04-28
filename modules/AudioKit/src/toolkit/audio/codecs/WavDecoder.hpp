@@ -19,6 +19,7 @@ namespace toolkit
             m_stream = nullptr;
             mFormat = 0;
             mDataOffset = 0;
+            mDataSize = 0;
             mBytesPerSample = 0;
         }
 
@@ -30,12 +31,14 @@ namespace toolkit
         bool open(ITkStream *stream, AudioDataInfo &info, u32 offset = 0) override;
         void seek(u32 offset) override;
         void read(byte *samples, u32 numSamples) override;
+        u32 readSamples(byte *samples, u32 numSamples) override;
         bool isValid(ITkStream *stream, u32 offset = 0) override;
 
     private:
         ITkStream *m_stream;
         u16 mFormat;
         u32 mDataOffset;
+        u32 mDataSize;
         u32 mBytesPerSample;
     };
 

@@ -105,6 +105,11 @@ namespace toolkit
 
         m_isOpen = true;
         m_readSampleOffset = 0;
+        if (m_exd.samples > static_cast<uint64_t>(kMaxU32))
+        {
+            close();
+            return false;
+        }
         m_info.numSamples = static_cast<u32>(m_exd.samples);
         m_info.sampleRate = static_cast<u32>(m_exd.info.hz);
         m_info.numChannels = static_cast<u32>(m_exd.info.channels);
@@ -126,6 +131,11 @@ namespace toolkit
 
         const size_t bytesPerSample = sizeof(mp3d_sample_t);
         const size_t totalBytes = static_cast<size_t>(info.numSamples) * bytesPerSample;
+        if (totalBytes > static_cast<size_t>(kMaxI32))
+        {
+            close();
+            return false;
+        }
         result.resize(static_cast<i32>(totalBytes));
 
         size_t decodedSamples = mp3dec_ex_read(&m_exd, reinterpret_cast<mp3d_sample_t *>(result.get()), info.numSamples);
@@ -154,26 +164,34 @@ namespace toolkit
 
     void MP3Decoder::read(byte *samples, u32 numSamples)
     {
+        readSamples(samples, numSamples);
+    }
+
+    u32 MP3Decoder::readSamples(byte *samples, u32 numSamples)
+    {
         if (!m_isOpen || samples == nullptr || numSamples == 0 || m_info.bitDepth == 0)
-            return;
+            return 0;
 
         const u32 availableSamples = (m_readSampleOffset < m_info.numSamples) ? (m_info.numSamples - m_readSampleOffset) : 0;
         const u32 readSamples = numSamples < availableSamples ? numSamples : availableSamples;
         const size_t bytesPerSample = sizeof(mp3d_sample_t);
         const size_t readBytes = static_cast<size_t>(readSamples) * bytesPerSample;
+        u32 actualSamples = 0;
 
         if (readSamples > 0)
         {
             const size_t gotSamples = mp3dec_ex_read(&m_exd, reinterpret_cast<mp3d_sample_t *>(samples), readSamples);
             const size_t gotBytes = gotSamples * bytesPerSample;
+            actualSamples = static_cast<u32>(gotSamples);
             if (gotBytes < readBytes)
             {
                 TkMemory::memoryClear(samples + gotBytes, static_cast<psize>(readBytes - gotBytes));
                 m_readSampleOffset += static_cast<u32>(gotSamples);
-                return;
             }
-
-            m_readSampleOffset += static_cast<u32>(gotSamples);
+            else
+            {
+                m_readSampleOffset += static_cast<u32>(gotSamples);
+            }
         }
 
         if (readSamples < numSamples)
@@ -181,6 +199,14 @@ namespace toolkit
             const size_t remainBytes = static_cast<size_t>(numSamples - readSamples) * bytesPerSample;
             TkMemory::memoryClear(samples + readBytes, static_cast<psize>(remainBytes));
         }
+        else if (actualSamples < numSamples)
+        {
+            const size_t gotBytes = static_cast<size_t>(actualSamples) * bytesPerSample;
+            const size_t remainBytes = static_cast<size_t>(numSamples - actualSamples) * bytesPerSample;
+            TkMemory::memoryClear(samples + gotBytes, static_cast<psize>(remainBytes));
+        }
+
+        return actualSamples;
     }
 
     bool MP3Decoder::isValid(ITkStream *stream, u32 offset)
@@ -202,6 +228,11 @@ namespace toolkit
 
         TkArray<byte> probe;
         probe.resize(MINIMP3_BUF_SIZE);
+        if (probe.get() == nullptr)
+        {
+            stream->setPos(savedPos);
+            return false;
+        }
         const bool valid = mp3dec_detect_cb(&io, probe.get(), probe.count()) == 0;
         stream->setPos(savedPos);
         return valid;

@@ -18,11 +18,12 @@
 #include <toolkit/audio/AudioTool.hpp>
 #include <toolkit/audio/codecs/Mp3Decoder.hpp>
 #include <toolkit/audio/codecs/OggDecoder.hpp>
-#include <toolkit/audio/codecs/OggEncorder.hpp>
+#include <toolkit/audio/codecs/OggEncoder.hpp>
 #include <toolkit/audio/codecs/WavDecoder.hpp>
 #include <toolkit/io/FileStream.hpp>
 #include <toolkit/io/MemoryStream.hpp>
 #include <toolkit/memory/Memory.hpp>
+#include <toolkit/threading/Thread.hpp>
 
 #define GTEST_HAS_SEH 0
 #include <gtest/gtest.h>

@@ -11,6 +11,8 @@
 
 namespace toolkit
 {
+    static constexpr i32 kDefaultStreamingResidency = 2;
+
     AudioSource::AudioSource()
     {
         Audio::Sources.add(this);
@@ -44,8 +46,8 @@ namespace toolkit
 
         if (m_clip != nullptr && previousState != State::kStopped)
         {
-            play();
             setTime(previousTime);
+            play();
             if (previousState == State::kPaused)
                 pause();
         }
@@ -238,8 +240,6 @@ namespace toolkit
             return;
 
         const State previousState = m_state;
-        m_state = State::kPlaying;
-        m_isActuallyPlaying = false;
 
         if (useStreaming())
         {
@@ -248,6 +248,8 @@ namespace toolkit
 
             requestClipStreamingUpdate();
             requestStreamingBuffersUpdate();
+            m_isActuallyPlaying = false;
+            m_pendingStreamingPlay = true;
             syncStreamingBuffers();
         }
         else
@@ -262,6 +264,8 @@ namespace toolkit
             ANativeSource::setNonStreamingBuffer(m_sourceId, buffers[0]);
             if (previousState == State::kStopped && m_startTime > 0.0f)
                 ANativeSource::setCurrentBufferTime(m_sourceId, m_startTime);
+            m_state = State::kPlaying;
+            m_isActuallyPlaying = false;
             playInternal();
         }
     }
@@ -281,15 +285,17 @@ namespace toolkit
 
     void AudioSource::stop()
     {
-        if (m_state == State::kStopped)
-            return;
-
         m_state = State::kStopped;
         m_isActuallyPlaying = false;
         m_startingPlayback = false;
+        m_pendingStreamingPlay = false;
         m_streamingFirstChunk = 0;
+        m_needToUpdateStreamingBuffers = false;
         if (m_sourceId != 0)
+        {
             ANativeSource::stop(m_sourceId);
+            ANativeSource::clearQueuedBuffers(m_sourceId);
+        }
     }
 
     AudioSource::State AudioSource::getState() const
@@ -307,7 +313,9 @@ namespace toolkit
         {
             i32 processedBuffers = 0;
             ANativeSource::getProcessedBuffersCount(m_sourceId, processedBuffers);
-            time += m_clip->getBufferStartTime(m_streamingFirstChunk + processedBuffers);
+            const i32 maxIndex = TkMath::clamp(m_clip->getTotalChunks(), 0, AUDIO_CLIP_MAX_CHUNKS);
+            const i32 index = TkMath::clamp(m_streamingFirstChunk + processedBuffers, 0, maxIndex);
+            time += m_clip->getBufferStartTime(index);
         }
 
         return TkMath::clamp(time, 0.0f, m_clip->getLength());
@@ -327,11 +335,15 @@ namespace toolkit
         if (useStreaming())
         {
             f32 relativeTime = 0.0f;
+            const bool wasPlaying = m_state == State::kPlaying;
             m_streamingFirstChunk = m_clip->getFirstBufferIndex(time, relativeTime);
             ANativeSource::stop(m_sourceId);
+            ANativeSource::clearQueuedBuffers(m_sourceId);
             ANativeSource::setCurrentBufferTime(m_sourceId, relativeTime);
             m_isActuallyPlaying = false;
-            if (m_state == State::kPlaying)
+            m_startingPlayback = false;
+            m_pendingStreamingPlay = false;
+            if (wasPlaying)
             {
                 requestClipStreamingUpdate();
                 requestStreamingBuffersUpdate();
@@ -493,7 +505,8 @@ namespace toolkit
         queue.clear();
 
         const auto &buffers = m_clip->getBuffers();
-        for (i32 i = 0; i < 2; ++i)
+        const i32 residency = TkMath::clamp(kDefaultStreamingResidency, 1, AUDIO_CLIP_MAX_CHUNKS);
+        for (i32 i = 0; i < residency; ++i)
         {
             const i32 chunkIndex = m_streamingFirstChunk + i;
             if (chunkIndex >= 0 && chunkIndex < buffers.count() && buffers[chunkIndex] == 0)
@@ -507,19 +520,21 @@ namespace toolkit
         }
     }
 
-    void AudioSource::syncStreamingBuffers()
+    bool AudioSource::syncStreamingBuffers()
     {
         if (!useStreaming() || m_sourceId == 0 || m_clip == nullptr || !m_needToUpdateStreamingBuffers)
-            return;
+            return false;
 
         const auto &buffers = m_clip->getBuffers();
         if (m_streamingFirstChunk < 0 || m_streamingFirstChunk >= buffers.count())
-            return;
+            return false;
 
         i32 queuedBuffers = 0;
         ANativeSource::getQueuedBuffersCount(m_sourceId, queuedBuffers);
+        bool hasQueuedBuffer = queuedBuffers > 0;
 
-        for (i32 i = queuedBuffers; i < 2; ++i)
+        const i32 residency = TkMath::clamp(kDefaultStreamingResidency, 1, AUDIO_CLIP_MAX_CHUNKS);
+        for (i32 i = queuedBuffers; i < residency; ++i)
         {
             const i32 chunkIndex = m_streamingFirstChunk + i;
             if (chunkIndex >= buffers.count())
@@ -527,14 +542,24 @@ namespace toolkit
 
             const u32 bufferId = buffers[chunkIndex];
             if (bufferId == 0)
-                return;
+            {
+                requestClipStreamingUpdate();
+                m_needToUpdateStreamingBuffers = true;
+                return false;
+            }
 
             ANativeSource::queueBuffer(m_sourceId, bufferId);
+            hasQueuedBuffer = true;
         }
 
         m_needToUpdateStreamingBuffers = false;
-        if (!m_isActuallyPlaying && m_state == State::kPlaying)
+        if (hasQueuedBuffer && !m_isActuallyPlaying && (m_state == State::kPlaying || m_pendingStreamingPlay))
+        {
+            m_state = State::kPlaying;
+            m_pendingStreamingPlay = false;
             playInternal();
+        }
+        return hasQueuedBuffer;
     }
 
     void AudioSource::playInternal()
