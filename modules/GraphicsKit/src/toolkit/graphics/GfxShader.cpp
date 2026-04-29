@@ -100,7 +100,7 @@ namespace toolkit
                     LogWarn("Failed to create %i Shader program '%s' (%s).", static_cast<i32>(type), TkString(initializer.name).getText(), name.getText());
                     continue;
                 }
-                GfxShaderProgram *shader = createGfxShaderProgram(type, initializer, TkSpan<byte>(bytecode, bytecodeSize), stream);
+                GfxShaderProgram *shader = createShaderProgram(type, initializer, TkSpan<byte>(bytecode, bytecodeSize), stream);
                 if (shader == nullptr)
                 {
 #if !GFX_ALLOW_TESSELLATION_SHADERS

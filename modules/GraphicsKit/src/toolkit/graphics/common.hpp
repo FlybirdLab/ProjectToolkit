@@ -8,7 +8,7 @@
 
 #include <toolkit/common.hpp>
 #include <toolkit/graphics/typedef.hpp>
-#include "environment.hpp"
+#include <toolkit/graphics/environment.hpp>
 
 #include <toolkit/base/Enum.hpp>
 #include <toolkit/base/Hash.hpp>

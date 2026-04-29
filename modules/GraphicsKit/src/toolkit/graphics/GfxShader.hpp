@@ -87,7 +87,7 @@ namespace toolkit
 
     protected:
         GfxShaderProgram *getShader(ShaderStage stage, const TkStringView &name, i32 permutationIndex) const;
-        virtual GfxShaderProgram *createGfxShaderProgram(ShaderStage type, const GfxShaderProgramInitializer &initializer, TkSpan<byte> bytecode, MemoryIStream &stream) = 0;
+        virtual GfxShaderProgram *createShaderProgram(ShaderStage type, const GfxShaderProgramInitializer &initializer, TkSpan<byte> bytecode, MemoryIStream &stream) = 0;
         static void readVertexLayout(MemoryIStream &stream, GfxVertexLayout *&inputLayout, GfxVertexLayout *&vertexLayout);
 
         void onReleaseData() override;

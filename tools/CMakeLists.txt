@@ -3,3 +3,4 @@
 
 add_subdirectory(Sandbox)
 add_subdirectory(RkGen)
+add_subdirectory(ShaderCompiler)
