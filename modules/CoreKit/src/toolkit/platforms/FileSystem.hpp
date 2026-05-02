@@ -51,9 +51,9 @@ namespace toolkit
     struct OpenFileParams
     {
         const TkStringView path;
-        FileMode mode;
-        FileAccess access = FileAccess::kReadWrite;
-        FileShare share = FileShare::kNone;
+        FileMode mode = FileMode::kOpenExisting;
+        FileAccess access = FileAccess::kRead;
+        FileShare share = FileShare::kRead;
     };
 
     enum class FileAction
@@ -114,6 +114,11 @@ namespace toolkit
     public:
         // Open a file as FileHandle to process
         static FileHandle openFile(OpenFileParams &params);
+        // Open a file as FileHandle to process
+        static FileHandle openFile(TkStringView path) {
+            OpenFileParams p {.path = path};
+            return openFile(p);
+        }
         // Close a existing file handle
         static void closeFile(FileHandle);
         // Read data from a file.

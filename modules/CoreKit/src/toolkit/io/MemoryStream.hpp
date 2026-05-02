@@ -4,6 +4,8 @@
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
  */
 
+#pragma once
+
 #include <toolkit/io/Stream.hpp>
 #include <toolkit/base/Assert.hpp>
 

@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.31)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
 set(USE_TEST ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmakes")
 
 if (MSVC)
     add_compile_options(/utf-8)

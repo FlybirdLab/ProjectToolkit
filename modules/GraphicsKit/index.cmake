@@ -5,7 +5,6 @@ function(AddTkGraphics incVar lnkVar depVar)
 
     list(APPEND ${depVar} "TkGraphics")
     list(APPEND ${incVar}
-        "${CMAKE_BINARY_DIR}/modules/GraphicsKit/generated"
         "${CMAKE_SOURCE_DIR}/modules/GraphicsKit/src"
     )
 

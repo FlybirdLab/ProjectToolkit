@@ -201,7 +201,6 @@ namespace toolkit
         kNoFastMath = 2,
         kVertexToGeometryShader = 4,
     };
-
     TK_DECLARE_ENUM_OPERATORS(GfxShaderFlags);
 
     // Render target blending mode descriptor.

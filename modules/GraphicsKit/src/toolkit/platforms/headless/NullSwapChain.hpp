@@ -50,6 +50,11 @@ namespace toolkit
         void copyBackbuffer(GfxContext *context, GfxTexture *dst) override
         {
         }
+
+        bool isReady() const override
+        {
+            return true;
+        }
     };
 
 }

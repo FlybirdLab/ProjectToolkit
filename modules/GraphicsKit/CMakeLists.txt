@@ -38,7 +38,7 @@ set(TK_GRAPHICS_BACKEND_VALUES
 )
 
 if(WIN32)
-    set(TK_GRAPHICS_BACKEND_DEFAULT null) # directx12
+    set(TK_GRAPHICS_BACKEND_DEFAULT vulkan) # directx12
 elseif(APPLE)
     set(TK_GRAPHICS_BACKEND_DEFAULT metal)
 elseif(UNIX AND NOT APPLE)
@@ -92,9 +92,9 @@ elseif(TK_GRAPHICS_BACKEND STREQUAL "directx12")
 
 elseif(TK_GRAPHICS_BACKEND STREQUAL "vulkan")
     set(TK_GRAPHICS_BACKEND_VULKAN 1)
-    find_package(Vulkan REQUIRED)
-    list(APPEND INCS ${Vulkan_INCLUDE_DIRS})
-    list(APPEND LNKS ${Vulkan_LIBRARIES})
+    AddVulkanSDK(INCS LNKS)
+    AddVolk(INCS LNKS)
+    AddVMA(INCS LNKS)
 
 elseif(TK_GRAPHICS_BACKEND STREQUAL "opengl")
     set(TK_GRAPHICS_BACKEND_OPENGL 1)

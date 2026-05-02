@@ -19,6 +19,7 @@
 #include "NullSwapChain.hpp"
 #include "NullTexture.hpp"
 #include "NullSampler.hpp"
+#include "NullDevice.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/graphics/async/GfxTaskMgr.hpp"
 
