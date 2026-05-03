@@ -452,7 +452,7 @@ namespace toolkit
         const auto iterator = m_typeIndexByName.find(fullName.toString());
         if (iterator.isEnd())
             return TypeHandle();
-        return TypeHandle(const_cast<RkModule*>(this), iterator->Value);
+        return TypeHandle(const_cast<RkModule*>(this), iterator->value);
     }
 
     const RkType* RkModule::findTypePtr(const TkStringView& fullName) const

@@ -98,7 +98,7 @@ TEST(TkHashMap, Iterator)
 
     i32 sum = 0;
     for (auto it = map.Begin(); it.isNotEnd(); ++it)
-        sum += it->Value;
+        sum += it->value;
 
     EXPECT_EQ(sum, 2 * (0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9));
 }

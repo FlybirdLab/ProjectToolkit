@@ -23,13 +23,14 @@ namespace toolkit
         All = 5,
     };
 
-    // The base implementation for the Vulkan API platform support.
-    class VulkanPlatformBase
+    // Vulkan API platform support.
+    class VulkanPlatform
     {
     public:
         static void getInstanceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers);
         static void getDeviceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers);
         static void createSurface(VkSurfaceKHR *outSurface);
+        static void createSurface(void* windowHandle, VkInstance instance, VkSurfaceKHR* outSurface);
         static void restrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures &deviceFeatures, VkPhysicalDeviceFeatures &featuresToEnable);
 
         //DEFAULT {

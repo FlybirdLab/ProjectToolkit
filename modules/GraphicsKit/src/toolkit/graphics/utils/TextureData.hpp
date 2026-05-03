@@ -25,27 +25,27 @@ namespace toolkit
         TextureMipData &operator=(const TextureMipData &other);
         TextureMipData &operator=(TextureMipData &&other) noexcept;
 
-        bool GetPixels(TkArray<Color32> &pixels, i32 width, i32 height, PixelFormat format) const;
-        bool GetPixels(TkArray<Color> &pixels, i32 width, i32 height, PixelFormat format) const;
-        void Copy(void *data, u32 dataRowPitch, u32 dataDepthPitch, u32 dataDepthSlices, u32 targetRowPitch);
+        bool getPixels(TkArray<Color32> &pixels, i32 width, i32 height, PixelFormat format) const;
+        bool getPixels(TkArray<Color> &pixels, i32 width, i32 height, PixelFormat format) const;
+        void copy(void *data, u32 dataRowPitch, u32 dataDepthPitch, u32 dataDepthSlices, u32 targetRowPitch);
 
         template <typename T>
-        T &Get(i32 x, i32 y)
+        T &get(i32 x, i32 y)
         {
-            return *(T *)(Data.get() + y * RowPitch + x * sizeof(T));
+            return *(T *)(data.get() + y * rowPitch + x * sizeof(T));
         }
 
         template <typename T>
-        const T &Get(i32 x, i32 y) const
+        const T &get(i32 x, i32 y) const
         {
-            return *(const T *)(Data.get() + y * RowPitch + x * sizeof(T));
+            return *(const T *)(data.get() + y * rowPitch + x * sizeof(T));
         }
 
     public:
-        u32 RowPitch;
-        u32 DepthPitch;
-        u32 Lines;
-        ByteCollection Data;
+        u32 rowPitch;
+        u32 depthPitch;
+        u32 lines;
+        ByteCollection data;
     };
 
     // Texture data container (used to keep data downloaded from the GPU)

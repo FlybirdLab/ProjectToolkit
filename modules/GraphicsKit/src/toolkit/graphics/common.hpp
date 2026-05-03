@@ -193,6 +193,27 @@ namespace toolkit
         kMax
     };
 
+    // Possible fatal error types that cause engine exit.
+    enum class FatalErrorType
+    {
+        // No fatal error set.
+        kNone,
+        // Not defined or custom error.
+        kUnknown,
+        // Runtime exception caught by the handler (eg. stack overflow, invalid memory address access).
+        kException,
+        // Data assertion failed (eg. invalid value or code usage).
+        kAssertion,
+        // Program run out of memory to allocate.
+        kOutOfMemory,
+        // The graphics device crashed, has been removed or restarted.
+        kGPUCrash,
+        // The graphics device stopped responding (eg. incorrect rendering code or bug in driver).
+        kGPUHang,
+        // The graphics device run out of video memory to allocate.
+        kGPUOutOfMemory,
+    };
+
     // Shader compilation flags.
     enum class GfxShaderFlags : u32
     {

@@ -18,7 +18,7 @@
 
 namespace toolkit {
 
-    /// Cross-platform mutex implement
+    // Cross-platform mutex implement
     class TkMutex
     {
         friend class TkCondVar;
@@ -29,8 +29,14 @@ namespace toolkit {
         TkMutex& operator=(const TkMutex&) = delete; // Non-copyable
 
         void lock();
+        TK_FORCE_INLINE void lock() const {
+            lock();
+        }
         bool tryLock();
         void unlock();
+        TK_FORCE_INLINE void unlock() const {
+            unlock();
+        }
     private:
 #if TK_POSIX
         pthread_mutex_t m_handle;
@@ -40,7 +46,7 @@ namespace toolkit {
     };
 
 
-    /// Cross-platform mutex implement for read&write situation
+    // Cross-platform mutex implement for read&write situation
     class TkRwMutex
     {
     public:
@@ -50,6 +56,9 @@ namespace toolkit {
         TkRwMutex& operator=(const TkRwMutex&) = delete; // Non-copyable
 
         void lockRead();
+        TK_FORCE_INLINE void lockRead() const {
+            lockRead();
+        }
         void lockWrite();
         void unlockRead();
         void unlockWrite();
@@ -63,7 +72,7 @@ namespace toolkit {
     };
 
 
-    /// Cross-platform implement for ConditionVariable
+    // Cross-platform implement for ConditionVariable
     class TkCondVar
     {
     public:
@@ -86,8 +95,8 @@ namespace toolkit {
     };
 
 
-    /// Cross-platform SpinLock implement.
-    /// High performance substitute for mutex if only using in short time
+    // Cross-platform SpinLock implement.
+    // High performance substitute for mutex if only using in short time
     class TkSpinLock
     {
     public:
@@ -105,7 +114,7 @@ namespace toolkit {
     };
 
 
-    /// A barrier for thread synchronization.
+    // A barrier for thread synchronization.
     class TkBarrier
     {
     public:
@@ -128,7 +137,7 @@ namespace toolkit {
     };
 
 
-    /// Cross-platform Semaphore implement for thread synchronize
+    // Cross-platform Semaphore implement for thread synchronize
     class TkSemaphore
     {
     public:
@@ -153,7 +162,7 @@ namespace toolkit {
     };
 
 
-    /// Auto release guard for mutex when exit the scope
+    // Auto release guard for mutex when exit the scope
     template <typename T>
     class TkMutexGuard
     {

@@ -94,13 +94,17 @@ namespace toolkit
         GfxShader *m_owner;
 #endif
     };
-    
+
     // Vertex Shader program
     class GfxShaderProgramVS : public GfxShaderProgram
     {
     public:
         // Vertex shader inputs layout. Used to ensure that binded vertex buffers provide all required elements.
-        GfxVertexLayout *InputLayout = nullptr;
+        GfxVertexLayout *inputLayout = nullptr;
+        // Vertex elements input layout defined explicitly in the shader.
+        // It's optional as it's been deprecated in favor or layouts defined by vertex buffers to allow data customizations.
+        // Can be overriden by the vertex buffers provided upon draw call.
+        GfxVertexLayout *layout = nullptr;
 
     public:
         ShaderStage getStage() const override
@@ -124,7 +128,7 @@ namespace toolkit
     {
     public:
         // Get the input control points count (valid range: 1-32).
-        TK_FORCE_INLINE i32 GetControlPointsCount() const
+        TK_FORCE_INLINE i32 getControlPointsCount() const
         {
             return m_controlPointsCount;
         }
@@ -136,7 +140,6 @@ namespace toolkit
 
     protected:
         i32 m_controlPointsCount = 0;
-
     };
 
     // Domain Shader program
@@ -158,7 +161,7 @@ namespace toolkit
             return ShaderStage::kPixel;
         }
     };
-    
+
     // Compute Shader program
     class GfxShaderProgramCS : public GfxShaderProgram
     {

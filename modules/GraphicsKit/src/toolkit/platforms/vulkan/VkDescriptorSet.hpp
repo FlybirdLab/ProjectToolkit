@@ -66,7 +66,7 @@ namespace toolkit
 
         u32 hash = 0;
         u32 setLayoutsHash = 0;
-        u32 layoutTypes[VK_DESCRIPTOR_TYPE_END];
+        u32 layoutTypes[VK_DESCRIPTOR_TYPE_END + 1];
         TkArray<SetLayout> setLayouts;
 
     public:
@@ -123,7 +123,7 @@ namespace toolkit
         u32 m_allocatedDescriptorSetsCount;
         u32 m_allocatedDescriptorSetsCountMax;
 
-        const VulkanDescriptorSetLayout &_layout;
+        const VulkanDescriptorSetLayout &m_layout;
 
     public:
         VulkanDescriptorPool(VulkanDevice *device, const VulkanDescriptorSetLayout &layout);
@@ -193,7 +193,7 @@ namespace toolkit
 
         ~VulkanTypedDescriptorPoolSet();
 
-        bool AllocateDescriptorSets(const VulkanDescriptorSetLayout &layout, VkDescriptorSet *outSets);
+        bool allocateDescriptorSets(const VulkanDescriptorSetLayout &layout, VkDescriptorSet *outSets);
 
         const VulkanDescriptorPoolSetContainer *getOwner() const
         {
@@ -220,8 +220,8 @@ namespace toolkit
         VulkanTypedDescriptorPoolSet *acquireTypedPoolSet(const VulkanDescriptorSetLayout &layout);
         void reset();
 
-        mutable u64 Refs = 0;
-        mutable u64 LastFrameUsed;
+        mutable u64 refs = 0;
+        mutable u64 lastFrameUsed;
     };
 
     class VulkanDescriptorPoolsManager
@@ -337,8 +337,7 @@ namespace toolkit
             TK_ASSERT(descriptorIndex < writesCount);
             TK_ASSERT(writeDescriptors[descriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
             auto *bufferInfo = const_cast<VkBufferView *>(writeDescriptors[descriptorIndex].pTexelBufferView + index);
-            *bufferInfo = bufferView;
-            return true;
+            return VulkanDescriptorSet::copyAndReturnNotEqual(*bufferInfo, bufferView);
         }
 
         bool writeStorageBuffer(u32 descriptorIndex, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range, u32 index = 0) const

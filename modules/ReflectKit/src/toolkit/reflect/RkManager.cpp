@@ -249,14 +249,14 @@ namespace toolkit
     RkObject *TypeRegistry::findObject(const TkUuid &id)
     {
         const auto iterator = getObjectStorage().find(id);
-        return iterator.isEnd() ? nullptr : iterator->Value;
+        return iterator.isEnd() ? nullptr : iterator->value;
     }
 
     TkArray<RkObject *> TypeRegistry::getObjects()
     {
         TkArray<RkObject *> objects;
         for (auto iterator = getObjectStorage().Begin(); iterator.isNotEnd(); ++iterator)
-            objects.add(iterator->Value);
+            objects.add(iterator->value);
         return objects;
     }
 

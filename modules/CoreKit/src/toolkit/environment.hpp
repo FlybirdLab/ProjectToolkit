@@ -13,6 +13,7 @@
 // =======================================================
 #define TK_STR_HELPER(x) #x
 #define TK_STR(x) TK_STR_HELPER(x)
+#define TK_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
 
 // =======================================================
 // Constants

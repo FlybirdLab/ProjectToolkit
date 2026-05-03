@@ -1010,9 +1010,9 @@ namespace toolkit
         TkArray<TkString> actionsToRemove;
         for (auto i = Actions.Begin(); i.isNotEnd(); ++i)
         {
-            if (i->Value.frameIndex != frame)
+            if (i->value.frameIndex != frame)
             {
-                actionsToRemove.add(i->Key);
+                actionsToRemove.add(i->key);
             }
         }
         for (const TkString& key : actionsToRemove)
@@ -1021,9 +1021,9 @@ namespace toolkit
         TkArray<TkString> axesToRemove;
         for (auto i = Axes.Begin(); i.isNotEnd(); ++i)
         {
-            if (i->Value.frameIndex != frame)
+            if (i->value.frameIndex != frame)
             {
-                axesToRemove.add(i->Key);
+                axesToRemove.add(i->key);
             }
         }
         for (const TkString& key : axesToRemove)
@@ -1032,17 +1032,17 @@ namespace toolkit
         // Send events for the active actions and axes.
         for (auto i = Axes.Begin(); i.isNotEnd(); ++i)
         {
-            if (TkMath::abs(i->Value.value - i->Value.prevValue) > 0.0001f)
+            if (TkMath::abs(i->value.value - i->value.prevValue) > 0.0001f)
             {
-                InputSystem::AxisValueChanged(i->Key);
+                InputSystem::AxisValueChanged(i->key);
             }
         }
 
         for (auto i = Actions.Begin(); i.isNotEnd(); ++i)
         {
-            if (i->Value.state != InputActionState::kWaiting)
+            if (i->value.state != InputActionState::kWaiting)
             {
-                InputSystem::ActionTriggered(i->Key, i->Value.state);
+                InputSystem::ActionTriggered(i->key, i->value.state);
             }
         }
     }

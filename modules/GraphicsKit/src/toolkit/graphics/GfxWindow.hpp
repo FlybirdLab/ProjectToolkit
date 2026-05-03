@@ -13,7 +13,7 @@ namespace toolkit
 {
     class GfxWindow : public TkWindow
     {
-        friend GfxSwapChain;
+        friend class GfxSwapChain;
 
     public:
         GfxWindow(const WindowParams &p);

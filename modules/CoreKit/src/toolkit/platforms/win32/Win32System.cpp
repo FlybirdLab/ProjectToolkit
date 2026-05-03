@@ -1395,8 +1395,8 @@ namespace toolkit
                 i32 totalLength = 1;
                 for (auto &e : args.envArgs)
                 {
-                    StringAsUTF16 keyUtf16{e.Key.get()};
-                    StringAsUTF16 valueUtf16{e.Value.get()};
+                    StringAsUTF16 keyUtf16{e.key.get()};
+                    StringAsUTF16 valueUtf16{e.value.get()};
                     totalLength += keyUtf16.length() + valueUtf16.length() + 2;
                 }
 
@@ -1405,8 +1405,8 @@ namespace toolkit
                 wchar *env = environmentStr;
                 for (auto &e : args.envArgs)
                 {
-                    StringAsUTF16 keyUtf16{e.Key.get()};
-                    StringAsUTF16 valueUtf16{e.Value.get()};
+                    StringAsUTF16 keyUtf16{e.key.get()};
+                    StringAsUTF16 valueUtf16{e.value.get()};
                     TkMemory::memoryCopy(env, keyUtf16.get(), keyUtf16.length() * sizeof(wchar));
                     env += keyUtf16.length();
                     *env++ = '=';

@@ -120,7 +120,7 @@ namespace toolkit
             return buffer(size, GfxBufferFlags::kRawBuffer | additionalFlags, PixelFormat::kR32_Typeless, nullptr, sizeof(float), usage);
         }
         // Create raw buffer description.
-        static GfxBufferDescription Raw(const void *data, i32 size, GfxBufferFlags additionalFlags = GfxBufferFlags::kNone, GfxResourceUsage usage = GfxResourceUsage::kDefault)
+        static GfxBufferDescription raw(const void *data, i32 size, GfxBufferFlags additionalFlags = GfxBufferFlags::kNone, GfxResourceUsage usage = GfxResourceUsage::kDefault)
         {
             return buffer(size, GfxBufferFlags::kRawBuffer | additionalFlags, PixelFormat::kR32_Typeless, data, sizeof(float), usage);
         }

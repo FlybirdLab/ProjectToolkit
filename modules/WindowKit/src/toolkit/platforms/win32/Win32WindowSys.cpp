@@ -77,8 +77,8 @@ namespace toolkit
             TkArray<void*> keysToRemove;
             for (auto iterator = s_handleMap.Begin(); iterator.isNotEnd(); ++iterator)
             {
-                if (iterator->Value == win)
-                    keysToRemove.add(iterator->Key);
+                if (iterator->value == win)
+                    keysToRemove.add(iterator->key);
             }
             for (void* key : keysToRemove)
                 s_handleMap.remove(key);
@@ -178,7 +178,7 @@ namespace toolkit
 
         WindowSysMtx.lock();
         const auto iterator = s_handleMap.find(handle);
-        TkWindow* result = iterator.isEnd() ? nullptr : iterator->Value;
+        TkWindow* result = iterator.isEnd() ? nullptr : iterator->value;
         WindowSysMtx.unlock();
         return result;
     }

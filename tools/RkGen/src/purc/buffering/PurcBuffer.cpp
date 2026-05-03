@@ -25,8 +25,8 @@ namespace toolkit
     {
         for (auto &item : m_buf)
         {
-            if (item.Value)
-                TkMemory::deletePtr(item.Value);
+            if (item.value)
+                TkMemory::deletePtr(item.value);
         }
         m_buf.clear();
         m_datas.clear();
@@ -91,8 +91,8 @@ namespace toolkit
     {
         for (auto &item : m_buf)
         {
-            if (item.Value)
-                TkMemory::deletePtr(item.Value);
+            if (item.value)
+                TkMemory::deletePtr(item.value);
         }
         m_datas.clear();
         m_buf.clear();

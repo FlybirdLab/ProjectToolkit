@@ -91,7 +91,7 @@ namespace toolkit
             return;
 
         char buffer[33];
-        mapped->Value.toString(buffer, UuidFormatType::kN);
+        mapped->value.toString(buffer, UuidFormatType::kN);
         value.SetString(buffer, 32, document.GetAllocator());
     }
 

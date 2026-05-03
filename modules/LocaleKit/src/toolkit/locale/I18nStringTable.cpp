@@ -52,9 +52,9 @@ namespace toolkit
     TkString I18nStringTable::getString(const TkString &id) const
     {
         auto it = entries.find(id);
-        if (it != entries.End() && it->Value.count() > 0)
+        if (it != entries.End() && it->value.count() > 0)
         {
-            const TkString &result = it->Value[0];
+            const TkString &result = it->value[0];
             if (result.hasChars())
                 return result;
         }
@@ -69,7 +69,7 @@ namespace toolkit
         auto it = entries.find(id);
         if (it != entries.End())
         {
-            const auto &messages = it->Value;
+            const auto &messages = it->value;
             if (messages.count() > 0)
             {
                 i32 index = n <= 0 ? 0 : n - 1;

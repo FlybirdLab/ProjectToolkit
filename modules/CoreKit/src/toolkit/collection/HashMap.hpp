@@ -26,8 +26,8 @@ namespace toolkit
         struct Bucket
         {
             friend TkHashMap;
-            KeyType Key;
-            ValueType Value;
+            KeyType key;
+            ValueType value;
 
         private:
             BucketState m_state;
@@ -36,8 +36,8 @@ namespace toolkit
             {
                 if (m_state == BucketState::kOccupied)
                 {
-                    TkMemory::destructItem(&Key);
-                    TkMemory::destructItem(&Value);
+                    TkMemory::destructItem(&key);
+                    TkMemory::destructItem(&value);
                 }
                 m_state = BucketState::kEmpty;
             }
@@ -46,8 +46,8 @@ namespace toolkit
             {
                 if (m_state == BucketState::kOccupied)
                 {
-                    TkMemory::destructItem(&Key);
-                    TkMemory::destructItem(&Value);
+                    TkMemory::destructItem(&key);
+                    TkMemory::destructItem(&value);
                     m_state = BucketState::kDeleted;
                 }
             }
@@ -55,24 +55,24 @@ namespace toolkit
             template <typename KeyComparableType>
             TK_FORCE_INLINE void occupy(const KeyComparableType &key)
             {
-                TkMemory::constructItems(&Key, &key, 1);
-                TkMemory::constructItem(&Value);
+                TkMemory::constructItems(&this->key, &key, 1);
+                TkMemory::constructItem(&this->value);
                 m_state = BucketState::kOccupied;
             }
 
             template <typename KeyComparableType>
             TK_FORCE_INLINE void occupy(const KeyComparableType &key, const ValueType &value)
             {
-                TkMemory::constructItems(&Key, &key, 1);
-                TkMemory::constructItems(&Value, &value, 1);
+                TkMemory::constructItems(&this->key, &key, 1);
+                TkMemory::constructItems(&this->value, &value, 1);
                 m_state = BucketState::kOccupied;
             }
 
             template <typename KeyComparableType>
             TK_FORCE_INLINE void occupy(const KeyComparableType &key, ValueType &&value)
             {
-                TkMemory::constructItems(&Key, &key, 1);
-                TkMemory::moveItems(&Value, &value, 1);
+                TkMemory::constructItems(&this->key, &key, 1);
+                TkMemory::moveItems(&this->value, &value, 1);
                 m_state = BucketState::kOccupied;
             }
 
@@ -347,14 +347,14 @@ namespace toolkit
 
             // Check if that key has been already added
             if (pos.ObjectIndex != -1)
-                return m_data[pos.ObjectIndex].Value;
+                return m_data[pos.ObjectIndex].value;
 
             // Insert
             TK_ASSERT(pos.FreeSlotIndex != -1);
             ++m_elementsCount;
             Bucket &bucket = m_data[pos.FreeSlotIndex];
             bucket.occupy(key);
-            return bucket.Value;
+            return bucket.value;
         }
 
         // Gets the element by the key.
@@ -364,7 +364,7 @@ namespace toolkit
             FindPositionResult pos;
             findPosition(key, pos);
             TK_ASSERT(pos.ObjectIndex != -1);
-            return m_data[pos.ObjectIndex].Value;
+            return m_data[pos.ObjectIndex].value;
         }
 
         // Gets or sets the element by the key.
@@ -405,8 +405,8 @@ namespace toolkit
         {
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
             {
-                if (i->Value)
-                    TkMemory::deletePtr(m_alloc, i->Value);
+                if (i->value)
+                    TkMemory::deletePtr(m_alloc, i->value);
             }
             clear();
         }
@@ -458,11 +458,11 @@ namespace toolkit
                     Bucket &oldBucket = oldData[i];
                     if (oldBucket.isOccupied())
                     {
-                        findPosition(oldBucket.Key, pos);
+                        findPosition(oldBucket.key, pos);
                         TK_ASSERT(pos.FreeSlotIndex != -1);
                         Bucket *bucket = &m_data[pos.FreeSlotIndex];
-                        TkMemory::moveItems(&bucket->Key, &oldBucket.Key, 1);
-                        TkMemory::moveItems(&bucket->Value, &oldBucket.Value, 1);
+                        TkMemory::moveItems(&bucket->key, &oldBucket.key, 1);
+                        TkMemory::moveItems(&bucket->value, &oldBucket.value, 1);
                         bucket->m_state = BucketState::kOccupied;
                         ++m_elementsCount;
                     }
@@ -531,7 +531,7 @@ namespace toolkit
         {
             TK_ASSERT(i.m_collection != this && i);
             const Bucket &bucket = *i;
-            add(bucket.Key, bucket.Value);
+            add(bucket.key, bucket.value);
         }
 
         // Removes element with a specified key.
@@ -574,7 +574,7 @@ namespace toolkit
             i32 result = 0;
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
             {
-                if (i->Value == value)
+                if (i->value == value)
                 {
                     remove(i);
                     ++result;
@@ -615,7 +615,7 @@ namespace toolkit
                 const Bucket *data = m_data;
                 for (i32 i = 0; i < m_size; ++i)
                 {
-                    if (data[i].isOccupied() && data[i].Value == value)
+                    if (data[i].isOccupied() && data[i].value == value)
                         return true;
                 }
             }
@@ -630,10 +630,10 @@ namespace toolkit
                 const Bucket *data = m_data;
                 for (i32 i = 0; i < m_size; ++i)
                 {
-                    if (data[i].isOccupied() && data[i].Value == value)
+                    if (data[i].isOccupied() && data[i].value == value)
                     {
                         if (key)
-                            *key = data[i].Key;
+                            *key = data[i].key;
                         return true;
                     }
                 }
@@ -657,14 +657,14 @@ namespace toolkit
         void getKeys(TkArray<KeyType> &result) const
         {
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
-                result.add(i->Key);
+                result.add(i->key);
         }
 
         // Gets the values collection to the output array (may contain duplicates).
         void getValues(TkArray<ValueType> &result) const
         {
             for (Iterator i = Begin(); i.isNotEnd(); ++i)
-                result.add(i->Value);
+                result.add(i->value);
         }
 
     public:
@@ -744,7 +744,7 @@ namespace toolkit
                         insertPos = bucketIndex;
                 }
                 // Occupied bucket by target key
-                else if (bucket.Key == key)
+                else if (bucket.key == key)
                 {
                     // Found key
                     result.ObjectIndex = bucketIndex;
@@ -807,11 +807,11 @@ namespace toolkit
                     Bucket &oldBucket = oldData[i];
                     if (oldBucket.isOccupied())
                     {
-                        findPosition(oldBucket.Key, pos);
+                        findPosition(oldBucket.key, pos);
                         TK_ASSERT(pos.FreeSlotIndex != -1);
                         Bucket *bucket = &m_data[pos.FreeSlotIndex];
-                        TkMemory::moveItems(&bucket->Key, &oldBucket.Key, 1);
-                        TkMemory::moveItems(&bucket->Value, &oldBucket.Value, 1);
+                        TkMemory::moveItems(&bucket->key, &oldBucket.key, 1);
+                        TkMemory::moveItems(&bucket->value, &oldBucket.value, 1);
                         bucket->m_state = BucketState::kOccupied;
                     }
                 }
@@ -858,11 +858,11 @@ namespace toolkit
                     if (fromBucket.isOccupied())
                     {
                         Bucket &toBucket = toData[i];
-                        TkMemory::moveItems(&toBucket.Key, &fromBucket.Key, 1);
-                        TkMemory::moveItems(&toBucket.Value, &fromBucket.Value, 1);
+                        TkMemory::moveItems(&toBucket.key, &fromBucket.key, 1);
+                        TkMemory::moveItems(&toBucket.value, &fromBucket.value, 1);
                         toBucket.m_state = BucketState::kOccupied;
-                        TkMemory::destructItem(&fromBucket.Key);
-                        TkMemory::destructItem(&fromBucket.Value);
+                        TkMemory::destructItem(&fromBucket.key);
+                        TkMemory::destructItem(&fromBucket.value);
                         fromBucket.m_state = BucketState::kEmpty;
                     }
                 }

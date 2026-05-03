@@ -311,8 +311,8 @@ namespace toolkit {
             writeI32(count);
             for (const auto& e : data)
             {
-                write(e.Key);
-                write(e.Value);
+                write(e.key);
+                write(e.value);
             }
         }
         

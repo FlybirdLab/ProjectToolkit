@@ -122,7 +122,7 @@ namespace toolkit
         TkStringBuilder b{};
         for (auto &item : params)
         {
-            b.append(item.Key).append(' ').append(item.Value).append(',');
+            b.append(item.key).append(' ').append(item.value).append(',');
         }
         auto p = b.toString();
 

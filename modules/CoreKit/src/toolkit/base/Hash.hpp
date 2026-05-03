@@ -120,6 +120,15 @@ namespace toolkit
 		}
 	};
 
+	template <typename T>
+	struct HashFunc<T, decltype((void)getHash(*(const T *)nullptr))>
+	{
+		static u32 get(const T &k)
+		{
+			return getHash(k);
+		}
+	};
+
 	template <>
 	struct HashFunc<RuntimeHash>
 	{
@@ -219,6 +228,30 @@ namespace toolkit
 		{
 			static const i64 shift = 3;
 			return (u32)((i64)(k) >> shift);
+		}
+	};
+
+	[[deprecated("HashFunc<T*> fallback hashes pointer addresses. Prefer a typed getHash(const T&) or HashFunc<T> specialization when object identity is not intended.")]]
+	TK_FORCE_INLINE u32 hashPointerFallback(const void *k)
+	{
+		return HashFunc<void *>::get(k);
+	}
+
+	template <typename T>
+	struct HashFunc<T *>
+	{
+		static u32 get(const T *k)
+		{
+			return hashPointerFallback(k);
+		}
+	};
+
+	template <typename T>
+	struct HashFunc<const T *>
+	{
+		static u32 get(const T *k)
+		{
+			return hashPointerFallback(k);
 		}
 	};
 

@@ -111,22 +111,22 @@ namespace toolkit {
     bool PurcCtx::processAll()
     {
         for (auto& item : m_files) {
-            if (item.Value->m_isProcessed) {
+            if (item.value->m_isProcessed) {
                 continue;
             }
-            if (!item.Value->processFile()) {
-                LogError("Failed to process file {0} Moc will remove it from queue", item.Key);
-                TkMemory::deletePtr(item.Value);
+            if (!item.value->processFile()) {
+                LogError("Failed to process file {0} Moc will remove it from queue", item.key);
+                TkMemory::deletePtr(item.value);
                 continue;
             }
             PurcBuffer::FileInfo ifo{
-                .fileSize = TkFileSystem::getFileSize(item.Key),
-                .fileLastEdit = TkFileSystem::getLastEdit(item.Key).getTicks(),
+                .fileSize = TkFileSystem::getFileSize(item.key),
+                .fileLastEdit = TkFileSystem::getLastEdit(item.key).getTicks(),
             };
 
-            if (!m_buffer->tryAddToBuf(item.Key, ifo, item.Value->m_rootNode)) {
-                LogError("Failed to buffer file {0} Moc will remove it from queue", item.Key);
-                TkMemory::deletePtr(item.Value);
+            if (!m_buffer->tryAddToBuf(item.key, ifo, item.value->m_rootNode)) {
+                LogError("Failed to buffer file {0} Moc will remove it from queue", item.key);
+                TkMemory::deletePtr(item.value);
                 continue;
             }
         }
@@ -164,7 +164,7 @@ namespace toolkit {
 
     bool PurcCtx::hasMarco(const TkStringView& v) {
         for (const auto& item : m_bufferedMarcos) {
-            if (item.Value->hasMarco(v)) {
+            if (item.value->hasMarco(v)) {
                 return true;
             }
         }

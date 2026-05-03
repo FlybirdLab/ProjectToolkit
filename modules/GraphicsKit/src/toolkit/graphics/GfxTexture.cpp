@@ -613,7 +613,7 @@ namespace toolkit
             for (i32 mipLevel = 0; mipLevel < mipLevels(); mipLevel++)
             {
                 TextureMipData *mip = data.getData(arrayIndex, mipLevel);
-                uploadMipMapAsync(mip->Data, mipLevel, mip->RowPitch, mip->DepthPitch, copyData);
+                uploadMipMapAsync(mip->data, mipLevel, mip->rowPitch, mip->depthPitch, copyData);
             }
         }
         return true;

@@ -44,7 +44,7 @@ namespace toolkit
         s_mtx.lock();
         for (auto i = s_registry.Begin(); i.isNotEnd(); ++i)
         {
-            i->Value->kill(false);
+            i->value->kill(false);
         }
         s_mtx.unlock();
 

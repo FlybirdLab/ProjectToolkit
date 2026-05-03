@@ -561,7 +561,7 @@ namespace toolkit
 
         s_incMtx.lock();
         for (auto it = s_includeWatchers.Begin(); it.isNotEnd(); ++it)
-            TkFileSystem::closeFileWatcher(it->Value);
+            TkFileSystem::closeFileWatcher(it->value);
         s_includeWatchers.clear();
         s_includePaths.clear();
         s_incMtx.unlock();

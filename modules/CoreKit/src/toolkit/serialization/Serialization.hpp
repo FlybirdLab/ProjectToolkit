@@ -362,9 +362,9 @@ namespace toolkit::serialization
         {
             stream.startObject();
             JSON_KEY(stream, "Key");
-            serialize(stream, item.Key, nullptr);
+            serialize(stream, item.key, nullptr);
             JSON_KEY(stream, "Value");
-            serialize(stream, item.Value, nullptr);
+            serialize(stream, item.value, nullptr);
             stream.endObject();
         }
         stream.endArray(value.count());
@@ -458,7 +458,7 @@ namespace toolkit::serialization
         {
             auto mapped = modifier->idsMapping.find(value);
             if (mapped != modifier->idsMapping.End())
-                value = mapped->Value;
+                value = mapped->value;
         }
     }
     inline void deserialize(JsonValue stream, TkDateTime &value, ISerializeModifier *)

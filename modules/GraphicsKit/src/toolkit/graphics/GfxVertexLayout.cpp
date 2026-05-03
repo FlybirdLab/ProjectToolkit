@@ -305,7 +305,7 @@ namespace toolkit
     void ClearVertexs_layoutCache()
     {
         for (const auto &e : s_layoutCache)
-            TkMemory::deletePtr(e.Value);
+            TkMemory::deletePtr(TkMemory::getDefault(), e.value);
         s_layoutCache.clear();
         s_vertexBufferCache.clear();
     }

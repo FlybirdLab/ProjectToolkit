@@ -36,7 +36,7 @@ namespace toolkit
             if (locale.isEmpty())
                 return nullptr;
             auto it = mapping.find(locale);
-            return it != mapping.End() ? &it->Value : nullptr;
+            return it != mapping.End() ? &it->value : nullptr;
         }
 
         TkString findFirstLocaleKeyByValue(const TkHashMap<TkString, TkArray<I18nStringTable *>> &mapping, const TkArray<I18nStringTable *> *target)
@@ -45,8 +45,8 @@ namespace toolkit
                 return TkString::Empty;
             for (auto it = mapping.Begin(); it.isNotEnd(); ++it)
             {
-                if (&it->Value == target)
-                    return it->Key;
+                if (&it->value == target)
+                    return it->key;
             }
             return TkString::Empty;
         }
@@ -81,7 +81,7 @@ namespace toolkit
             auto it = table->entries.find(id);
             if (it == table->entries.End())
                 return TkString::Empty;
-            return tryGetFromMessages(&it->Value, index);
+            return tryGetFromMessages(&it->value, index);
         }
 
         TkString tryGetFromTablesDirect(const TkArray<I18nStringTable *> &tables, const TkString &id, i32 index)
@@ -122,7 +122,7 @@ namespace toolkit
             auto it = table->entries.find(id);
             if (it == table->entries.End())
                 return TkString::Empty;
-            return tryGetPluralFromMessages(&it->Value, n);
+            return tryGetPluralFromMessages(&it->value, n);
         }
 
         TkString tryGetPluralFromTablesDirect(const TkArray<I18nStringTable *> &tables, const TkString &id, i32 n)
@@ -306,9 +306,9 @@ namespace toolkit
             if (!fallbackLocale.hasChars())
                 continue;
             auto it = localeMapping.find(fallbackLocale);
-            if (it != localeMapping.End() && it->Value.count() > 0)
+            if (it != localeMapping.End() && it->value.count() > 0)
             {
-                I18nStringTable *candidate = it->Value[0];
+                I18nStringTable *candidate = it->value[0];
                 I18nStringTable *source = &s_localeTables[i];
                 if (!wouldCreateFallbackCycle(source, candidate))
                 {
