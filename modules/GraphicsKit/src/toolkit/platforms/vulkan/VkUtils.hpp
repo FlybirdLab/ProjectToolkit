@@ -29,7 +29,7 @@ namespace toolkit
     if (result != VK_SUCCESS)                           \
     {                                                   \
         VkUtils::logResult(result, __FILE__, __LINE__); \
-        return true;                                    \
+        return false;                                   \
     }
 #if GFX_ENABLE_ASSERTION
 #define VK_SET_DEBUG_NAME(d, handle, type, name) VkUtils::setName(d->device, (u64)handle, type, name)

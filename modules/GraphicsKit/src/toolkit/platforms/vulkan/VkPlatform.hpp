@@ -24,30 +24,40 @@ namespace toolkit
     };
 
     // Vulkan API platform support.
-    class VulkanPlatform
+    class VulkanPlatformBase
     {
     public:
         static void getInstanceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers);
         static void getDeviceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers);
         static void createSurface(VkSurfaceKHR *outSurface);
-        static void createSurface(void* windowHandle, VkInstance instance, VkSurfaceKHR* outSurface);
-        static void restrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures &deviceFeatures, VkPhysicalDeviceFeatures &featuresToEnable);
-
-        //DEFAULT {
-        //     featuresToEnable = deviceFeatures;
-        //     featuresToEnable.shaderResourceResidency = VK_FALSE;
-        //     featuresToEnable.shaderResourceMinLod = VK_FALSE;
-        //     featuresToEnable.sparseBinding = VK_FALSE;
-        //     featuresToEnable.sparseResidencyBuffer = VK_FALSE;
-        //     featuresToEnable.sparseResidencyImage2D = VK_FALSE;
-        //     featuresToEnable.sparseResidencyImage3D = VK_FALSE;
-        //     featuresToEnable.sparseResidency2Samples = VK_FALSE;
-        //     featuresToEnable.sparseResidency4Samples = VK_FALSE;
-        //     featuresToEnable.sparseResidency8Samples = VK_FALSE;
-        //     featuresToEnable.sparseResidencyAliased = VK_FALSE;
-        // }
+        static void restrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures &deviceFeatures, VkPhysicalDeviceFeatures &featuresToEnable)
+        {
+            featuresToEnable = deviceFeatures;
+            featuresToEnable.shaderResourceResidency = VK_FALSE;
+            featuresToEnable.shaderResourceMinLod = VK_FALSE;
+            featuresToEnable.sparseBinding = VK_FALSE;
+            featuresToEnable.sparseResidencyBuffer = VK_FALSE;
+            featuresToEnable.sparseResidencyImage2D = VK_FALSE;
+            featuresToEnable.sparseResidencyImage3D = VK_FALSE;
+            featuresToEnable.sparseResidency2Samples = VK_FALSE;
+            featuresToEnable.sparseResidency4Samples = VK_FALSE;
+            featuresToEnable.sparseResidency8Samples = VK_FALSE;
+            featuresToEnable.sparseResidencyAliased = VK_FALSE;
+        }
     };
 
 }
+
+#if TK_WINDOWS
+#include <toolkit/platforms/vulkan/windows/Win32Platform.hpp>
+#elif TK_MACOS
+#include <toolkit/platforms/vulkan/macos/MacPlatform.h>
+#elif TK_IOS
+#include <toolkit/platforms/vulkan/ios/iOSPlatform.h>
+#elif TK_LINUX
+#include <toolkit/platforms/vulkan/linux/LinuxPlatform.hpp>
+#elif TK_ANDROID
+#include <toolkit/platforms/vulkan/android/AndroidPlatform.hpp>
+#endif
 
 #endif

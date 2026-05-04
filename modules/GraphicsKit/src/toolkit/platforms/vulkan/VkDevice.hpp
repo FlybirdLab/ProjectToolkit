@@ -65,7 +65,7 @@ namespace toolkit
             return fence->isSignaled || checkFenceState(fence);
         }
 
-        // Returns true if waiting timed out or failed, false otherwise.
+        // Returns true when the fence is successfully signaled, false on timeout or failure.
         bool waitForFence(VulkanFence *fence, u64 timeInNanoseconds) const;
         void resetFence(VulkanFence *fence) const;
 
@@ -260,9 +260,11 @@ namespace toolkit
 
     public:
         VulkanBufferedQueryPool(VulkanDevice *device, i32 capacity, VkQueryType type);
+        // Returns true when a query slot was acquired, false when the pool is full.
         bool acquireQuery(VulkanCmdBuffer *cmdBuffer, u32 &resultIndex);
         void releaseQuery(u32 queryIndex);
         void markQueryAsStarted(u32 queryIndex);
+        // Returns true when the result is available, false when it is not ready or an error occurred.
         bool getResults(class VulkanContext *context, u32 index, u64 &result);
         bool hasRoom() const;
     };
@@ -461,10 +463,10 @@ namespace toolkit
         void setupPresentQueue(VkSurfaceKHR surface);
         // Finds the closest pixel format that a specific Vulkan device supports.
         PixelFormat getClosestSupportedPixelFormat(PixelFormat format, GfxTextureFlags flags, bool optimalTiling);
-        // Saves the pipeline cache.
+        // Returns true when the pipeline cache was saved, false on failure.
         bool savePipelineCache();
-#if VK_EXT_validation_cache
-        // Saves the validation cache.
+#if VK_USE_VALIDATION_CACHE
+        // Returns true when the validation cache was saved, false on failure.
         bool saveValidationCache();
 #endif
 

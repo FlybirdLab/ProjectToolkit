@@ -269,8 +269,8 @@ namespace toolkit
     {
         PROFILE();
         TK_ASSERT(cmdBuffer->isSubmitted());
-        const bool failed = m_device->fenceManager.waitForFence(cmdBuffer->getFence(), (u64)(timeInSecondsToWait * 1e9));
-        TK_ASSERT(!failed);
+        const bool success = m_device->fenceManager.waitForFence(cmdBuffer->getFence(), (u64)(timeInSecondsToWait * 1e9));
+        TK_ASSERT(success);
         cmdBuffer->refreshFenceStatus();
     }
 
