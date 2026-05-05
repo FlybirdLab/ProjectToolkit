@@ -149,10 +149,10 @@ namespace toolkit
             device->deferredDeletionQueue.enqueueResource(VulkanDeferredDeletionQueue::Type::kImageView, view);
             view = VK_NULL_HANDLE;
 
-#if BUILD_DEBUG
-            Device = nullptr;
-            Owner = nullptr;
-            Image = VK_NULL_HANDLE;
+#if TK_DEBUG
+            device = nullptr;
+            owner = nullptr;
+            image = VK_NULL_HANDLE;
 #endif
         }
     }
@@ -203,9 +203,14 @@ namespace toolkit
 
         // Map the staging resource mip map for reading
         auto allocation = stagingBuffer->getAllocation();
-        void *mapped;
+        void *mapped = nullptr;
         const VkResult result = vmaMapMemory(m_device->allocator, allocation, (void **)&mapped);
         LOG_VK_RESULT_WITH_RETURN(result);
+        if (!mapped)
+        {
+            vmaUnmapMemory(m_device->allocator, allocation);
+            return false;
+        }
 
         // Shift mapped buffer to the beginning of the mip data start
         mapped = (void *)((byte *)mapped + offsetInBytes);
@@ -236,7 +241,7 @@ namespace toolkit
             stagingBuffer = (VulkanBuffer *)m_device->createBuffer("Texture.stagingBuffer");
             if (!stagingBuffer->init(GfxBufferDescription::buffer(totalSize, GfxBufferFlags::kNone, PixelFormat::kUnknown, nullptr, 0, m_desc.usage)))
             {
-                TkMemory::deletePtr(stagingBuffer);
+                GFX_DEL_RESOURCE(stagingBuffer);
                 return false;
             }
             m_memoryUsage = 1;
@@ -320,7 +325,7 @@ namespace toolkit
         }
 
         // Initialize handles to the resource
-        if (isRegularTexture())
+        if (isRegularTexture() && !isArray() && !isCubeMap() && !isVolume() && !hasPerMipViews() && !hasPerSliceViews())
         {
             // 'Regular' texture is using only one handle (texture/cubemap)
             m_handlesPerSlice.resize(1, false);

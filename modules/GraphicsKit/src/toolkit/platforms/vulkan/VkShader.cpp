@@ -20,10 +20,12 @@
 namespace toolkit
 {
 
+#ifndef VK_UNIFORM_RING_BUFFER_SIZE
 #if TK_WINDOWS || TK_LINUX || TK_MACOS
-#define VK_UNIFORM_RING_BUFFER_SIZE (24 * 1024 * 1024)
+#define VK_UNIFORM_RING_BUFFER_SIZE (4 * 1024 * 1024)
 #else
-#define VK_UNIFORM_RING_BUFFER_SIZE (8 * 1024 * 1024)
+#define VK_UNIFORM_RING_BUFFER_SIZE (2 * 1024 * 1024)
+#endif
 #endif
 
     VulkanUniformBufferUploader::VulkanUniformBufferUploader(VulkanDevice *device)
@@ -132,7 +134,7 @@ namespace toolkit
 #endif
 #if 0
     // Helper debug print of the shader module handle (Debug Layer sometimes doesn't print the debug name but the handle)
-    LogInfo("VK_OBJECT_TYPE_SHADER_MODULE=0x{0:x}, {1}", (uintptr)shaderModule, initializer.name.getText());
+    LogInfo("VK_OBJECT_TYPE_SHADER_MODULE=0x%zx, %s", (uintptr)shaderModule, initializer.name.getText());
 #endif
 
         GfxShaderProgram *shader = nullptr;

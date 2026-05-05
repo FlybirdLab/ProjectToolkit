@@ -15,7 +15,7 @@ namespace toolkit
     {
         m_ctx = ctx;
     }
-
+#if 1
     MemoryPurcBuffer::MemoryPurcBuffer(const TkStringView &bufPath, PurcCtx *ctx)
         : PurcBuffer(TkStringView::Empty, ctx)
     {
@@ -97,5 +97,5 @@ namespace toolkit
         m_datas.clear();
         m_buf.clear();
     }
-
+#endif
 } // namespace cobalt

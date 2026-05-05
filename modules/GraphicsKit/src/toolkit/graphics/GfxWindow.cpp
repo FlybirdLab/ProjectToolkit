@@ -14,13 +14,18 @@ namespace toolkit
 
     GfxWindow::GfxWindow(const WindowParams &p)
         : TkWindow(p)
+        , m_swapChain(nullptr)
     {
     }
 
     GfxWindow::~GfxWindow()
     {
-        if (m_swapChain)
-            TkMemory::deletePtr(m_swapChain);
+        onBeforeDestroy();
+    }
+
+    void GfxWindow::onBeforeDestroy()
+    {
+        TK_SAFE_DELETE(m_swapChain);
     }
 
     bool GfxWindow::initSwapChain()

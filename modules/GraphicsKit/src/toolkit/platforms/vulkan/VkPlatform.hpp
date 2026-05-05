@@ -28,7 +28,9 @@ namespace toolkit
     {
     public:
         static void getInstanceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers);
-        static void getDeviceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers);
+        static void getDeviceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers)
+        {
+        }
         static void createSurface(VkSurfaceKHR *outSurface);
         static void restrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures &deviceFeatures, VkPhysicalDeviceFeatures &featuresToEnable)
         {

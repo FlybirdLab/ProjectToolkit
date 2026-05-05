@@ -1332,10 +1332,10 @@ namespace toolkit
 
     i32 System::newProcess(ProcessInitArgs &args)
     {
-        LogInfo("Command: {0} {1}", args.file, args.args);
+        LogInfo("Command: %s %s", args.file.getText(), args.args.getText());
         if (args.workDir.hasChars())
         {
-            LogInfo("Working directory: {0}", args.workDir);
+            LogInfo("Working directory: %s", args.workDir.getText());
         }
         const bool captureStdOut = args.logOutput || args.saveOutput;
 
@@ -1355,7 +1355,7 @@ namespace toolkit
             if (ShellExecuteExW(&shExecInfo) == FALSE)
             {
                 result = 1;
-                LogWarn("Cannot start process. Error code: 0x{0:x}", (u64)::GetLastError());
+                LogWarn("Cannot start process. Error code: 0x%x", static_cast<u32>(::GetLastError()));
             }
             else if (args.waitForQuit)
             {
@@ -1461,7 +1461,7 @@ namespace toolkit
             ::PROCESS_INFORMATION procInfo;
             if (!CreateProcessW(nullptr, const_cast<LPWSTR>(u16.get()), nullptr, nullptr, TRUE, dwCreationFlags, (LPVOID)environmentStr, args.workDir.hasChars() ? dirPth.get() : nullptr, &startupInfoEx.StartupInfo, &procInfo))
             {
-                LogWarn("Cannot start process. Error code: 0x{0:x}", (u64)GetLastError());
+                LogWarn("Cannot start process. Error code: 0x%x", static_cast<u32>(GetLastError()));
                 goto ERROR_EXIT;
             }
 

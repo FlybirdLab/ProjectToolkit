@@ -14,10 +14,6 @@
 
 namespace toolkit
 {
-#define VULKAN_USE_PLATFORM_WIN32_KHR 1
-#define VULKAN_USE_PLATFORM_WIN32_KHX 1
-#define VULKAN_USE_CREATE_WIN32_SURFACE 1
-
     class Win32VulkanPlatform : public VulkanPlatformBase
     {
     public:

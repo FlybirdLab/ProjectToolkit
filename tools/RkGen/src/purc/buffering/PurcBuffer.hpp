@@ -1,3 +1,8 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 #pragma once
 
 #include <toolkit/types/StringView.hpp>
@@ -42,7 +47,7 @@ namespace toolkit {
     };
 
 
-#if TK_DEBUG
+#if 1
     // An implement of PurcBuffer just using CHashMap saving in memory
     class MemoryPurcBuffer final : public PurcBuffer
     {

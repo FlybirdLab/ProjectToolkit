@@ -46,4 +46,8 @@ namespace toolkit
 #else
 #define TK_ASSERT(x) ((void)(x))
 #define TK_ASSERT_ENABLED 0
+#define TK_CHECK_DEBUG(expression)
+#define TK_CHECK_RETURN_DEBUG(expression, returnValue)
+#define TK_CHECK(expression)
+#define TK_CHECK_RETURN(expression, returnValue)
 #endif

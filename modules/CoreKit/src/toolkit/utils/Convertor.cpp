@@ -30,8 +30,11 @@
 namespace toolkit
 {
 
-    TkSpan<const char *> TkConvertor::Private::BytesSizes{};
-    TkSpan<const char *> TkConvertor::Private::HertzSizes{};
+    static const char *s_byteSizes[] = {"B", "KB", "MB", "GB", "TB", "PB"};
+    static const char *s_hertzSizes[] = {"Hz", "KHz", "MHz", "GHz"};
+
+    TkSpan<const char *> TkConvertor::Private::BytesSizes{s_byteSizes};
+    TkSpan<const char *> TkConvertor::Private::HertzSizes{s_hertzSizes};
 
 #if TK_POSIX
 

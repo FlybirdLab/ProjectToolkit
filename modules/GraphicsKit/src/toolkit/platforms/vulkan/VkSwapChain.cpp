@@ -136,6 +136,9 @@ namespace toolkit
 
     bool VulkanSwapChain::resize(i32 width, i32 height)
     {
+        if (width <= 0 || height <= 0)
+            return false;
+
         // Check if size won't change
         if (width == m_width && height == m_height)
             return true;
@@ -313,7 +316,7 @@ namespace toolkit
         {
             u32 presentModesCount = 0;
             VALIDATE_VK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, m_surface, &presentModesCount, nullptr));
-            TkStaticArray<VkPresentModeKHR, 4> presentModes;
+            TkStaticArray<VkPresentModeKHR, 8> presentModes; //TODO 4->8
             presentModes.resize(presentModesCount);
             VALIDATE_VK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, m_surface, &presentModesCount, presentModes.get()));
             bool foundPresentModeMailbox = false;
@@ -509,6 +512,8 @@ namespace toolkit
             TK_ASSERT(m_swapChain != VK_NULL_HANDLE);
             i32 width = m_width, height = m_height;
             releaseData();
+            m_device->waitForGPU();
+            m_device->deferredDeletionQueue.releaseResources(true);
             if (!createSwapChain(width, height))
                 return status;
 

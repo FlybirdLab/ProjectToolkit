@@ -382,7 +382,7 @@ namespace toolkit
         return foregroundProcess == ::GetCurrentProcessId();
     }
 
-    TkWindow *WindowSystem::createWindow(const WindowParams &p)
+    static WindowParams resolveWindowParams(const WindowParams &p)
     {
         WindowParams resolvedParams = p;
         if (resolvedParams.startPos == WindowStartPos::kCenterParent || resolvedParams.startPos == WindowStartPos::kCenterScreen)
@@ -393,31 +393,52 @@ namespace toolkit
 
             resolvedParams.pos = Pos(parentBounds.location) + (Pos(parentBounds.size) - resolvedParams.size) * 0.5f;
         }
+        return resolvedParams;
+    }
 
+    TkWindow *WindowSystem::createWindow(const WindowParams &p)
+    {
+        WindowParams resolvedParams = resolveWindowParams(p);
         IAllocator& alloc = getWindowAllocator(resolvedParams);
         auto* ptr = TkMemory::newObject<TkWindow>(alloc, resolvedParams);
         if (ptr == nullptr)
             return nullptr;
 
-        auto* nativeWnd = TkMemory::newObject<NativeWindow>(alloc, resolvedParams, ptr);
-        if (nativeWnd == nullptr)
+        if (!WindowSystem::createWindow(ptr))
         {
             TkMemory::deletePtr(alloc, ptr);
             return nullptr;
         }
+        return ptr;
+    }
 
-        ptr->m_native = nativeWnd;
+    bool WindowSystem::createWindow(TkWindow *window)
+    {
+        if (window == nullptr)
+            return false;
+
+        WindowParams resolvedParams = resolveWindowParams(window->m_params);
+        window->m_params = resolvedParams;
+        window->m_clientSize = resolvedParams.size;
+
+        IAllocator& alloc = getWindowAllocator(resolvedParams);
+        auto* nativeWnd = TkMemory::newObject<NativeWindow>(alloc, resolvedParams, window);
+        if (nativeWnd == nullptr)
+        {
+            return false;
+        }
+
+        window->m_native = nativeWnd;
 
         if (!nativeWnd->hasHWND())
         {
-            ptr->m_native = nullptr;
+            window->m_native = nullptr;
             TkMemory::deletePtr(alloc, nativeWnd);
-            TkMemory::deletePtr(alloc, ptr);
-            return nullptr;
+            return false;
         }
 
-        WindowSystem::registerWnd(ptr);
-        return ptr;
+        WindowSystem::registerWnd(window);
+        return true;
     }
 
     void WindowSystem::destroyWindow(TkWindow* w)
@@ -426,6 +447,7 @@ namespace toolkit
             return;
 
         IAllocator& alloc = getWindowAllocator(w->getParams());
+        w->onBeforeDestroy();
         if (w->getNativeWindow()) {
             TkMemory::deletePtr(alloc, w->getNativeWindow());
             w->m_native = nullptr;
@@ -459,6 +481,10 @@ namespace toolkit
     }
 
     TkWindow::~TkWindow()
+    {
+    }
+
+    void TkWindow::onBeforeDestroy()
     {
     }
 

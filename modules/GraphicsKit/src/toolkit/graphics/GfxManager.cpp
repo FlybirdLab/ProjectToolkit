@@ -10,6 +10,7 @@
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/debug/Profiler.hpp"
 #include "toolkit/graphics/async/GfxTaskMgr.hpp"
+#include "toolkit/graphics/utils/PixelFormat.hpp"
 #include "toolkit/types/String.hpp"
 #include "toolkit/types/Version.hpp"
 
@@ -45,22 +46,31 @@ namespace toolkit
 
     static GfxDevice *createDeviceForBackend(GfxBackendType backend)
     {
+        LogInfo("createDeviceForBackend enter: backend=%d", static_cast<i32>(backend));
         switch (backend)
         {
 #if GFX_API_NULL
         case GfxBackendType::kNull:
+            LogInfo("createDeviceForBackend: creating Null device");
             return createDeviceNull();
 #endif
 #if GFX_API_VULKAN
         case GfxBackendType::kVulkan:
-            return createDeviceVulkan();
+        {
+            LogInfo("createDeviceForBackend: creating Vulkan device");
+            GfxDevice *device = createDeviceVulkan();
+            LogInfo("createDeviceForBackend: Vulkan device created %p", device);
+            return device;
+        }
 #endif
 #if GFX_API_DIRECTX11
         case GfxBackendType::kDirectX11:
+            LogInfo("createDeviceForBackend: creating DirectX11 device");
             return createDeviceDX11();
 #endif
 #if GFX_API_DIRECTX12
         case GfxBackendType::kDirectX12:
+            LogInfo("createDeviceForBackend: creating DirectX12 device");
             return createDeviceDX12();
 #endif
 #if GFX_API_OPENGL || GFX_API_OPENGLES
@@ -68,13 +78,16 @@ namespace toolkit
         case GfxBackendType::kOpenGL4_4:
         case GfxBackendType::kOpenGLES3:
         case GfxBackendType::kOpenGLES3_1:
+            LogInfo("createDeviceForBackend: creating OpenGL device");
             return createDeviceOGL();
 #endif
 #if GFX_API_METAL
         case GfxBackendType::kMetal:
+            LogInfo("createDeviceForBackend: creating Metal device");
             return createDeviceMetal();
 #endif
         default:
+            LogWarn("createDeviceForBackend: unsupported backend=%d", static_cast<i32>(backend));
             return nullptr;
         }
     }
@@ -83,7 +96,11 @@ namespace toolkit
     {
         TK_ASSERT(GfxDevice::sInstance == nullptr);
 
+        LogInfo("Create graphics device begin: backend=%d", static_cast<i32>(backend));
+        GfxPixelFormat::init();
+
         GfxDevice *device = createDeviceForBackend(backend);
+        LogInfo("createDeviceForBackend done: %p", device);
         if (!device)
         {
             LogError("Requested graphics backend is not enabled or failed to create.");
@@ -91,12 +108,23 @@ namespace toolkit
         }
 
         GfxDevice::sInstance = device;
-        if (!device->init() || !device->initInternalResources())
+        LogInfo("device->init begin");
+        if (!device->init())
         {
+            LogError("device->init failed");
             disposeDevice();
             return false;
         }
 
+        LogInfo("device->initInternalResources begin");
+        if (!device->initInternalResources())
+        {
+            LogError("device->initInternalResources failed");
+            disposeDevice();
+            return false;
+        }
+
+        LogInfo("Create graphics device success");
         return true;
     }
 

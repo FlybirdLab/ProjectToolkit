@@ -18,10 +18,10 @@ namespace toolkit
     struct TK_API ShaderBindings
     {
     public:
-        u32 instructionsCount;
-        u32 usedCBsMask;
-        u32 usedSRsMask;
-        u32 usedUAsMask;
+        u32 instructionsCount = 0;
+        u32 usedCBsMask = 0;
+        u32 usedSRsMask = 0;
+        u32 usedUAsMask = 0;
 
     public:
         TK_FORCE_INLINE bool isUsingCB(u32 slotIndex) const

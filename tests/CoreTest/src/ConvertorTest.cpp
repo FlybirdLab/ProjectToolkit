@@ -29,6 +29,26 @@ TEST(TkConvertor, CountBits)
     EXPECT_EQ(TkConvertor::countBits(0x55555555u), 16);
 }
 
+TEST(TkConvertor, BytesToText)
+{
+    EXPECT_STREQ(TkConvertor::bytesToText(0).getText(), "0 B");
+    EXPECT_STREQ(TkConvertor::bytesToText(1).getText(), "1 B");
+    EXPECT_STREQ(TkConvertor::bytesToText(1023).getText(), "1023 B");
+    EXPECT_STREQ(TkConvertor::bytesToText(1024).getText(), "1 KB");
+    EXPECT_STREQ(TkConvertor::bytesToText(1536).getText(), "1.5 KB");
+    EXPECT_STREQ(TkConvertor::bytesToText(1024 * 1024).getText(), "1 MB");
+    EXPECT_STREQ(TkConvertor::bytesToText(5ull * 1024ull * 1024ull * 1024ull).getText(), "5 GB");
+}
+
+TEST(TkConvertor, HertzToText)
+{
+    EXPECT_STREQ(TkConvertor::hertzToText(0).getText(), "0 Hz");
+    EXPECT_STREQ(TkConvertor::hertzToText(999).getText(), "999 Hz");
+    EXPECT_STREQ(TkConvertor::hertzToText(1000).getText(), "1 KHz");
+    EXPECT_STREQ(TkConvertor::hertzToText(1500).getText(), "1.5 KHz");
+    EXPECT_STREQ(TkConvertor::hertzToText(2500000).getText(), "2.5 MHz");
+}
+
 TEST(TkConvertor, UnsafeMemoryCopy)
 {
     byte src[16];
@@ -114,6 +134,22 @@ TEST(StringAs, InlineVsHeap)
     EXPECT_NE(heapStr.get(), nullptr);
 }
 
+TEST(StringAs, InlineUtf16ToUtf8CapacityUsesOutputBytes)
+{
+    const wchar *text = L"世界";
+    StringAsUTF8<8> inlineStr(text);
+
+    EXPECT_STREQ(inlineStr.get(), "\xE4\xB8\x96\xE7\x95\x8C");
+}
+
+TEST(StringAs, InlineAnsiFromUtf16UsesSourceLength)
+{
+    const wchar text[] = {L'O', L'K', 0, L'X', 0};
+    StringAsANSI<16> s(text, 2);
+
+    EXPECT_STREQ(s.get(), "OK");
+}
+
 TEST(StringAsTerminated, AlreadyTerminated)
 {
     const char text[] = "hello";
@@ -130,6 +166,13 @@ TEST(StringAsTerminated, NotTerminated)
     EXPECT_STREQ((const char *)s, "hi");
 }
 
+TEST(StringAsTerminated, EmptyInput)
+{
+    StringAsTerminated<char> s(nullptr, 4);
+
+    EXPECT_STREQ((const char *)s, "");
+}
+
 TEST(TkConvertor, Base64RoundTrip)
 {
     TkConvertor c;
@@ -143,6 +186,27 @@ TEST(TkConvertor, Base64RoundTrip)
 
     ASSERT_EQ(decoded.count(), 7);
     EXPECT_EQ(std::memcmp(data, decoded.get(), 7), 0);
+}
+
+TEST(TkConvertor, Base64KnownValues)
+{
+    TkConvertor c;
+    TkArray<char> encoded;
+
+    const byte one[] = {'M'};
+    c.base64Encode(one, 1, encoded);
+    ASSERT_EQ(encoded.count(), 4);
+    EXPECT_EQ(std::memcmp(encoded.get(), "TQ==", 4), 0);
+
+    const byte two[] = {'M', 'a'};
+    c.base64Encode(two, 2, encoded);
+    ASSERT_EQ(encoded.count(), 4);
+    EXPECT_EQ(std::memcmp(encoded.get(), "TWE=", 4), 0);
+
+    const byte three[] = {'M', 'a', 'n'};
+    c.base64Encode(three, 3, encoded);
+    ASSERT_EQ(encoded.count(), 4);
+    EXPECT_EQ(std::memcmp(encoded.get(), "TWFu", 4), 0);
 }
 
 TEST(TkConvertor, Base64Empty)

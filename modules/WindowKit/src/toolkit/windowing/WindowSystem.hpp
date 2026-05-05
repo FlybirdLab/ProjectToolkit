@@ -27,6 +27,7 @@ namespace toolkit
 
     public:
         static TkWindow *createWindow(const WindowParams &p);
+        static bool createWindow(TkWindow *window);
         static void destroyWindow(TkWindow *);
 
     public:

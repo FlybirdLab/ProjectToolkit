@@ -111,7 +111,7 @@ namespace toolkit
             msgPrefix = "DEBUG";
         }
 
-        LogInfo("[Vulkan] %s:%s:%s {3}", msgPrefix, layerPrefix, msgCode, msg);
+        LogInfo("[Vulkan] %s:%s:%d %s", msgPrefix, layerPrefix, msgCode, msg);
         return VK_FALSE;
     }
 
@@ -220,9 +220,9 @@ namespace toolkit
 
         const TkString message(callbackData->pMessage);
         if (callbackData->pMessageIdName)
-            LogInfo("[Vulkan] %s {1}:{2}({3}) {4}", type, severity, callbackData->messageIdNumber, callbackData->pMessageIdName, message);
+            LogInfo("[Vulkan] %s %s:%d(%s) %s", type, severity, callbackData->messageIdNumber, callbackData->pMessageIdName, *message);
         else
-            LogInfo("[Vulkan] {0} {1}:{2} {3}", type, severity, callbackData->messageIdNumber, message);
+            LogInfo("[Vulkan] %s %s:%d %s", type, severity, callbackData->messageIdNumber, *message);
 
 #if TK_DEBUG
         if (auto *context = (VulkanContext *)GfxDevice::sInstance->getMainContext())
@@ -858,6 +858,8 @@ namespace toolkit
         if (!texture)
         {
             texture = (VulkanTexture *)m_device->createTexture("DummyTexture");
+            if (!texture)
+                return nullptr;
             GfxTextureDescription desc;
             const PixelFormat format = PixelFormat::kR8G8B8A8_UNorm;
             const GfxTextureFlags flags = GfxTextureFlags::kShaderResource | GfxTextureFlags::kUnorderedAccess;
@@ -883,8 +885,11 @@ namespace toolkit
                 break;
             default:;
             }
-            texture->init(desc);
-            TK_ASSERT(texture->view(0));
+            if (!texture->init(desc) || !texture->view(0))
+            {
+                GFX_DEL_RESOURCE(texture);
+                return nullptr;
+            }
             m_dummyTextures[index] = texture;
         }
 
@@ -902,7 +907,11 @@ namespace toolkit
         if (!dummyBuffer)
         {
             dummyBuffer = (VulkanBuffer *)m_device->createBuffer("DummyBuffer");
-            dummyBuffer->init(GfxBufferDescription::buffer(GfxPixelFormat::sizeInBytes(format) * 256, GfxBufferFlags::kShaderResource | GfxBufferFlags::kUnorderedAccess, format));
+            if (!dummyBuffer || !dummyBuffer->init(GfxBufferDescription::buffer(GfxPixelFormat::sizeInBytes(format) * 256, GfxBufferFlags::kShaderResource | GfxBufferFlags::kUnorderedAccess, format)))
+            {
+                GFX_DEL_RESOURCE(dummyBuffer);
+                return nullptr;
+            }
         }
         return dummyBuffer;
     }
@@ -913,7 +922,11 @@ namespace toolkit
         {
             m_dummyVB = (VulkanBuffer *)m_device->createBuffer("DummyVertexBuffer");
             auto *layout = GfxVertexLayout::get({{VertexElementTypes::kAttribute3, 0, 0, 0, PixelFormat::kR8G8B8A8_UNorm}});
-            m_dummyVB->init(GfxBufferDescription::vertex(layout, sizeof(Color32), 1, &Color32::Transparent));
+            if (!m_dummyVB || !layout || !m_dummyVB->init(GfxBufferDescription::vertex(layout, sizeof(Color32), 1, &Color32::Transparent)))
+            {
+                GFX_DEL_RESOURCE(m_dummyVB);
+                return nullptr;
+            }
         }
         return m_dummyVB;
     }
@@ -923,6 +936,8 @@ namespace toolkit
         if (!m_dummyCB)
         {
             m_dummyCB = m_device->createConstantBuffer(256, "DummyConstantBuffer");
+            if (!m_dummyCB)
+                return nullptr;
         }
         return m_dummyCB;
     }
@@ -937,7 +952,10 @@ namespace toolkit
             for (i32 i = 0; i < (i32)PixelFormat::MAX; i++)
             {
                 if (VulkanBuffer *buffer = m_dummyBuffers[i])
+                {
+                    buffer->releaseData();
                     TkMemory::deletePtr(buffer);
+                }
             }
             TkMemory::free(TkMemory::getDefault(), m_dummyBuffers);
             m_dummyBuffers = nullptr;
@@ -979,9 +997,10 @@ namespace toolkit
 
         // Allocate new buffer
         auto buffer = m_device->createBuffer("Pooled Staging");
-        if (buffer->init(GfxBufferDescription::buffer(size, GfxBufferFlags::kNone, PixelFormat::kUnknown, nullptr, 0, usage)))
+        if (!buffer || !buffer->init(GfxBufferDescription::buffer(size, GfxBufferFlags::kNone, PixelFormat::kUnknown, nullptr, 0, usage)))
         {
             LogWarn("Failed to create pooled staging buffer.");
+            GFX_DEL_RESOURCE(buffer);
             return nullptr;
         }
 
@@ -1069,7 +1088,10 @@ namespace toolkit
         TkMutexGuard lock(m_locker);
 
 #if TK_DEBUG
-        LogInfo("Vulkan staging buffers peek memory usage: {0}, allocs: {1}, frees: {2}", TkConvertor::bytesToText(m_allBuffersPeekSize), TkConvertor::bytesToText(m_allBuffersAllocSize), TkConvertor::bytesToText(m_allBuffersFreeSize));
+        const TkString peekSizeText = TkConvertor::bytesToText(m_allBuffersPeekSize);
+        const TkString allocSizeText = TkConvertor::bytesToText(m_allBuffersAllocSize);
+        const TkString freeSizeText = TkConvertor::bytesToText(m_allBuffersFreeSize);
+        LogInfo("Vulkan staging buffers peek memory usage: %s, allocs: %s, frees: %s", *peekSizeText, *allocSizeText, *freeSizeText);
 #endif
 
         // Release buffers and clear memory
@@ -1083,19 +1105,27 @@ namespace toolkit
     }
 
     VulkanDevice::VulkanDevice(GfxShaderProfile shaderProfile, VulkanAdapter *adapter)
-        : GfxDevice(GfxBackendType::kVulkan, shaderProfile), m_renderPasses(512), m_framebuffers(512), m_layouts(4096), adapter(adapter), deferredDeletionQueue(this), stagingManager(this), helperResources(this)
+        : GfxDevice(GfxBackendType::kVulkan, shaderProfile), m_renderPasses(64), m_framebuffers(64), m_layouts(256), adapter(adapter), deferredDeletionQueue(this), stagingManager(this), helperResources(this)
     {
     }
 
     GfxDevice *VulkanDevice::create()
     {
+        LogInfo("VulkanDevice::create enter");
         VkResult result;
 
         // Initialize bindings
+        LogInfo("VulkanDevice::create before volkInitialize");
         result = volkInitialize();
         if (result != VK_SUCCESS)
         {
-            LogWarn("Graphics device init failed with error {0}", VkUtils::getErrorString(result));
+            LogWarn("Graphics device init failed with error %s", VkUtils::getErrorString(result));
+            return nullptr;
+        }
+        LogInfo("VulkanDevice::create after volkInitialize");
+        if (!vkCreateInstance || !vkEnumerateInstanceExtensionProperties || !vkEnumerateInstanceLayerProperties)
+        {
+            LogWarn("Graphics device init failed because required Vulkan loader entry points are missing.");
             return nullptr;
         }
 
@@ -1114,7 +1144,9 @@ namespace toolkit
         instInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
         instInfo.pApplicationInfo = &appInfo;
+        LogInfo("VulkanDevice::create before getInstanceLayersAndExtensions");
         getInstanceLayersAndExtensions(instanceExtensions, instanceLayers, SupportsDebugUtilsExt);
+        LogInfo("VulkanDevice::create after getInstanceLayersAndExtensions extensions=%d layers=%d", instanceExtensions.count(), instanceLayers.count());
         instInfo.enabledExtensionCount = instanceExtensions.count();
         instInfo.ppEnabledExtensionNames = instInfo.enabledExtensionCount > 0 ? static_cast<const char *const *>(instanceExtensions.get()) : nullptr;
         instInfo.enabledLayerCount = instanceLayers.count();
@@ -1124,7 +1156,9 @@ namespace toolkit
 #endif
 
         // Create Vulkan instance
+        LogInfo("VulkanDevice::create before vkCreateInstance");
         result = vkCreateInstance(&instInfo, nullptr, &instance);
+        LogInfo("VulkanDevice::create after vkCreateInstance result=%d instance=%p", static_cast<i32>(result), instance);
         if (result == VK_ERROR_INCOMPATIBLE_DRIVER)
         {
             // Missing driver
@@ -1156,7 +1190,7 @@ namespace toolkit
                 }
                 if (!found)
                 {
-                    LogWarn("Missing required Vulkan extension: {0}", extension);
+                    LogWarn("Missing required Vulkan extension: %s", extension);
                 }
             }
             TkString error = "Vulkan driver doesn't contain specified extensions:\nPlease make sure your layers path is set appropriately.";
@@ -1172,34 +1206,77 @@ namespace toolkit
         }
 
         // Setup bindings
+        LogInfo("VulkanDevice::create before volkLoadInstance");
         volkLoadInstance(instance);
+        LogInfo("VulkanDevice::create after volkLoadInstance");
+        if (!vkEnumeratePhysicalDevices ||
+            !vkGetPhysicalDeviceProperties ||
+            !vkGetPhysicalDeviceQueueFamilyProperties ||
+            !vkGetPhysicalDeviceFeatures ||
+            !vkEnumerateDeviceExtensionProperties ||
+            !vkEnumerateDeviceLayerProperties ||
+            !vkGetPhysicalDeviceFormatProperties ||
+            !vkGetPhysicalDeviceMemoryProperties ||
+            !vkCreateDevice ||
+            !vkDestroyInstance)
+        {
+            LogWarn("Graphics device init failed because required Vulkan instance entry points are missing.");
+            if (vkDestroyInstance)
+                vkDestroyInstance(instance, nullptr);
+            instance = VK_NULL_HANDLE;
+            return nullptr;
+        }
 
         // Setup debug layer
 #if VK_USE_DEBUG_LAYER
+        LogInfo("VulkanDevice::create before setupDebugLayerCallback");
         setupDebugLayerCallback();
+        LogInfo("VulkanDevice::create after setupDebugLayerCallback");
 #endif
 
         // Enumerate all GPU devices and pick one
         i32 selectedAdapterIndex = -1;
         u32 gpuCount = 0;
-        VALIDATE_VK_RESULT(vkEnumeratePhysicalDevices(instance, &gpuCount, nullptr));
+        LogInfo("VulkanDevice::create before vkEnumeratePhysicalDevices count");
+        result = vkEnumeratePhysicalDevices(instance, &gpuCount, nullptr);
+        LogInfo("VulkanDevice::create after vkEnumeratePhysicalDevices count result=%d count=%u", static_cast<i32>(result), gpuCount);
+        if (result != VK_SUCCESS)
+        {
+            LogWarn("Vulkan enumerate physical devices failed with error code: %s", VkUtils::getErrorString(result));
+            vkDestroyInstance(instance, nullptr);
+            instance = VK_NULL_HANDLE;
+            return nullptr;
+        }
         if (gpuCount <= 0)
         {
             LogWarn("No valid GPU found for Vulkan.");
             TK_ASSERT(false && "Vulkan failed to create instance\n\nDo you have a Vulkan-compatible GPU?");
+            vkDestroyInstance(instance, nullptr);
+            instance = VK_NULL_HANDLE;
             return nullptr;
         }
         TK_ASSERT(gpuCount >= 1);
-        TkStaticArray<VkPhysicalDevice, 4> gpus;
+        TkArray<VkPhysicalDevice> gpus;
         gpus.resize(gpuCount);
-        VALIDATE_VK_RESULT(vkEnumeratePhysicalDevices(instance, &gpuCount, gpus.get()));
-        TkStaticArray<VulkanAdapter, 4> adapters;
+        LogInfo("VulkanDevice::create before vkEnumeratePhysicalDevices list");
+        result = vkEnumeratePhysicalDevices(instance, &gpuCount, gpus.get());
+        LogInfo("VulkanDevice::create after vkEnumeratePhysicalDevices list result=%d count=%u", static_cast<i32>(result), gpuCount);
+        if (result != VK_SUCCESS)
+        {
+            LogWarn("Vulkan enumerate physical devices failed with error code: %s", VkUtils::getErrorString(result));
+            vkDestroyInstance(instance, nullptr);
+            instance = VK_NULL_HANDLE;
+            return nullptr;
+        }
+        TkArray<VulkanAdapter> adapters;
         adapters.resize(gpuCount);
         for (u32 gpuIndex = 0; gpuIndex < gpuCount; gpuIndex++)
         {
+            LogInfo("VulkanDevice::create before adapter properties index=%u", gpuIndex);
             VulkanAdapter &adapter = adapters[gpuIndex];
             adapter.device = gpus[gpuIndex];
             vkGetPhysicalDeviceProperties(adapter.device, &adapter.deviceProps);
+            LogInfo("VulkanDevice::create after adapter properties index=%u", gpuIndex);
             adapter.desc = adapter.deviceProps.deviceName;
 
             const char *type;
@@ -1254,14 +1331,12 @@ namespace toolkit
         TK_ASSERT(adapters[selectedAdapterIndex].isValid());
 
         // Create device
-        auto device = TkMemory::newObject<VulkanDevice>(TkMemory::getDefault(), GfxShaderProfile::kVulkan_SM5, TkMemory::newObject<VulkanAdapter>(TkMemory::getDefault(), adapters[selectedAdapterIndex]));
-        if (!device->init())
-        {
-            LogWarn("Graphics device init failed");
-            TkMemory::deletePtr(device);
-            return nullptr;
-        }
-
+        LogInfo("VulkanDevice::create before adapter copy selected=%d", selectedAdapterIndex);
+        VulkanAdapter *adapterCopy = TkMemory::newObject<VulkanAdapter>(TkMemory::getDefault(), adapters[selectedAdapterIndex]);
+        LogInfo("VulkanDevice::create after adapter copy %p", adapterCopy);
+        LogInfo("VulkanDevice::create before VulkanDevice constructor");
+        VulkanDevice *device = TkMemory::newObject<VulkanDevice>(TkMemory::getDefault(), GfxShaderProfile::kVulkan_SM5, adapterCopy);
+        LogInfo("VulkanDevice::create after VulkanDevice constructor %p", device);
         return device;
     }
 
@@ -1338,7 +1413,7 @@ namespace toolkit
             VALIDATE_VK_RESULT(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndex, surface, &supportsPresent));
             if (supportsPresent)
             {
-                LogInfo("Vulkan Queue Family {0}: supports present", queueFamilyIndex);
+                LogInfo("Vulkan Queue Family %d: supports present", queueFamilyIndex);
             }
             return supportsPresent == VK_TRUE;
         };
@@ -1416,7 +1491,7 @@ namespace toolkit
 #if TK_DEBUG
                 if (format != remap)
                 {
-                    LogWarn("Unsupported Vulkan format {0}. Remapping to {1}", format, remap);
+                    LogWarn("Unsupported Vulkan format %d. Remapping to %d", static_cast<i32>(format), static_cast<i32>(remap));
                     format = getClosestSupportedPixelFormat(remap, flags, optimalTiling);
                 }
 #endif
@@ -1454,7 +1529,8 @@ namespace toolkit
         getPipelineCachePath(path);
 
         //
-        auto handle = TkFileSystem::openFile(path);
+        OpenFileParams openParams{.path = path, .mode = FileMode::kCreateAlways, .access = FileAccess::kWrite, .share = FileShare::kRead};
+        auto handle = TkFileSystem::openFile(openParams);
         if (!handle)
             return false;
         bool r = TkFileSystem::writeBytes(handle, data);
@@ -1490,7 +1566,8 @@ namespace toolkit
         // Save data
         TkString path;
         getValidationCachePath(path);
-        auto handle = TkFileSystem::openFile(path);
+        OpenFileParams openParams{.path = path, .mode = FileMode::kCreateAlways, .access = FileAccess::kWrite, .share = FileShare::kRead};
+        auto handle = TkFileSystem::openFile(openParams);
         if (!handle)
             return false;
         const bool result = TkFileSystem::writeBytes(handle, data);
@@ -1563,12 +1640,20 @@ namespace toolkit
 
     bool VulkanDevice::init()
     {
+        LogInfo("Vulkan init: begin");
         totalMemory = 0;
 
         m_state = DeviceState::kCreated;
+        if (!adapter || !adapter->isValid())
+        {
+            LogError("Invalid Vulkan adapter.");
+            return false;
+        }
+
         const auto gpu = adapter->device;
 
         // Get queues properties
+        LogInfo("Vulkan init: before queue family query");
         u32 queueCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueCount, nullptr);
         TK_ASSERT(queueCount >= 1);
@@ -1579,6 +1664,7 @@ namespace toolkit
         vkGetPhysicalDeviceFeatures(gpu, &physicalDeviceFeatures);
 
         // Get extensions and layers
+        LogInfo("Vulkan init: before device extensions/layers");
         TkArray<const char *> deviceExtensions;
         TkArray<const char *> validationLayers;
         getDeviceExtensionsAndLayers(gpu, deviceExtensions, validationLayers);
@@ -1597,7 +1683,7 @@ namespace toolkit
         i32 graphicsQueueFamilyIndex = -1;
         i32 computeQueueFamilyIndex = -1;
         i32 transferQueueFamilyIndex = -1;
-        LogInfo("Found {0} queue families:", queueFamilyProps.count());
+        LogInfo("Found %d queue families:", queueFamilyProps.count());
         u32 numPriorities = 0;
         for (i32 familyIndex = 0; familyIndex < queueFamilyProps.count(); familyIndex++)
         {
@@ -1648,7 +1734,7 @@ namespace toolkit
 
             if (!isValidQueue)
             {
-                LogInfo("Skipping unnecessary queue family {0}: {1} queues{2}", familyIndex, curProps.queueCount, queueTypeInfo);
+                LogInfo("Skipping unnecessary queue family %d: %u queues%s", familyIndex, curProps.queueCount, *queueTypeInfo);
                 continue;
             }
 
@@ -1659,7 +1745,7 @@ namespace toolkit
             curQueue.queueFamilyIndex = familyIndex;
             curQueue.queueCount = curProps.queueCount;
             numPriorities += curProps.queueCount;
-            LogInfo("- queue family {0}: {1} queues{2}", familyIndex, curProps.queueCount, queueTypeInfo);
+            LogInfo("- queue family %d: %u queues%s", familyIndex, curProps.queueCount, *queueTypeInfo);
         }
         TkArray<float> queuePriorities;
         queuePriorities.addDefault(numPriorities);
@@ -1680,12 +1766,48 @@ namespace toolkit
         deviceInfo.pEnabledFeatures = &enabledFeatures;
 
         // Create the device
-        VALIDATE_VK_RESULT(vkCreateDevice(gpu, &deviceInfo, nullptr, &device));
+        LogInfo("Vulkan init: before vkCreateDevice");
+        const VkResult createDeviceResult = vkCreateDevice(gpu, &deviceInfo, nullptr, &device);
+        if (createDeviceResult != VK_SUCCESS)
+        {
+            LogError("Vulkan logical device creation failed with error code: %s", VkUtils::getErrorString(createDeviceResult));
+            device = VK_NULL_HANDLE;
+            return false;
+        }
+        LogInfo("Vulkan init: after vkCreateDevice");
 
         // Optimize bindings
+        LogInfo("Vulkan init: before volkLoadDevice");
         volkLoadDevice(device);
+        if (!vkGetDeviceQueue ||
+            !vkCreateCommandPool ||
+            !vkAllocateCommandBuffers ||
+            !vkCreateSemaphore ||
+            !vkCreateFence ||
+            !vkCreateSampler ||
+            !vkAllocateMemory ||
+            !vkFreeMemory ||
+            !vkMapMemory ||
+            !vkUnmapMemory ||
+            !vkFlushMappedMemoryRanges ||
+            !vkInvalidateMappedMemoryRanges ||
+            !vkBindBufferMemory ||
+            !vkBindImageMemory ||
+            !vkGetBufferMemoryRequirements ||
+            !vkGetImageMemoryRequirements ||
+            !vkCreateBuffer ||
+            !vkDestroyBuffer ||
+            !vkCreateImage ||
+            !vkDestroyImage ||
+            !vkCmdCopyBuffer)
+        {
+            LogError("Vulkan logical device is missing required device entry points.");
+            return false;
+        }
+        LogInfo("Vulkan init: after volkLoadDevice");
 
         // Create queues
+        LogInfo("Vulkan init: before create queues");
         if (graphicsQueueFamilyIndex == -1)
         {
             LogError("Missing Vulkan graphics queue.");
@@ -1694,8 +1816,10 @@ namespace toolkit
         graphicsQueue = TkMemory::newObject<VulkanQueue>(TkMemory::getDefault(), this, graphicsQueueFamilyIndex);
         computeQueue = computeQueueFamilyIndex != -1 ? TkMemory::newObject<VulkanQueue>(TkMemory::getDefault(), this, computeQueueFamilyIndex) : graphicsQueue;
         transferQueue = transferQueueFamilyIndex != -1 ? TkMemory::newObject<VulkanQueue>(TkMemory::getDefault(), this, transferQueueFamilyIndex) : graphicsQueue;
+        LogInfo("Vulkan init: after create queues graphics=%p compute=%p transfer=%p", graphicsQueue, computeQueue, transferQueue);
 
         // Init device limits
+        LogInfo("Vulkan init: before limits/features");
         {
             physicalDeviceLimits = adapter->deviceProps.limits;
             GfxMSAALevel maxMsaa = GfxMSAALevel::kNone;
@@ -1803,20 +1927,21 @@ namespace toolkit
         }
 
         // Setup memory limit and print memory info
+        LogInfo("Vulkan init: before memory properties");
         {
             VkPhysicalDeviceMemoryProperties memoryProperties;
             vkGetPhysicalDeviceMemoryProperties(gpu, &memoryProperties);
-            LogInfo("Max memory allocations: {0}", adapter->deviceProps.limits.maxMemoryAllocationCount);
-            LogInfo("Found {0} device memory heaps:", memoryProperties.memoryHeapCount);
+            LogInfo("Max memory allocations: %u", adapter->deviceProps.limits.maxMemoryAllocationCount);
+            LogInfo("Found %u device memory heaps:", memoryProperties.memoryHeapCount);
             for (u32 i = 0; i < memoryProperties.memoryHeapCount; i++)
             {
                 const VkMemoryHeap &heap = memoryProperties.memoryHeaps[i];
                 bool isGPUHeap = (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) == VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
-                LogInfo("-  memory heap {0}: flags 0x{1:x}, size {2} MB (GPU: {3})", i, heap.flags, (u32)(heap.size / 1024 / 1024), isGPUHeap);
+                LogInfo("-  memory heap %u: flags 0x%x, size %u MB (GPU: %d)", i, heap.flags, (u32)(heap.size / 1024 / 1024), isGPUHeap);
                 if (isGPUHeap)
                     totalMemory += heap.size;
             }
-            LogInfo("Found {0} device memory types:", memoryProperties.memoryTypeCount);
+            LogInfo("Found %u device memory types:", memoryProperties.memoryTypeCount);
             for (u32 i = 0; i < memoryProperties.memoryTypeCount; i++)
             {
                 const VkMemoryType &type = memoryProperties.memoryTypes[i];
@@ -1833,49 +1958,33 @@ namespace toolkit
                     flagsInfo += "lazy, ";
                 if (flagsInfo.hasChars())
                     flagsInfo = ", properties: " + flagsInfo.left(flagsInfo.length() - 2);
-                LogInfo("-  memory type {0}: flags 0x{1:x}, heap {2}{3}", i, type.propertyFlags, type.heapIndex, flagsInfo);
+                LogInfo("-  memory type %u: flags 0x%x, heap %u%s", i, type.propertyFlags, type.heapIndex, flagsInfo.hasChars() ? *flagsInfo : "");
             }
         }
 
         // Initialize memory allocator
+        LogInfo("Vulkan init: before vmaCreateAllocator");
         {
-            VmaVulkanFunctions vulkanFunctions;
-#define INIT_FUNC(name) vulkanFunctions.name = name
-            INIT_FUNC(vkGetPhysicalDeviceProperties);
-            INIT_FUNC(vkGetPhysicalDeviceMemoryProperties);
-            INIT_FUNC(vkAllocateMemory);
-            INIT_FUNC(vkFreeMemory);
-            INIT_FUNC(vkMapMemory);
-            INIT_FUNC(vkUnmapMemory);
-            INIT_FUNC(vkFlushMappedMemoryRanges);
-            INIT_FUNC(vkInvalidateMappedMemoryRanges);
-            INIT_FUNC(vkBindBufferMemory);
-            INIT_FUNC(vkBindImageMemory);
-            INIT_FUNC(vkGetBufferMemoryRequirements);
-            INIT_FUNC(vkGetImageMemoryRequirements);
-            INIT_FUNC(vkCreateBuffer);
-            INIT_FUNC(vkDestroyBuffer);
-            INIT_FUNC(vkCreateImage);
-            INIT_FUNC(vkDestroyImage);
-            INIT_FUNC(vkCmdCopyBuffer);
-#if VMA_DEDICATED_ALLOCATION
-#if PLATFORM_SWITCH
-            vulkanFunctions.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2;
-            vulkanFunctions.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2;
-#else
-            INIT_FUNC(vkGetBufferMemoryRequirements2KHR);
-            INIT_FUNC(vkGetImageMemoryRequirements2KHR);
-#endif
-#endif
-#undef INIT_FUNC
+            VmaVulkanFunctions vulkanFunctions = {};
+            // VMA_DYNAMIC_VULKAN_FUNCTIONS only needs the two loader entry points.
+            // VMA resolves the rest from the instance/device, which keeps it in sync with volk.
+            vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+            vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
             VmaAllocatorCreateInfo allocatorInfo = {};
             allocatorInfo.vulkanApiVersion = VK_API_VERSION;
             allocatorInfo.physicalDevice = gpu;
             allocatorInfo.instance = instance;
             allocatorInfo.device = device;
             allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-            VALIDATE_VK_RESULT(vmaCreateAllocator(&allocatorInfo, &allocator));
+            const VkResult allocatorResult = vmaCreateAllocator(&allocatorInfo, &allocator);
+            if (allocatorResult != VK_SUCCESS)
+            {
+                LogError("Vulkan memory allocator creation failed with error code: %s", VkUtils::getErrorString(allocatorResult));
+                allocator = VK_NULL_HANDLE;
+                return false;
+            }
         }
+        LogInfo("Vulkan init: after vmaCreateAllocator allocator=%p", allocator);
 
 #if defined(VK_KHR_display) && 0
         // Enumerate displays and supported video resolutions
@@ -1890,7 +1999,7 @@ namespace toolkit
             TkArray < VkDisplayModePropertiesKHR, 32 >> displayProperties;
             for (auto &display : displays)
             {
-                LogInfo("Video output '{0}' {1}x{2}", TkString(display.displayName), display.physicalResolution.width, display.physicalResolution.height);
+                LogInfo("Video output '%s' %ux%u", display.displayName, display.physicalResolution.width, display.physicalResolution.height);
 
                 u32 propertiesCount = 0;
                 vkGetDisplayModePropertiesKHR(gpu, display.display, &propertiesCount, nullptr);
@@ -1905,10 +2014,13 @@ namespace toolkit
 #endif
 
         // Prepare stuff
+        LogInfo("Vulkan init: before managers");
         fenceManager.init(this);
         uniformBufferUploader = TkMemory::newObject<VulkanUniformBufferUploader>(TkMemory::getDefault(), this);
         descriptorPoolsManager = TkMemory::newObject<VulkanDescriptorPoolsManager>(TkMemory::getDefault(), this);
+        LogInfo("Vulkan init: before mainContext");
         mainContext = TkMemory::newObject<VulkanContext>(TkMemory::getDefault(), this, graphicsQueue);
+        LogInfo("Vulkan init: after mainContext %p", mainContext);
         if (vkCreatePipelineCache)
         {
             TkArray<u8> data;
@@ -1916,7 +2028,7 @@ namespace toolkit
             getPipelineCachePath(path);
             if (TkFileSystem::isFileExist(path))
             {
-                LogInfo("Trying to load Vulkan pipeline cache file {0}", path);
+                LogInfo("Trying to load Vulkan pipeline cache file %s", *path);
                 auto handle = TkFileSystem::openFile(path);
                 TkFileSystem::readAsBytes(handle, data);
                 TkFileSystem::closeFile(handle);
@@ -1936,7 +2048,7 @@ namespace toolkit
             getValidationCachePath(path);
             if (TkFileSystem::isFileExist(path))
             {
-                LogInfo("Trying to load Vulkan validation cache file {0}", path);
+                LogInfo("Trying to load Vulkan validation cache file %s", *path);
                 auto handle = TkFileSystem::openFile(path);
                 if (handle)
                 {
@@ -1957,13 +2069,13 @@ namespace toolkit
                         }
                         else
                         {
-                            LogWarn("Bad validation cache file, version: {0}, expected: {1}", cacheVersion, cacheVersionExpected);
+                            LogWarn("Bad validation cache file, version: %d, expected: %d", cacheVersion, cacheVersionExpected);
                             data.clear();
                         }
                     }
                     else
                     {
-                        LogWarn("Bad validation cache file, header size: {0}", *dataPtr);
+                        LogWarn("Bad validation cache file, header size: %d", *dataPtr);
                         data.clear();
                     }
                 }
@@ -1997,11 +2109,8 @@ namespace toolkit
         GfxDeviceLock lock(this);
 
         // Check if has been disposed already
-        if (m_state == DeviceState::kDisposed)
+        if (m_state == DeviceState::kDisposing || m_state == DeviceState::kDisposed)
             return;
-
-        // Set current state
-        m_state = DeviceState::kDisposing;
 
         // Wait for rendering end
         waitForGPU();
@@ -2056,9 +2165,7 @@ namespace toolkit
         removeDebugLayerCallback();
 #endif
         vkDestroyInstance(instance, nullptr);
-
-        // Base
-        GfxDevice::dispose();
+        instance = VK_NULL_HANDLE;
 
         // Set current state
         m_state = DeviceState::kDisposed;
@@ -2235,7 +2342,7 @@ namespace toolkit
         TkMemory::deletePtr(fence);
     }
 
-    GfxDevice *createVulkanDevice()
+    GfxDevice *createDeviceVulkan()
     {
         return VulkanDevice::create();
     }

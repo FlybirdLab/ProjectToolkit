@@ -157,7 +157,7 @@ namespace toolkit
         m_barriers.sourceStage |= VkUtils::getImageBarrierFlags(srcLayout, imageBarrier.srcAccessMask);
         m_barriers.destStage |= VkUtils::getImageBarrierFlags(dstLayout, imageBarrier.dstAccessMask);
 #if VK_ENABLE_BARRIERS_DEBUG
-        LogWarn("Image Barrier: 0x{0:x}, {1} -> {2} for baseMipLevel: {3}, baseArrayLayer: {4}, levelCount: {5}, layerCount: {6} ({7})",
+        LogWarn("Image Barrier: 0x%zx, %s -> %s for baseMipLevel: %u, baseArrayLayer: %u, levelCount: %u, layerCount: %u (%s)",
                 (uintptr)image,
                 toString(srcLayout),
                 toString(dstLayout),
@@ -165,7 +165,7 @@ namespace toolkit
                 subresourceRange.baseArrayLayer,
                 subresourceRange.levelCount,
                 subresourceRange.layerCount,
-                handle && handle->owner->asResource() ? handle->owner->asResource()->toString() : TkString::Empty);
+                handle && handle->owner->asResource() ? *handle->owner->asResource()->toString() : *TkString::Empty);
 #endif
 
 #if !VK_ENABLE_BARRIERS_BATCHING
@@ -475,18 +475,47 @@ namespace toolkit
             for (u32 index = 0; index < descriptor.count; index++)
             {
                 const u32 slot = descriptor.slot + index;
-                TK_ASSERT(slot < m_handlesSizes[(i32)descriptor.bindingType]);
+                u32 slotsCount = 0;
+                switch (descriptor.bindingType)
+                {
+                case SpirvShaderResourceBindingType::kCB:
+                    slotsCount = GFX_MAX_CB_BINDED;
+                    break;
+                case SpirvShaderResourceBindingType::kSAMPLER:
+                    slotsCount = GFX_MAX_SAMPLER_BINDED;
+                    break;
+                case SpirvShaderResourceBindingType::kSRV:
+                    slotsCount = GFX_MAX_SR_BINDED;
+                    break;
+                case SpirvShaderResourceBindingType::kUAV:
+                    slotsCount = GFX_MAX_UA_BINDED;
+                    break;
+                default:
+                    LogWarn("Invalid Vulkan descriptor binding type %d.", static_cast<i32>(descriptor.bindingType));
+                    continue;
+                }
+                if (slot >= slotsCount)
+                {
+                    LogWarn("Skipping Vulkan descriptor update with out-of-range slot %u (type=%d, max=%u).", slot, static_cast<i32>(descriptor.bindingType), slotsCount);
+                    continue;
+                }
                 switch (descriptor.descriptorType)
                 {
                 case VK_DESCRIPTOR_TYPE_SAMPLER:
                 {
                     const VkSampler handle = m_samplerHandles[slot];
-                    TK_ASSERT(handle);
+                    if (handle == VK_NULL_HANDLE)
+                    {
+                        LogWarn("Skipping Vulkan sampler descriptor update with empty sampler at slot %u.", slot);
+                        break;
+                    }
                     needsWrite |= dsWriter.writeSampler(descriptorIndex, handle, index);
                     break;
                 }
                 case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
                 {
+                    if (!handles)
+                        break;
                     auto handle = (VulkanTextureView *)handles[slot];
                     if (!handle)
                     {
@@ -509,76 +538,112 @@ namespace toolkit
                             break;
                         }
                     }
+                    if (!handle)
+                        break;
                     VkImageView imageView;
                     VkImageLayout layout;
                     handle->descriptorAsImage(this, imageView, layout);
-                    TK_ASSERT(imageView != VK_NULL_HANDLE);
+                    if (imageView == VK_NULL_HANDLE)
+                        break;
                     needsWrite |= dsWriter.writeImage(descriptorIndex, imageView, layout, index);
                     break;
                 }
                 case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
                 {
+                    if (!handles)
+                        break;
                     auto handle = handles[slot];
                     if (!handle)
                     {
                         const auto dummy = m_device->helperResources.getDummyBuffer(descriptor.resourceFormat);
+                        if (!dummy || !dummy->view())
+                            break;
                         handle = (VulkanDescriptorOwnerResource *)dummy->view()->getNativePtr();
                     }
+                    if (!handle)
+                        break;
                     VkBufferView bufferView;
                     handle->descriptorAsUniformTexelBuffer(this, bufferView);
-                    TK_ASSERT(bufferView != VK_NULL_HANDLE);
+                    if (bufferView == VK_NULL_HANDLE)
+                        break;
                     needsWrite |= dsWriter.writeUniformTexelBuffer(descriptorIndex, bufferView, index);
                     break;
                 }
                 case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
                 {
+                    if (!handles)
+                        break;
                     auto handle = handles[slot];
-                    TK_ASSERT(handle);
+                    if (!handle)
+                        break;
                     VkImageView imageView;
                     VkImageLayout layout;
                     handle->descriptorAsStorageImage(this, imageView, layout);
+                    if (imageView == VK_NULL_HANDLE)
+                        break;
                     needsWrite |= dsWriter.writeStorageImage(descriptorIndex, imageView, layout, index);
                     break;
                 }
                 case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
                 {
+                    if (!handles)
+                        break;
                     auto handle = handles[slot];
                     if (!handle)
                     {
                         if (descriptor.resourceFormat == PixelFormat::kUnknown)
                             break;
                         const auto dummy = m_device->helperResources.getDummyBuffer(descriptor.resourceFormat);
+                        if (!dummy || !dummy->view())
+                            break;
                         handle = (VulkanDescriptorOwnerResource *)dummy->view()->getNativePtr();
                     }
+                    if (!handle)
+                        break;
                     VkBuffer buffer;
                     VkDeviceSize offset, range;
                     handle->descriptorAsStorageBuffer(this, buffer, offset, range);
+                    if (buffer == VK_NULL_HANDLE)
+                        break;
                     needsWrite |= dsWriter.writeStorageBuffer(descriptorIndex, buffer, offset, range, index);
                     break;
                 }
                 case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
                 {
+                    if (!handles)
+                        break;
                     auto handle = handles[slot];
                     if (!handle)
                     {
                         const auto dummy = m_device->helperResources.getDummyBuffer(descriptor.resourceFormat);
+                        if (!dummy || !dummy->view())
+                            break;
                         handle = (VulkanDescriptorOwnerResource *)dummy->view()->getNativePtr();
                     }
+                    if (!handle)
+                        break;
                     VkBufferView bufferView;
                     handle->descriptorAsStorageTexelBuffer(this, bufferView);
-                    TK_ASSERT(bufferView != VK_NULL_HANDLE);
+                    if (bufferView == VK_NULL_HANDLE)
+                        break;
                     needsWrite |= dsWriter.writeStorageTexelBuffer(descriptorIndex, bufferView, index);
                     break;
                 }
                 case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
                 {
+                    if (!handles)
+                        break;
                     auto handle = handles[slot];
                     VkBuffer buffer = VK_NULL_HANDLE;
                     VkDeviceSize offset = 0, range = 0;
                     u32 dynamicOffset = 0;
                     if (!handle)
                         handle = (VulkanConstantBuffer *)m_device->helperResources.getDummyConstantBuffer();
+                    if (!handle)
+                        break;
                     handle->descriptorAsDynamicUniformBuffer(this, buffer, offset, range, dynamicOffset);
+                    if (buffer == VK_NULL_HANDLE)
+                        break;
                     needsWrite |= dsWriter.writeDynamicUniformBuffer(descriptorIndex, buffer, offset, range, dynamicOffset, index);
                     break;
                 }
@@ -1081,7 +1146,11 @@ namespace toolkit
 
     void VulkanContext::bindSampler(i32 slot, GfxSampler *sampler)
     {
-        TK_ASSERT(slot >= GFX_STATIC_SAMPLERS_COUNT && slot < GFX_MAX_SAMPLER_BINDED);
+        if (slot < GFX_STATIC_SAMPLERS_COUNT || slot >= GFX_MAX_SAMPLER_BINDED)
+        {
+            LogWarn("Ignoring Vulkan sampler bind with out-of-range slot %d.", slot);
+            return;
+        }
         const auto handle = sampler ? ((VulkanSampler *)sampler)->sampler : VK_NULL_HANDLE;
         m_samplerHandles[slot] = handle;
     }

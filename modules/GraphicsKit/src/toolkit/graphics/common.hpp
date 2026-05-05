@@ -17,6 +17,8 @@ namespace toolkit
 {
     // Shader program type
     TK_DECLARE_ENUM_EX_6(ShaderStage, i32, 0, Vertex, Hull, Domain, Geometry, Pixel, Compute);
+    static constexpr i32 ShaderStage_Count = ShaderStage_const_size;
+    static constexpr i32 kShaderStageCount = ShaderStage_const_size;
 
     // Helper type used to synchronize CPU and GPU work
     typedef u64 GfxSyncPoint;

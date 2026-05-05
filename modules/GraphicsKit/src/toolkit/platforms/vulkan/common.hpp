@@ -13,8 +13,12 @@
 
 #include <toolkit/platforms/vulkan/environment.hpp>
 #include <toolkit/base/Math.hpp>
+#include <toolkit/memory/Memory.hpp>
 
 #if TK_WINDOWS
+#ifndef VK_USE_PLATFORM_WIN32_KHR
+#define VK_USE_PLATFORM_WIN32_KHR 1
+#endif
 #include <toolkit/platforms/win32/IncludeWindows.hpp>
 #endif
 
@@ -22,11 +26,11 @@
 #include <volk.h>
 
 // Use Vulkan Memory Allocator for buffer and image memory allocations
-#define VMA_MIN(v1, v2) (TkMath::min((v1), (v2)))
-#define VMA_MAX(v1, v2) (TkMath::max((v1), (v2)))
+#define VMA_MIN(v1, v2) (toolkit::TkMath::min((v1), (v2)))
+#define VMA_MAX(v1, v2) (toolkit::TkMath::max((v1), (v2)))
 #define VMA_SWAP(v1, v2) (toolkit::swap((v1), (v2)))
-#define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment) TkMemory::allocate(TkMemory::getDefault(), u64(size), u64(alignment))
-#define VMA_SYSTEM_ALIGNED_FREE(ptr) TkMemory::free(TkMemory::getDefault(), ptr)
+#define VMA_SYSTEM_ALIGNED_MALLOC(size, alignment) toolkit::TkMemory::allocate(toolkit::TkMemory::getDefault(), static_cast<toolkit::type::u64>(size), static_cast<toolkit::type::u64>(alignment))
+#define VMA_SYSTEM_ALIGNED_FREE(ptr) toolkit::TkMemory::free(toolkit::TkMemory::getDefault(), ptr)
 #define VMA_NULLABLE
 #define VMA_NOT_NULL
 #include <vk_mem_alloc.h>

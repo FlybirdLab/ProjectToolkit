@@ -229,7 +229,7 @@ namespace toolkit
             VKERR(VK_RESULT_RANGE_SIZE);
 #endif
         default:
-            sb.appendFormat("0x{0:x}", static_cast<u32>(result));
+            sb.appendFormat("0x%x", static_cast<u32>(result));
             break;
         }
 

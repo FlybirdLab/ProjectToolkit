@@ -85,7 +85,9 @@ namespace toolkit
         return m_memoryUsage;
     }
 
+#if TK_DEBUG
     static_assert((GFX_ENABLE_RESOURCE_NAMING) == (TK_DEBUG), "Update build condition on around GfxResource Name property getter/setter.");
+#endif
 
 #if GFX_ENABLE_RESOURCE_NAMING
 
@@ -126,7 +128,7 @@ namespace toolkit
     void GfxResource::onDeviceDispose()
     {
         // By default we want to release resource data but keep it alive
-        onReleaseData();
+        releaseData();
     }
 
     void GfxResource::onReleaseData()

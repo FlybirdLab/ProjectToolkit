@@ -489,7 +489,7 @@ namespace toolkit
         auto *staging = GfxDevice::sInstance->createTexture("Staging.Readback");
         if (!staging->init(desc))
         {
-            TkMemory::deletePtr(staging);
+            GFX_DEL_RESOURCE(staging);
             return nullptr;
         }
         return staging;
@@ -502,7 +502,7 @@ namespace toolkit
         auto *staging = GfxDevice::sInstance->createTexture("Staging.Upload");
         if (!staging->init(desc))
         {
-            TkMemory::deletePtr(staging);
+            GFX_DEL_RESOURCE(staging);
             return nullptr;
         }
         return staging;
@@ -637,7 +637,7 @@ namespace toolkit
         ~TextureDownloadDataTask()
         {
             if (m_deleteStaging && m_staging)
-                TkMemory::deletePtr(m_staging);
+                GFX_DEL_RESOURCE(m_staging);
         }
 
     protected:

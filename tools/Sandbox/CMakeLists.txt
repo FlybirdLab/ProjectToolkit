@@ -14,9 +14,10 @@ set(DEPS
         ""
 )
 set(HEAD
-        "TK_DEBUG"
+        "$<$<CONFIG:Debug>:TK_DEBUG>"
         "TK_STATIC_PLUGINS"
-        "SANDBOX_AUDIO_DOC_DIR=\"${CMAKE_SOURCE_DIR}/docs/testdata/audio\""
+        "SANDBOX_SHADER_SRC_DIR=\"${CMAKE_SOURCE_DIR}/tools/Sandbox/shaders\""
+        "SANDBOX_SHADER_COMPILER_PATH=\"$<TARGET_FILE:ShaderCompiler>\""
 )
 set(SRCS
         ""
@@ -27,8 +28,7 @@ set(SRCS
 AddTkCore(INCS LNKS DEPS)
 AddTkWindow(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
-set(TK_AUDIO_BACKEND "xaudio")
-AddTkAudio(INCS LNKS DEPS)
+AddTkGraphics(INCS LNKS DEPS)
 
 ########################################################
 # project configurations
@@ -45,6 +45,7 @@ add_executable(Sandbox
 )
 add_dependencies(Sandbox
         ${DEPS}
+        ShaderCompiler
 )
 target_include_directories(Sandbox PRIVATE
         ${INCS}

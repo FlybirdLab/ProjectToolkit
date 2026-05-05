@@ -29,6 +29,9 @@ namespace toolkit
         // Init the swap chain and the rendering task.
         bool initSwapChain();
 
+    protected:
+        void onBeforeDestroy() override;
+
     private:
         GfxSwapChain *m_swapChain;
     };

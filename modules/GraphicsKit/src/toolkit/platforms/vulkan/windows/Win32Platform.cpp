@@ -15,12 +15,6 @@
 
 namespace toolkit
 {
-    VKAPI_ATTR VkResult VKAPI_CALL vkCreateWin32SurfaceKHR(
-        VkInstance instance,
-        const VkWin32SurfaceCreateInfoKHR *pCreateInfo,
-        const VkAllocationCallbacks *pAllocator,
-        VkSurfaceKHR *pSurface);
-
     void Win32VulkanPlatform::getInstanceExtensions(TkArray<const char *> &extensions, TkArray<const char *> &layers)
     {
         extensions.add(VK_KHR_SURFACE_EXTENSION_NAME);

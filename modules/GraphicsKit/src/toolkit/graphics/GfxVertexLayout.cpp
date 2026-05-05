@@ -302,7 +302,7 @@ namespace toolkit
         return result;
     }
 
-    void ClearVertexs_layoutCache()
+    void clearVertexLayoutCache()
     {
         for (const auto &e : s_layoutCache)
             TkMemory::deletePtr(TkMemory::getDefault(), e.value);

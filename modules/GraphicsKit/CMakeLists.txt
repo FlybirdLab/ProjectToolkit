@@ -182,6 +182,38 @@ endif()
 add_library(TkGraphics STATIC
         ${src}
 )
+option(TK_GRAPHICS_LIGHTWEIGHT "Use smaller GraphicsKit defaults for sandbox/smoke-test applications." OFF)
+option(TK_GRAPHICS_ENABLE_WINDOW_SRV "Create shader-resource views for window back buffers." ON)
+set(TK_GRAPHICS_UNIFORM_RING_BUFFER_SIZE "" CACHE STRING "Override Vulkan uniform ring buffer size in bytes.")
+
+set(TK_GRAPHICS_PRIVATE_DEFINITIONS
+        _XOPEN_SOURCE
+        _LIBCPP_DRIVERKIT
+
+        $<$<CONFIG:Debug>:TK_DEBUG>
+        TK_ENABLE_SIMD
+        TK_STATIC_PLUGINS
+)
+
+if(TK_GRAPHICS_LIGHTWEIGHT)
+        list(APPEND TK_GRAPHICS_PRIVATE_DEFINITIONS
+                VK_UNIFORM_RING_BUFFER_SIZE=1048576
+                GFX_USE_WINDOW_SRV=0
+                GFX_ALLOW_PROFILE_EVENTS=0
+                GFX_USE_SHADERS_DEBUG_LAYER=0
+        )
+elseif(TK_GRAPHICS_UNIFORM_RING_BUFFER_SIZE)
+        list(APPEND TK_GRAPHICS_PRIVATE_DEFINITIONS
+                VK_UNIFORM_RING_BUFFER_SIZE=${TK_GRAPHICS_UNIFORM_RING_BUFFER_SIZE}
+        )
+endif()
+
+if(NOT TK_GRAPHICS_ENABLE_WINDOW_SRV)
+        list(APPEND TK_GRAPHICS_PRIVATE_DEFINITIONS
+                GFX_USE_WINDOW_SRV=0
+        )
+endif()
+
 target_include_directories(TkGraphics
     PUBLIC
         "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -193,12 +225,7 @@ target_link_libraries(TkGraphics PRIVATE
         ${LNKS}
 )
 target_compile_definitions(TkGraphics PRIVATE
-        _XOPEN_SOURCE
-        _LIBCPP_DRIVERKIT
-
-        TK_DEBUG
-        TK_ENABLE_SIMD
-        TK_STATIC_PLUGINS
+        ${TK_GRAPHICS_PRIVATE_DEFINITIONS}
 )
 target_compile_options(TkGraphics PRIVATE 
         "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"

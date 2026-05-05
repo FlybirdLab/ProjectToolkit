@@ -109,8 +109,9 @@ namespace toolkit
     {
         TkStaticArray<VkDescriptorPoolSize, VK_DESCRIPTOR_TYPE_END + 1> types;
 
-        // The maximum amount of descriptor sets layout allocations to hold
-        const u32 MaxSetsAllocations = 256;
+        // Keep the first pool small for simple apps; the pool manager allocates
+        // more pools on demand when larger scenes need them.
+        const u32 MaxSetsAllocations = 32;
         m_descriptorSetsMax = MaxSetsAllocations * (VK_HASH_POOLS_WITH_LAYOUT_TYPES ? 1 : m_layout.setLayouts.count());
         for (u32 typeIndex = VK_DESCRIPTOR_TYPE_BEGIN; typeIndex <= VK_DESCRIPTOR_TYPE_END; typeIndex++)
         {

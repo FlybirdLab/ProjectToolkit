@@ -14,7 +14,7 @@ namespace toolkit
 {
 
 // The runtime version of the shaders cache supported by the all graphics back-ends. The same for all the shader cache formats (easier to sync and validate).
-#define GPU_SHADER_CACHE_VERSION 12
+#define GPU_SHADER_CACHE_VERSION 1
 
     class GfxConstantBuffer;
 

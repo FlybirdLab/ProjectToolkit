@@ -14,7 +14,7 @@ set(DEPS
         ""
 )
 set(HEAD
-        "TK_DEBUG"
+        "$<$<CONFIG:Debug>:TK_DEBUG>"
         "TK_STATIC_PLUGINS"
 )
 set(SRCS

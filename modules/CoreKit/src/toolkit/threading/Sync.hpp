@@ -29,9 +29,6 @@ namespace toolkit {
         TkMutex& operator=(const TkMutex&) = delete; // Non-copyable
 
         void lock();
-        TK_FORCE_INLINE void lock() const {
-            lock();
-        }
         bool tryLock();
         void unlock();
         TK_FORCE_INLINE void unlock() const {

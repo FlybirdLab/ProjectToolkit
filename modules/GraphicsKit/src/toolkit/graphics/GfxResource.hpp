@@ -21,6 +21,7 @@ namespace toolkit
     {                                                         \
         if (x)                                                \
         {                                                     \
+            (x)->releaseData();                               \
             TkMemory::deletePtr(TkMemory::getDefault(), (x)); \
             (x) = nullptr;                                    \
         }                                                     \
@@ -31,6 +32,7 @@ namespace toolkit
         for (auto &e : (x))                                       \
             if (e)                                                \
             {                                                     \
+                e->releaseData();                                 \
                 TkMemory::deletePtr(TkMemory::getDefault(), (e)); \
                 e = nullptr;                                      \
             }                                                     \

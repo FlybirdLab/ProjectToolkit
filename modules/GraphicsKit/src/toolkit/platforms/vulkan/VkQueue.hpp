@@ -22,7 +22,7 @@ namespace toolkit
         u32 m_queueIndex;
         class VulkanDevice *m_device;
         class VulkanCmdBuffer *m_lastSubmittedCmdBuffer;
-        TkMutex m_mtx;
+        mutable TkMutex m_mtx;
         u64 m_lastSubmittedCmdBufferFenceCounter;
 
     public:

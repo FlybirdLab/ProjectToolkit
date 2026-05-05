@@ -56,9 +56,9 @@ namespace toolkit
 
         TkMemory::deletePtr(m_res);
 
-        // Unlink
-        TK_ASSERT(GfxDevice::sInstance == this);
-        GfxDevice::sInstance = nullptr;
+        // Unlink only when this object is still the active singleton.
+        if (GfxDevice::sInstance == this)
+            GfxDevice::sInstance = nullptr;
     }
 
     bool GfxDevice::init()
@@ -73,7 +73,8 @@ namespace toolkit
         limits.maxMipLevelsCount = TkMath::min(limits.maxMipLevelsCount, GFX_MAX_TEXTURE_MIP_LEVELS);
 
         m_res->tskMgr.setExecutor(createTasksExecutor());
-        LogInfo("Total graphics memory: %s", TkConvertor::bytesToText(totalMemory));
+        const TkString totalMemoryText = TkConvertor::bytesToText(totalMemory);
+        LogInfo("Total graphics memory: %s", *totalMemoryText);
         if (!limits.hasCompute)
             LogWarn("Compute Shaders are not supported");
         m_state = DeviceState::kCreated;
@@ -82,6 +83,7 @@ namespace toolkit
 
     bool GfxDevice::initInternalResources()
     {
+        LogInfo("GfxDevice initInternalResources: begin");
         static const float fullscreenTriangle[] =
         {
             -1.0f, -1.0f, 0.0f, 1.0f,
@@ -93,6 +95,7 @@ namespace toolkit
         elements.add(VertexElement{VertexElementTypes::kPosition, 0, 0, 0, PixelFormat::kR32G32_Float});
         elements.add(VertexElement{VertexElementTypes::kTexCoord0, 0, 8, 0, PixelFormat::kR32G32_Float});
 
+        LogInfo("GfxDevice initInternalResources: before fullscreen triangle layout");
         auto *layout = createVertexLayout(elements, true);
         if (!layout)
         {
@@ -100,6 +103,7 @@ namespace toolkit
             return false;
         }
 
+        LogInfo("GfxDevice initInternalResources: before fullscreen triangle VB create");
         m_res->fullscreenTriangleVB = createBuffer("FullscreenTriangleVB");
         if (!m_res->fullscreenTriangleVB)
         {
@@ -107,6 +111,7 @@ namespace toolkit
             return false;
         }
 
+        LogInfo("GfxDevice initInternalResources: before fullscreen triangle VB init");
         if (!m_res->fullscreenTriangleVB->init(GfxBufferDescription::vertex(layout, sizeof(float) * 4, 3, fullscreenTriangle)))
         {
             LogError("Cannot initialize fullscreen triangle vertex buffer.");
@@ -114,6 +119,7 @@ namespace toolkit
             return false;
         }
 
+        LogInfo("GfxDevice initInternalResources: success");
         m_state = DeviceState::kReady;
         return true;
     }
@@ -231,11 +237,14 @@ namespace toolkit
         TkArray<GfxResource *> resources;
         m_resourcesLock.lock();
         resources = m_resources;
-        m_resources.clear();
         m_resourcesLock.unlock();
 
         for (i32 i = resources.count() - 1; i >= 0 && i < resources.count(); i--)
             resources[i]->onDeviceDispose();
+
+        m_resourcesLock.lock();
+        m_resources.clear();
+        m_resourcesLock.unlock();
 
         m_state = DeviceState::kDisposed;
     }
@@ -252,14 +261,14 @@ namespace toolkit
 
     void GfxDevice::renderBegin()
     {
-#if TK_PROFILER
+#if TK_WITH_PROFILER
         m_drawGpuEventIndex = ProfilerGPU::beginEvent(("Draw"));
 #endif
     }
 
     void GfxDevice::renderEnd()
     {
-#if TK_PROFILER
+#if TK_WITH_PROFILER
         ProfilerGPU::endEvent(m_drawGpuEventIndex);
 #endif
     }

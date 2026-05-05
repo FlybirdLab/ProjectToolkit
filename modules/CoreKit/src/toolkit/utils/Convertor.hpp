@@ -9,10 +9,12 @@
 
 #pragma once
 
-#include "toolkit/memory/Memory.hpp"
 #include <toolkit/common.hpp>
+#include "toolkit/memory/Memory.hpp"
 #include <toolkit/types/Span.hpp>
 #include <toolkit/types/String.hpp>
+
+#include <cmath>
 
 #if _MSC_VER && TK_SIMD_SSE4_2
 #include <intrin.h>
@@ -56,18 +58,22 @@ namespace toolkit
         static TkString unitsToText(T units, i32 divider, const TkSpan<const char *> sizes)
         {
             if (sizes.length() == 0)
-                return TkString::format("{0}", units);
+                return TkString::format("%.0f", static_cast<double>(units));
+
             i32 i = 0;
-            double dblSUnits = static_cast<double>(units);
-            for (; static_cast<u64>(units / static_cast<double>(divider)) > 0; i++, units /= divider)
-                dblSUnits = (double)units / (double)divider;
-            if (i >= sizes.length())
-                i = 0;
-            TkString text = TkString::format("{}", roundTo2DecimalPlaces(dblSUnits));
-            const i32 dot = text.findLast('.');
-            if (dot != -1)
-                text = text.left(dot + 3);
-            return TkString::format("{0} {1}", text, sizes[i]);
+            double value = static_cast<double>(units);
+            while (value >= static_cast<double>(divider) && i + 1 < sizes.length())
+            {
+                value /= static_cast<double>(divider);
+                ++i;
+            }
+
+            TkString text = TkString::format("%.2f", roundTo2DecimalPlaces(value));
+            while (text.length() > 0 && text[text.length() - 1] == '0')
+                text = text.left(text.length() - 1);
+            if (text.length() > 0 && text[text.length() - 1] == '.')
+                text = text.left(text.length() - 1);
+            return TkString::format("%s %s", *text, sizes[i]);
         }
 
         // Converts size of the data (in bytes) to the best fitting string.
@@ -87,9 +93,9 @@ namespace toolkit
         // Returns the amount of set bits in 32-bit integer.
         static inline i32 countBits(u32 x)
         {
-#ifdef __GNUC_
+#ifdef __GNUC__
             return __builtin_popcount(x);
-#elif _MSC_VER && PLATFORM_SIMD_SSE4_2
+#elif _MSC_VER && TK_SIMD_SSE4_2
             return __popcnt(x);
 #else
             x = x - ((x >> 1) & 0x55555555);
@@ -183,12 +189,12 @@ namespace toolkit
             // i32 requiredBytes = (length * 4) + 1;
             if (length * kUtf8MaxPerUtf16 + 1 <= InlinedSize)
             {
-                TkConvertor::utf16ToAnsi(text, this->m_inlined, InlinedSize);
+                TkConvertor::utf16ToAnsi(text, this->m_inlined, length);
             }
             else
             {
                 this->m_dynamic = (CharType *)TkMemory::allocate(TkMemory::getDefault(), length * kUtf8MaxPerUtf16 + 1);
-                TkConvertor::utf16ToAnsi(text, this->m_dynamic, length + 1);
+                TkConvertor::utf16ToAnsi(text, this->m_dynamic, length);
             }
         }
 
@@ -214,7 +220,7 @@ namespace toolkit
         StringAsUTF8(const wchar *text, i32 length)
         {
             i32 lengthUtf8;
-            if (length + 1 < InlinedSize)
+            if (length * kUtf8MaxPerUtf16 + 1 <= InlinedSize)
             {
                 TkConvertor::utf16ToUtf8(text, this->m_inlined, length, lengthUtf8);
                 this->m_inlined[lengthUtf8] = 0;
@@ -272,16 +278,13 @@ namespace toolkit
     public:
         StringAsTerminated(const CharType *str, i32 length)
         {
-            if (length != 0 && str[length] == 0) // Unsafe to access out of bounds...
-            {
-                m_static = str;
-            }
-            else
-            {
-                m_dynamic = (CharType *)TkMemory::allocate(TkMemory::getDefault(), (length + 1) * sizeof(CharType));
+            if (!str || length < 0)
+                length = 0;
+
+            m_dynamic = (CharType *)TkMemory::allocate(TkMemory::getDefault(), (length + 1) * sizeof(CharType));
+            if (length > 0)
                 TkMemory::memoryCopy(m_dynamic, str, length * sizeof(CharType));
-                m_dynamic[length] = 0;
-            }
+            m_dynamic[length] = 0;
         }
 
         ~StringAsTerminated()

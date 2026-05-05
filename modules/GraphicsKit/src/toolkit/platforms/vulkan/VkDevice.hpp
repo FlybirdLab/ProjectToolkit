@@ -558,7 +558,7 @@ namespace toolkit
 #endif
     };
 
-    extern GfxDevice *createVulkanDevice();
+    extern GfxDevice *createDeviceVulkan();
 
 }
 

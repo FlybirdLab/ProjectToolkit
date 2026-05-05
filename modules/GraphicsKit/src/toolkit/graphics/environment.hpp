@@ -60,10 +60,14 @@
 #define GFX_ENABLE_TEXTURES_STREAMING 1
 
 // Enable/disable creating Shader Resource View for window backbuffer surface
+#ifndef GFX_USE_WINDOW_SRV
 #define GFX_USE_WINDOW_SRV 1
+#endif
 
 // True if allow graphics profile events and markers
+#ifndef GFX_ALLOW_PROFILE_EVENTS
 #define GFX_ALLOW_PROFILE_EVENTS (TK_DEBUG)
+#endif
 
 #ifndef GFX_ALLOW_TESSELLATION_SHADERS
 #define GFX_ALLOW_TESSELLATION_SHADERS 1
@@ -90,10 +94,14 @@
 #endif
 
 // Enable/disable gpu resources naming
+#ifndef GFX_ENABLE_RESOURCE_NAMING
 #define GFX_ENABLE_RESOURCE_NAMING (TK_DEBUG)
+#endif
 
 // True if use debug tools and flow for shaders
+#ifndef GFX_USE_SHADERS_DEBUG_LAYER
 #define GFX_USE_SHADERS_DEBUG_LAYER (TK_DEBUG)
+#endif
 
 // Maximum size of the texture that is supported by the RHI.
 #define GFX_MAX_TEXTURE_SIZE 16384

@@ -23,18 +23,16 @@
 
 namespace toolkit
 {
+    static const u64 g_mainThreadId = static_cast<u64>(::GetCurrentThreadId());
+
     bool TkThread::isInMainThread()
     {
-        // TODO Impl
-        TK_ASSERT(false && "Not impl");
-        return false;
+        return getCurrentThreadID() == getMainThreadId();
     }
 
     u64 TkThread::getMainThreadId()
     {
-        // TODO Impl
-        TK_ASSERT(false && "Not impl");
-        return 0;
+        return g_mainThreadId;
     }
 
     TkAction<TkThread *> TkThread::ThreadStarting{};

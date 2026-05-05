@@ -51,7 +51,7 @@ target_compile_definitions(TkMedia PRIVATE
         _XOPEN_SOURCE
         _LIBCPP_DRIVERKIT
 
-        TK_DEBUG
+        $<$<CONFIG:Debug>:TK_DEBUG>
         TK_ENABLE_SIMD
         TK_STATIC_PLUGINS
 )

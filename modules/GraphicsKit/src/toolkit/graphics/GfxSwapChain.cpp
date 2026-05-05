@@ -25,7 +25,7 @@ namespace toolkit
         ~GfxSwapChainDownloadTask()
         {
             if (texture)
-                TkMemory::deletePtr(texture);
+                GFX_DEL_RESOURCE(texture);
         }
 
         TkString toString() const
@@ -73,14 +73,14 @@ namespace toolkit
         if (!texture->init(GfxTextureDescription::new2D(getWidth(), getHeight(), getFormat(), GfxTextureFlags::kNone, 1).toStagingReadback()))
         {
             LogWarn("Failed to create staging texture for the window swapchain backuffer download.");
-            TkMemory::deletePtr(texture);
+            GFX_DEL_RESOURCE(texture);
             return nullptr;
         }
 
         auto task = TkMemory::newObject<GfxSwapChainDownloadTask>();
         if (!task)
         {
-            TkMemory::deletePtr(texture);
+            GFX_DEL_RESOURCE(texture);
             return nullptr;
         }
         task->swapchain = this;
@@ -112,6 +112,11 @@ namespace toolkit
             }
             m_downloadTask = nullptr;
         }
+    }
+
+    void GfxSwapChain::present(bool vsync)
+    {
+        onPresented();
     }
 
     TkString GfxSwapChain::toString() const

@@ -297,6 +297,9 @@ namespace toolkit
         TkWindow(const WindowParams& p);
         ~TkWindow();
 
+    protected:
+        virtual void onBeforeDestroy();
+
     private:
         WindowEventGroup m_events;
         WindowHandle m_native;

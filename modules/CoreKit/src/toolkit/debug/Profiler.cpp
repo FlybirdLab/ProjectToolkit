@@ -6,6 +6,8 @@
 
 #include "Profiler.hpp"
 
+#if TK_DEBUG
+
 #include "toolkit/collection/Array.hpp"
 #include "toolkit/threading/Thread.hpp"
 #include "toolkit/threading/ThreadRegistry.hpp"
@@ -235,3 +237,4 @@ namespace toolkit {
     }
 
 }
+#endif

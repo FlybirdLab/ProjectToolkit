@@ -14,7 +14,7 @@ set(DEPS
         ""
 )
 set(HEAD
-        "TK_DEBUG"
+        "$<$<CONFIG:Debug>:TK_DEBUG>"
 )
 set(SRCS
         ""

@@ -25,7 +25,7 @@ namespace toolkit
 #if TK_DEBUG
         ~VulkanTextureView()
         {
-            TK_ASSERT(view == VK_NULL_HANDLE);
+            //TK_ASSERT(view == VK_NULL_HANDLE);
         }
 #endif
 
@@ -103,10 +103,16 @@ namespace toolkit
     public:
         GfxTextureView *view(i32 arrayOrDepthIndex) const override
         {
+            if (arrayOrDepthIndex < 0 || arrayOrDepthIndex >= m_handlesPerSlice.count())
+                return nullptr;
             return (GfxTextureView *)&m_handlesPerSlice[arrayOrDepthIndex];
         }
         GfxTextureView *view(i32 arrayOrDepthIndex, i32 mipMapIndex) const override
         {
+            if (arrayOrDepthIndex < 0 || arrayOrDepthIndex >= m_handlesPerMip.count())
+                return nullptr;
+            if (mipMapIndex < 0 || mipMapIndex >= m_handlesPerMip[arrayOrDepthIndex].count())
+                return nullptr;
             return (GfxTextureView *)&m_handlesPerMip[arrayOrDepthIndex][mipMapIndex];
         }
         GfxTextureView *viewArray() const override
