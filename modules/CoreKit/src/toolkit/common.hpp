@@ -200,19 +200,51 @@ namespace toolkit::type
     type(const type &) = delete;            \
     type &operator=(const type &) = delete; \
     type &operator=(type &&) = delete;
-#define POD_COPYABLE(type)                                              \
-    type(const type &other) { memcpy(this, &other, sizeof(type)); }     \
-    type(type &&other) noexcept { memcpy(this, &other, sizeof(type)); } \
-    type &operator=(const type &other)                                  \
-    {                                                                   \
-        memcpy(this, &other, sizeof(type));                             \
-        return *this;                                                   \
-    }                                                                   \
-    type &operator=(type &&other) noexcept                              \
-    {                                                                   \
-        memcpy(this, &other, sizeof(type));                             \
-        return *this;                                                   \
+#define POD_COPYABLE(type)                                                      \
+    type(const type &other) { memcpy((void *)this, &other, sizeof(type)); }     \
+    type(type &&other) noexcept { memcpy((void *)this, &other, sizeof(type)); } \
+    type &operator=(const type &other)                                          \
+    {                                                                           \
+        memcpy((void *)this, &other, sizeof(type));                             \
+        return *this;                                                           \
+    }                                                                           \
+    type &operator=(type &&other) noexcept                                      \
+    {                                                                           \
+        memcpy((void *)this, &other, sizeof(type));                             \
+        return *this;                                                           \
     }
+
+    // The platform the game is running.
+    enum class PlatformType
+    {
+        // Running on Windows.
+        kWindows = 1,
+        // Running Windows Store App (Universal Windows Platform).
+        kUWP = 3,
+        // Running on Linux system.
+        kLinux = 4,
+        // Running on Android.
+        kAndroid = 7,
+        // Running on Mac.
+        kMac = 10,
+        // Running on iPhone.
+        kiOS = 11,
+    };
+
+    // The platform architecture types.
+    enum class ArchitectureType
+    {
+        // Anything or not important.
+        kAnyCPU = 0,
+        // The x86 32-bit.
+        kX86 = 1,
+        // The x86 64-bit.
+        kX64 = 2,
+        // The ARM 32-bit.
+        kARM = 3,
+        // The ARM 64-bit.
+        kARM64 = 4,
+    };
 
 }
 

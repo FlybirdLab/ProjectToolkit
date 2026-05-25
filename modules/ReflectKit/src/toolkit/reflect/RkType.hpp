@@ -43,6 +43,8 @@ namespace toolkit
         TypeHandle type;
         RkObject *outer = nullptr;
         TkStringView name;
+        ArgValue *args = nullptr;
+        u32 argCount = 0;
         u32 flags = 0;
 
         ObjectSpawnParams()
@@ -57,6 +59,11 @@ namespace toolkit
 
         ObjectSpawnParams(const TkUuid &inId, const TypeHandle &inType)
             : id(inId), type(inType)
+        {
+        }
+
+        ObjectSpawnParams(const TypeHandle &inType, ArgValue *inArgs, const u32 inArgCount)
+            : id(TkUuid::create()), type(inType), args(inArgs), argCount(inArgCount)
         {
         }
     };

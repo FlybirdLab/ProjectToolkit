@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "toolkit/reflect/common.hpp"
 #include <toolkit/net/common.hpp>
 #include <toolkit/net/NetMessage.hpp>
 #include <toolkit/net/NetConnection.hpp>
@@ -14,7 +15,7 @@ namespace toolkit
 {
 
     // Network event type enum contains all possible events that can be returned by PopEvent function.
-    enum class NetEventType
+    rkenum class NetEventType
     {
         // Invalid network event type.
         kUndefined = 0,
@@ -29,20 +30,21 @@ namespace toolkit
     };
 
     // Network event structure that wraps all data needed to identify and process it.
-    struct TK_API NetworkEvent
+    rkstruct TK_API NetEvent
     {
+        R_STRUCT(NetEvent);
     public:
         // The type of the received event.
-        NetEventType type;
+        rkfield() NetEventType type;
         // The message when this event is an "message" event - not valid in any other cases.
         // If this is an message-event, make sure to return the message using RecycleMessage function of the peer after processing it!
-        NetMessage message;
+        rkfield() NetMessage message;
         // The connected of the client that has sent message, connected, disconnected or got a timeout.
-        NetConnection sender;
+        rkfield() NetConnection sender;
     };
 
     template <>
-    struct TIsPODType<NetworkEvent>
+    struct TIsPODType<NetEvent>
     {
         enum
         {

@@ -169,7 +169,7 @@ namespace toolkit
         m_handle = ::CreateWindowExW(
             exStyle,
             L"ToolkitWindow",
-            StringAsUTF16<>(p.title.getText()).get(),
+            StringAsUTF16<>(p.title.getText(), p.title.length()).get(),
             style,
             x,
             y,
@@ -871,7 +871,7 @@ namespace toolkit
             return;
         TK_ASSERT(m_native->hasHWND());
 
-        if (::SetWindowTextW(m_native->m_handle, StringAsUTF16<>(title.get()).get()))
+        if (::SetWindowTextW(m_native->m_handle, StringAsUTF16<>(title.getText(), title.length()).get()))
         {
             m_params.title = title;
         }
@@ -1581,12 +1581,12 @@ namespace toolkit
         }
 
         if (!m_window->m_params.allowInput)
-            return DefWindowProc(m_handle, msg, wParam, lParam);
+            return ::DefWindowProcW(m_handle, msg, wParam, lParam);
 
         if (Win32Input::wndProc(m_window, msg, wParam, lParam))
             return true;
 
-        return DefWindowProc(m_handle, msg, wParam, lParam);
+        return ::DefWindowProcW(m_handle, msg, wParam, lParam);
     }
 
     DragDropEffect TkWindow::doDragDrop(const TkStringView &data)

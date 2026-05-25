@@ -12,19 +12,26 @@
 namespace toolkit
 {
     // High-level network client object (local or connected to the server).
-    class TK_API NetworkClient final
+    rkclass TK_API NetClient final : public RkObject
     {
-        friend class NetworkManager;
-        explicit NetworkClient(u32 id, NetConnection connection);
-        
+        friend class NetManager;
+
+    public:
+        rkctor explicit NetClient(u32 id, NetConnection connection);
+
     public:
         // Unique client identifier.
-        u32 clientId;
+        rkfield() u32 clientId;
         // Local peer connection.
-        NetConnection connection;
+        rkfield() NetConnection connection;
         // Client connection state.
-        NetConnectionState state;
+        rkfield() NetConnectionState state;
 
+    public:
+        TkString toString() const override
+        {
+            return TkString::format("NetworkClient Id=%i, ConnectionId=%i", clientId, connection.connectionId);
+        }
     };
 
 }

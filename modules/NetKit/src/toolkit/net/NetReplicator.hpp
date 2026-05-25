@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include <toolkit/collection/DataCollection.hpp>
 #include <toolkit/net/common.hpp>
+#include <toolkit/types/Span.hpp>
 
 namespace toolkit
 {
@@ -25,12 +27,13 @@ namespace toolkit
     };
 
     // High-level networking replication system for game objects.
-    class TK_API NetwReplicator
+    class TK_API NetReplicator
     {
-        friend class NetwReplicatorInternal;
-        typedef void (*SerializeFunc)(void *instance, NetStream *stream, void *tag);
+        friend class NetInternal;
 
     public:
+        typedef void (*SerializeFunc)(void *instance, NetStream *stream, void *tag);
+
 #if TK_DEBUG
         // Enables verbose logging of the networking runtime. Can be used to debug problems of missing RPC invoke or object replication issues.
         static bool enableLog;
@@ -43,60 +46,60 @@ namespace toolkit
 
     public:
         // Add the network replication serializer for a given type.
-        static void addSerializer(const ScriptingTypeHandle &typeHandle, SerializeFunc serialize, SerializeFunc deserialize, void *serializeTag = nullptr, void *deserializeTag = nullptr);
+        static void addSerializer(const TypeHandle &typeHandle, SerializeFunc serialize, SerializeFunc deserialize, void *serializeTag = nullptr, void *deserializeTag = nullptr);
         // Invoke the network replication serializer for a given type.
-        static bool invokeSerializer(const ScriptingTypeHandle &typeHandle, void *instance, NetStream *stream, bool serialize);
+        static bool invokeSerializer(const TypeHandle &typeHandle, void *instance, NetStream *stream, bool serialize);
         // Add the object to the network replication system.
-        static void addObject(ScriptingObject *obj, const ScriptingObject *parent = nullptr);
+        static void addObject(RkObject *obj, const RkObject *parent = nullptr);
         // Remove the object from the network replication system.
-        static void removeObject(ScriptingObject *obj);
+        static void removeObject(RkObject *obj);
         
         // Spawn the object to the other clients. Can be spawned by the owner who locally created it (eg. from prefab).
-        static void spawnObject(ScriptingObject *obj);
+        static void spawnObject(RkObject *obj);
         // Spawns the object to the other clients. Can be spawned by the owner who locally created it (eg. from prefab).
-        static void spawnObject(ScriptingObject *obj, const TkDataCollection<u32> &clientIds);
+        static void spawnObject(RkObject *obj, const TkDataCollection<u32> &clientIds);
         // Despawns the object from the other clients. Deletes object from remove clients.
-        static void despawnObject(ScriptingObject *obj);
+        static void despawnObject(RkObject *obj);
         // Check if the network object is spawned or added to the network replication system.
-        static bool hasObject(const ScriptingObject *obj);
+        static bool hasObject(const RkObject *obj);
 
         // Map object ID into server or client ID (depending on the source ID). Leaves source value unchanged if that specific ID is unused.
         static void mapObjectId(TkUuid &objectId);
         // Add a new mapping for object identifier. Can be used to link locally-spawned object with across different clients.
-        static void addObjectIdMapping(const ScriptingObject *obj, const TkUuid &objectId);
-        // Resolve foreign Guid into a local ScriptingObject
-        static ScriptingObject *resolveForeignObject(Guid objectId);
+        static void addObjectIdMapping(const RkObject *obj, const TkUuid &objectId);
+        // Resolve foreign object id into a local RkObject.
+        static RkObject *resolveForeignObject(TkUuid objectId);
         // Get the Client Id of the network object owner.
-        static u32 getObjectOwnerClientId(const ScriptingObject *obj);
+        static u32 getObjectOwnerClientId(const RkObject *obj);
 
         // Get the role of the network object used locally (eg. to check if can simulate object).
-        static NetObjectRole getObjectRole(const ScriptingObject *obj);
+        static NetObjectRole getObjectRole(const RkObject *obj);
         // Checks if the network object is owned locally (thus current client has authority to manage it).
-        TK_FORCE_INLINE static bool isObjectOwned(const ScriptingObject *obj)
+        TK_FORCE_INLINE static bool isObjectOwned(const RkObject *obj)
         {
             return getObjectRole(obj) == NetObjectRole::OwnedAuthoritative;
         }
         // Checks if the network object is simulated locally (thus current client has can modify it - changed might be overriden by other client who owns this object).
-        TK_FORCE_INLINE static bool isObjectSimulated(const ScriptingObject *obj)
+        TK_FORCE_INLINE static bool isObjectSimulated(const RkObject *obj)
         {
             return getObjectRole(obj) != NetObjectRole::Replicated;
         }
         // Checks if the network object is replicated locally (any local changes might be overriden by other client who owns this object).
-        TK_FORCE_INLINE static bool isObjectReplicated(const ScriptingObject *obj)
+        TK_FORCE_INLINE static bool isObjectReplicated(const RkObject *obj)
         {
             const NetObjectRole role = getObjectRole(obj);
             return role == NetObjectRole::Replicated || role == NetObjectRole::ReplicatedSimulated;
         }
         // Sets the network object ownership - owning client identifier and local role to use.
-        static void setObjectOwnership(ScriptingObject *obj, u32 ownerClientId, NetObjectRole localRole = NetObjectRole::Replicated, bool hierarchical = true);
+        static void setObjectOwnership(RkObject *obj, u32 ownerClientId, NetObjectRole localRole = NetObjectRole::Replicated, bool hierarchical = true);
         // Marks the object dirty to perform immediate replication to the other clients.
-        static void dirtyObject(ScriptingObject *obj);
+        static void dirtyObject(RkObject *obj);
 
     public:
         // Begins invoking the RPC and returns the Network Stream to serialize parameters to.
         static NetStream *beginInvokeRPC();
         // Ends invoking the RPC.
-        static bool endInvokeRPC(ScriptingObject *obj, const ScriptingTypeHandle &type, const StringAnsiView &name, NetStream *argsStream, Span<u32> targetIds = Span<u32>());
+        static bool endInvokeRPC(RkObject *obj, const TypeHandle &type, const TkStringView &name, NetStream *argsStream, TkSpan<u32> targetIds = TkSpan<u32>());
     };
 
 }

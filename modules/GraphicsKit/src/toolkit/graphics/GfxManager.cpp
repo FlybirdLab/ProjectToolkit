@@ -46,7 +46,7 @@ namespace toolkit
 
     static GfxDevice *createDeviceForBackend(GfxBackendType backend)
     {
-        LogInfo("createDeviceForBackend enter: backend=%d", static_cast<i32>(backend));
+        LogInfo("createDeviceForBackend enter: backend=%s", toolkit::toString(backend));
         switch (backend)
         {
 #if GFX_API_NULL
@@ -87,7 +87,7 @@ namespace toolkit
             return createDeviceMetal();
 #endif
         default:
-            LogWarn("createDeviceForBackend: unsupported backend=%d", static_cast<i32>(backend));
+            LogWarn("createDeviceForBackend: unsupported backend=%s", toolkit::toString(backend));
             return nullptr;
         }
     }
@@ -96,7 +96,7 @@ namespace toolkit
     {
         TK_ASSERT(GfxDevice::sInstance == nullptr);
 
-        LogInfo("Create graphics device begin: backend=%d", static_cast<i32>(backend));
+        LogInfo("Create graphics device begin: backend=%s", toolkit::toString(backend));
         GfxPixelFormat::init();
 
         GfxDevice *device = createDeviceForBackend(backend);

@@ -3,41 +3,30 @@
  * @LastEditors: cubevlmu khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
  */
-/*
- * @Author: cubevlmu khfahqp@gmail.com
- * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
- */
+
 #include "MocCtx.hpp"
 
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/platforms/FileSystem.hpp"
-#include "toolkit/platforms/System.hpp"
 #include "toolkit/types/String.hpp"
-#include "toolkit/types/StringBuilder.hpp"
 
-#include "moc/CmdLine.hpp"
+#include "moc/Generator.hpp"
 
-#include "purc/PurcCtx.hpp"
+#include "parser/Context.hpp"
 
 namespace toolkit {
 
-    MocCtx::MocCtx(int argc, char** argv) {
-        // g_deamonAppMode = true;
+    MocCtx::MocCtx(const TkString& sourcePath, const TkString& outputPath)
+        : m_sourcePath(sourcePath)
+        , m_outputPath(outputPath)
+    {
+    }
 
-        // platform::init();
-        // platform::setUp();
-
-        TkStringBuilder bd{};
-
-        for (int idx = 1; idx < argc; idx++) {
-            bd.append(argv[idx]).append(" ");
-        }
-
-        if (!parseCmdLine(bd.getCharArray().get())) {
-            // platform::cleanUp();
-            // platform::exit();
-        }
+    MocCtx::MocCtx(const TkString& sourcePath, const TkString& outputPath, const TkArray<TkString>& sourceFiles)
+        : m_sourcePath(sourcePath)
+        , m_outputPath(outputPath)
+        , m_sourceFiles(sourceFiles)
+    {
     }
 
 
@@ -48,40 +37,41 @@ namespace toolkit {
 
 
     int MocCtx::runMoc() {
-        auto* cmdLine = getCmdLine();
-
-        if (cmdLine->sourcePath == TkString::Empty) {
-#if CB_DEBUG
-            cmdLine->sourcePath = "/Users/cubevlmu/Documents/cobalt/docs";
-#else
-            LogError("Source file path is empty, cmoc will halt.");
+        if (m_sourcePath.isEmpty()) {
+            LogError("Source path is empty, RkGen will halt.");
             return -1;
-#endif
         }
-        if (cmdLine->outputPath == TkString::Empty) {
-            cmdLine->outputPath = TkString::format("%s/moc_obj", System::getWorkDir());
+        if (m_outputPath.isEmpty()) {
+            LogError("Output path is empty, RkGen will halt.");
+            return -1;
         }
 
-        LogInfo("File path {0}", cmdLine->sourcePath);
-        LogInfo("Output path {0}", cmdLine->outputPath);
+        LogInfo("[RkGen] source path: %s", m_sourcePath.getText());
+        LogInfo("[RkGen] output path: %s", m_outputPath.getText());
 
-        if (!TkFileSystem::isDirExist(cmdLine->outputPath)) {
-            if (!TkFileSystem::makeDir(cmdLine->outputPath)) {
-                LogError("Failed to create data directory at %s", cmdLine->outputPath);
+        if (!TkFileSystem::isDirExist(m_outputPath)) {
+            if (!TkFileSystem::makeDir(m_outputPath)) {
+                LogError("[RkGen] failed to create output directory: %s", m_outputPath.getText());
                 return -1;
             }
         }
 
-        PurcCtx ctx {{
-            cmdLine->sourcePath,
-            cmdLine->outputPath
+        ParserContext ctx {{
+            m_sourcePath,
+            m_outputPath,
+            m_sourceFiles
         }};
         if (!ctx.setUp()) {
-            LogError("Failed to scan files in source dir!");
+            LogError("[RkGen] failed to scan files in source dir.");
             return -1;
         }
         if (!ctx.processAll()) {
-            LogError("Failed to parse files in source dir!");
+            LogError("[RkGen] failed to parse files in source dir.");
+            return -1;
+        }
+        Generator generator;
+        if (!generator.generate(ctx)) {
+            LogError("[RkGen] failed to generate files.");
             return -1;
         }
 

@@ -8,11 +8,12 @@
 
 #include <toolkit/net/common.hpp>
 #include "toolkit/collection/Array.hpp"
+#include "toolkit/reflect/common.hpp"
 
 namespace toolkit
 {
     // The high-level network manage modes.
-    enum class NetManagerMode
+    rkenum class NetManagerMode
     {
         // Disabled.
         kOffline = 0,
@@ -24,24 +25,25 @@ namespace toolkit
         kHost,
     };
 
-    // <summary>
     // The high-level network client connection data. Can be used to accept/deny new connection.
-    struct NetClientConnectionData
+    rkstruct NetClientConnectionData
     {
+        R_STRUCT(NetClientConnectionData);
+    public:
         // The incoming client.
-        NetClient *client;
+        rkfield() NetClient *client;
         // 0 if accept new connection, error code otherwise. Send back to the client.
-        i32 result;
+        rkfield() i32 result;
         // Client platform type (can be different that current one when using cross-play).
-        PlatformType platform;
+        rkfield() PlatformType platform;
         // Client platform architecture (can be different that current one when using cross-play).
-        ArchitectureType architecture;
+        rkfield() ArchitectureType architecture;
         // Custom data to send from client to server as part of connection initialization and verification. Can contain game build info, platform data or certificate needed upon joining the game.
-        TkArray<byte> payloadData;
+        rkfield() TkArray<byte> payloadData;
     };
 
     // High-level networking manager for multiplayer games.
-    class TK_API NetworkManager
+    rkclass TK_API NetManager
     {
     public:
         // Server client identifier. Constant value of 0.
@@ -93,35 +95,37 @@ namespace toolkit
         static NetClient *getClient(const NetConnection &connection);
 
         // Get the network client with a given identifier. Return null if failed to find it.
-        static NetClient *GetClient(u32 clientId);
+        static NetClient *getClient(u32 clientId);
 
     public:
-        // Start the network in server mode. Return true if failed (eg. invalid config).
-        static bool startServer();
-        // Start the network in client mode. Return true if failed (eg. invalid config).
-        static bool startClient();
-        // Start the network in host mode. Return true if failed (eg. invalid config).
-        static bool startHost();
+        // Start the network in server mode. Return true if started successfully.
+        rkfunc static bool startServer();
+        // Start the network in client mode. Return true if started successfully.
+        rkfunc static bool startClient();
+        // Start the network in host mode. Return true if started successfully.
+        rkfunc static bool startHost();
         // Stop the network.
-        static void stop();
+        rkfunc static void stop();
+        // Poll network events and run replication. Call this once per frame from the host application.
+        static void update();
 
     public:
         // The target amount of the network logic updates per second (frequency of replication, events sending and network ticking). Use 0 to run every game update.
-        static float networkFPS;
+        rkfield() static float networkFPS;
         // Current network peer (low-level).
-        static NetPeer *peer;
+        rkfield() static NetPeer *peer;
         // Current manager mode.
-        static NetManagerMode mode;
+        rkfield() static NetManagerMode mode;
         // Current network connection state.
-        static NetConnectionState state;
+        rkfield() static NetConnectionState state;
         // Current network system frame number (incremented every tick). Can be used for frames counting in networking and replication.
-        static u32 frame;
+        rkfield() static u32 frame;
         // Local client identifier. Valid even on server that doesn't have LocalClient.
-        static u32 localClientId;
+        rkfield() static u32 localClientId;
         // Local client, valid only when Network Manager is running in client or host mode (server doesn't have a client).
-        static NetClient *localClient;
+        rkfield() static NetClient *localClient;
         // List of all clients: connecting, connected and disconnected. Empty on clients.
-        static TkArray<NetClient *> clients;
+        rkfield() static TkArray<NetClient *> clients;
     };
 
 }

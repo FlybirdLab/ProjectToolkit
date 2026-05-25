@@ -177,15 +177,15 @@ namespace toolkit
         GfxResourceProperty() = default;
         GfxResourceProperty(T *resource)
         {
-            onSet(resource);
+            onSet((GfxResource *)resource);
         }
         GfxResourceProperty(const GfxResourceProperty &other)
         {
-            onSet(other.get());
+            onSet((GfxResource *)other.get());
         }
         GfxResourceProperty(GfxResourceProperty &&other)
         {
-            onSet(other.get());
+            onSet((GfxResource *)other.get());
             other.onSet(nullptr);
         }
 
@@ -213,13 +213,13 @@ namespace toolkit
 
         TK_FORCE_INLINE GfxResourceProperty &operator=(T &other)
         {
-            onSet(&other);
+            onSet((GfxResource *)&other);
             return *this;
         }
 
         TK_FORCE_INLINE GfxResourceProperty &operator=(T *other)
         {
-            onSet(other);
+            onSet((GfxResource *)other);
             return *this;
         }
 
@@ -251,7 +251,7 @@ namespace toolkit
         // Set resource
         void set(T *value)
         {
-            onSet(value);
+            onSet((GfxResource *)value);
         }
 
         // Unlink resource

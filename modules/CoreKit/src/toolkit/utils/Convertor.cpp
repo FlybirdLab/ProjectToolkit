@@ -287,6 +287,10 @@ namespace toolkit
         }
     }
 
+    // ansiToUtf16: Converts a UTF-8 byte sequence (named "ansi" for historical reasons) to UTF-16.
+    // `fromLength` is the source byte count.
+    // Caller must allocate `to` with at least (fromLength + 1) wchars — the function writes
+    // up to `fromLength` wchars from the conversion plus a null terminator at index `toLength`.
     void TkConvertor::ansiToUtf16(const char *from, wchar *to, i32 fromLength, i32 &toLength)
     {
 #if TK_WINDOWS
@@ -326,6 +330,10 @@ namespace toolkit
 #endif
     }
 
+    // utf16ToAnsi: Converts UTF-16 to UTF-8 (named "ansi" for historical reasons).
+    // `len` is the source wide-character count (NOT byte count).
+    // Caller must allocate `to` with at least (len * 4 + 1) bytes — UTF-8 can use up to 4 bytes
+    // per source wchar, plus the null terminator written at `to[res]` where res can equal `len * 4`.
     void TkConvertor::utf16ToAnsi(const wchar *from, char *to, i32 len)
     {
 #if TK_WINDOWS

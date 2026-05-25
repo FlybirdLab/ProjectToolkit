@@ -123,7 +123,7 @@ namespace toolkit
     };
 
     template <class T>
-    struct TMethodInvokeObjectAllowed : TBoolConstant<false>
+    struct TMethodInvokeObjectAllowed : TBoolConstant<TIsPointer<T>::Value>
     {
     };
 
@@ -146,6 +146,12 @@ namespace toolkit
     inline void* toMethodInstancePointer(T* instance)
     {
         return instance;
+    }
+
+    template <class T>
+    inline void* toMethodInstancePointer(const T* instance)
+    {
+        return const_cast<T*>(instance);
     }
 
     inline void* toMethodInstancePointer(const RkObject* instance)
@@ -205,7 +211,7 @@ namespace toolkit
         }
         else
         {
-            TK_ASSERT(false && "RkMethod::invokeTyped instance calls require ObjectHandle or RkObject*.");
+            TK_ASSERT(false && "RkMethod::invokeTyped instance calls require ObjectHandle or object pointer.");
             context.instance = nullptr;
         }
         context.args = argValues.get();

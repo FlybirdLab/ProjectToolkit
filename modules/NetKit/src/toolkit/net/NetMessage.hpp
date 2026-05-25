@@ -52,13 +52,13 @@ namespace toolkit
         }
 
         template <typename T>
-        TK_FORCE_INLINE void WriteStructure(const T &data)
+        TK_FORCE_INLINE void writeStructure(const T &data)
         {
             writeBytes((const u8 *)&data, sizeof(data));
         }
 
         template <typename T>
-        TK_FORCE_INLINE void ReadStructure(const T &data)
+        TK_FORCE_INLINE void readStructure(T &data)
         {
             readBytes((u8 *)&data, sizeof(data));
         }

@@ -10,6 +10,8 @@
 #include <toolkit/memory/Memory.hpp>
 #include <toolkit/base/Assert.hpp>
 
+#include <initializer_list>
+
 namespace toolkit
 {
 

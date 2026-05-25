@@ -99,7 +99,7 @@ namespace toolkit
         }
 
         // Default
-        return DefWindowProc(hwnd, msg, wParam, lParam);
+        return ::DefWindowProcW(hwnd, msg, wParam, lParam);
     }
 
     void WindowSystem::init(void *hInstance)
@@ -161,10 +161,10 @@ namespace toolkit
         Win32Input::update();
 
         MSG msg;
-        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+        while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            ::DispatchMessageW(&msg);
         }
     }
 

@@ -15,41 +15,41 @@ namespace toolkit
     class TK_API NetDriver
     {
     public:
-        ~NetDriver() = default;
+        virtual ~NetDriver() = default;
         NetDriver() = default;
 
     public:
         // Return name of this network driver implementation.
-        TkString driverName();
+        virtual TkString driverName() = 0;
 
-        // Initialize the instance of this network driver using given configuration.
-        bool init(NetPeer *host, const NetConfig &config);
+        // Initialize the instance of this network driver using given configuration. Return true on success.
+        virtual bool init(NetPeer *host, const NetConfig &config) = 0;
         // Dispose this driver making it no longer usable. Reserved for resource deallocation etc.
-        void dispose();
-        // Start listening for incoming connections. Once this is called, this driver becomes a server.
-        bool listen();
-        // Starts connection handshake with the end point specified in the <seealso cref="NetworkConfig"/> structure.
+        virtual void dispose() = 0;
+        // Start listening for incoming connections. Once this is called, this driver becomes a server. Return true on success.
+        virtual bool listen() = 0;
+        // Starts connection handshake with the end point specified in the <seealso cref="NetworkConfig"/> structure. Return true on success.
         // Once this is called, this driver becomes a client.
-        bool connect();
+        virtual bool connect() = 0;
 
         // Disconnect from the server.
-        void disconnect();
+        virtual void disconnect() = 0;
         // Disconnect given connection from the server.
-        void disconnect(const NetConnection &connection);
+        virtual void disconnect(const NetConnection &connection) = 0;
         // Try to pop an network event from the queue.
-        bool popEvent(NetEvent &eventPtr);
+        virtual bool popEvent(NetEvent &eventPtr) = 0;
 
         // Send given message over specified channel to the server.
-        void sendMessage(NetChannelType channelType, const NetMessage &message);
+        virtual void sendMessage(NetChannelType channelType, const NetMessage &message) = 0;
         // Send given message over specified channel to the given client connection (target).
-        void sendMessage(NetChannelType channelType, const NetMessage &message, NetConnection target);
+        virtual void sendMessage(NetChannelType channelType, const NetMessage &message, NetConnection target) = 0;
         // Send given message over specified channel to the given client connection (target).
-        void sendMessage(NetChannelType channelType, const NetMessage &message, const TkArray<NetConnection> &targets);
+        virtual void sendMessage(NetChannelType channelType, const NetMessage &message, const TkArray<NetConnection> &targets) = 0;
 
         // Get the network transport layer stats.
-        NetDriverStats getStats();
+        virtual NetDriverStats getStats() = 0;
         // Get the network transport layer stats for a given connection.
-        NetDriverStats getStats(NetConnection target);
+        virtual NetDriverStats getStats(NetConnection target) = 0;
     };
 
 }

@@ -14,6 +14,9 @@
 #include "toolkit/types/StringBuilder.hpp"
 #include "toolkit/types/UUID.hpp"
 #include "toolkit/utils/Convertor.hpp"
+
+#include <cstring>
+#include "toolkit/utils/Convertor.hpp"
 #include "System.hpp"
 
 namespace toolkit
@@ -111,8 +114,11 @@ namespace toolkit
             if (bytes.count() < 2)
                 return false;
             const i32 length = bytes.count() / 2 - 1;
-            data.reserve(length);
+            // utf16ToAnsi may emit up to 4 UTF-8 bytes per source wchar plus a null terminator.
+            const i32 maxBytes = length * 4;
+            data.resize(maxBytes);
             TkConvertor::utf16ToAnsi((wchar *)(bytes.get() + 2), data.get(), length);
+            data.resize((i32)::strlen(data.get()));
         }
         break;
         case 0xFF: // UTF-16 (LE)
@@ -121,8 +127,10 @@ namespace toolkit
             if (bytes.count() < 2)
                 return false;
             const i32 length = bytes.count() / 2 - 1;
-            data.reserve(length);
+            const i32 maxBytes = length * 4;
+            data.resize(maxBytes);
             TkConvertor::utf16ToAnsi((wchar *)(bytes.get() + 2), data.get(), length);
+            data.resize((i32)::strlen(data.get()));
         }
         break;
         default: // ANSI

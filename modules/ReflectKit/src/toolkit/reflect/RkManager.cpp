@@ -74,21 +74,21 @@ namespace toolkit
             if (state.initialized)
                 return;
 
-            static RkModule builtinModule("ReflectKit.Builtin");
+            static RkModule builtinModule("ReflectKit::Builtin");
 
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kVoid, "toolkit.void", 0, 1);
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kBool, "toolkit.bool", sizeof(bool), alignof(bool));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kChar, "toolkit.char", sizeof(char), alignof(char));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU8, "toolkit.u8", sizeof(u8), alignof(u8));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU16, "toolkit.u16", sizeof(u16), alignof(u16));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU32, "toolkit.u32", sizeof(u32), alignof(u32));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU64, "toolkit.u64", sizeof(u64), alignof(u64));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI8, "toolkit.i8", sizeof(i8), alignof(i8));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI16, "toolkit.i16", sizeof(i16), alignof(i16));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI32, "toolkit.i32", sizeof(i32), alignof(i32));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI64, "toolkit.i64", sizeof(i64), alignof(i64));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kF32, "toolkit.f32", sizeof(f32), alignof(f32));
-            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kF64, "toolkit.f64", sizeof(f64), alignof(f64));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kVoid, "toolkit::void", 0, 1);
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kBool, "toolkit::bool", sizeof(bool), alignof(bool));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kChar, "toolkit::char", sizeof(char), alignof(char));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU8, "toolkit::u8", sizeof(u8), alignof(u8));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU16, "toolkit::u16", sizeof(u16), alignof(u16));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU32, "toolkit::u32", sizeof(u32), alignof(u32));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kU64, "toolkit::u64", sizeof(u64), alignof(u64));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI8, "toolkit::i8", sizeof(i8), alignof(i8));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI16, "toolkit::i16", sizeof(i16), alignof(i16));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI32, "toolkit::i32", sizeof(i32), alignof(i32));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kI64, "toolkit::i64", sizeof(i64), alignof(i64));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kF32, "toolkit::f32", sizeof(f32), alignof(f32));
+            registerBuiltinStruct(builtinModule, state, BuiltinTypeId::kF64, "toolkit::f64", sizeof(f64), alignof(f64));
 
             state.initialized = true;
         }
@@ -139,24 +139,21 @@ namespace toolkit
         return getRegistryDirty();
     }
 
-    namespace
+    static RkObject *spawnRegisteredObject(const TypeHandle type, ArgValue *args, const u32 argCount)
     {
-        RkObject *spawnRegisteredObject(const TypeHandle type)
-        {
-            TypeRegistry::finalize();
-            if (!type.isValid())
-                return nullptr;
+        TypeRegistry::finalize();
+        if (!type.isValid())
+            return nullptr;
 
-            const RkClass *klass = type.getType().asClass();
-            if (klass == nullptr || klass->spawn == nullptr || klass->isAbstract)
-                return nullptr;
+        const RkClass *klass = type.getType().asClass();
+        if (klass == nullptr || klass->spawn == nullptr || klass->isAbstract)
+            return nullptr;
 
-            ObjectSpawnParams params(type);
-            RkObject *object = klass->spawn(params);
-            if (object != nullptr && !object->isRegistered())
-                object->registerObject();
-            return object;
-        }
+        ObjectSpawnParams params(type, args, argCount);
+        RkObject *object = klass->spawn(params);
+        if (object != nullptr && !object->isRegistered())
+            object->registerObject();
+        return object;
     }
 
     RkObject *TypeRegistry::newObject(const TypeHandle type)
@@ -165,9 +162,26 @@ namespace toolkit
         return resolveObject(handle);
     }
 
+    RkObject *TypeRegistry::newObject(const TypeHandle type, ArgValue *args, const u32 argCount)
+    {
+        const ObjectHandle handle = newObjectHandle(type, args, argCount);
+        return resolveObject(handle);
+    }
+
     ObjectHandle TypeRegistry::newObjectHandle(const TypeHandle type)
     {
-        RkObject *object = spawnRegisteredObject(type);
+        RkObject *object = spawnRegisteredObject(type, nullptr, 0);
+        if (object == nullptr)
+            return ObjectHandle();
+
+        TK_ASSERT(!object->m_handle.isValid());
+        object->m_handle = getObjectRegistry().add(object);
+        return object->m_handle;
+    }
+
+    ObjectHandle TypeRegistry::newObjectHandle(const TypeHandle type, ArgValue *args, const u32 argCount)
+    {
+        RkObject *object = spawnRegisteredObject(type, args, argCount);
         if (object == nullptr)
             return ObjectHandle();
 
@@ -260,11 +274,14 @@ namespace toolkit
         return objects;
     }
 
-    static PageAllocator g_rkAllocator {};
-    IAllocator& RkManager::getAllocator()
+    IAllocator &RkManager::getAllocator()
     {
-        static auto intf = g_rkAllocator.asInterface();
-        return intf;
+        // Reflect metadata modules may be static objects and can be destroyed very late during
+        // process shutdown. Keep the allocator alive for the whole process to avoid static
+        // destruction order invalidating IAllocator::ctx before RkModule destructors run.
+        static PageAllocator *allocator = new PageAllocator();
+        static IAllocator *interface = new IAllocator(allocator->asInterface());
+        return *interface;
     }
 
 }

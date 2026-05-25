@@ -8,6 +8,7 @@
 
 #include <toolkit/reflect/RkModule.hpp>
 #include <toolkit/reflect/RkObject.hpp>
+#include <toolkit/reflect/invoking/MethodCall.hpp>
 #include <toolkit/reflect/object/ObjectRegistry.hpp>
 
 namespace toolkit
@@ -22,9 +23,11 @@ namespace toolkit
         static TypeHandle findType(const TkStringView& fullName);
         // Preferred creation API is newObjectHandle(). newObject() is a pointer convenience that also registers a handle.
         static RkObject* newObject(TypeHandle type);
+        static RkObject* newObject(TypeHandle type, ArgValue* args, u32 argCount);
         static void destroyObject(RkObject* object);
 
         static ObjectHandle newObjectHandle(TypeHandle type);
+        static ObjectHandle newObjectHandle(TypeHandle type, ArgValue* args, u32 argCount);
         static void destroyObject(ObjectHandle handle);
         static RkObject* resolveObject(ObjectHandle handle);
         static bool isObjectAlive(ObjectHandle handle);
@@ -48,6 +51,26 @@ namespace toolkit
             RkObject* object = findObject(id);
             return object != nullptr && object->is<T>() ? static_cast<T*>(object) : nullptr;
         }
+
+        template <class Ret = void, class Obj = RkObject*, class... Args>
+        static Ret invoke(const RkMethod& method, Obj&& instance, Args&&... args)
+        {
+            return method.invokeTyped<Ret>(toolkit::forward<Obj>(instance), toolkit::forward<Args>(args)...);
+        }
+
+        template <class Ret = void, class Obj = RkObject*, class... Args>
+        static Ret invoke(const RkMethod* method, Obj&& instance, Args&&... args)
+        {
+            TK_ASSERT(method != nullptr);
+            if (method == nullptr)
+            {
+                if constexpr (!TIsVoidType<Ret>::Value)
+                    return Ret{};
+                else
+                    return;
+            }
+            return invoke<Ret>(*method, toolkit::forward<Obj>(instance), toolkit::forward<Args>(args)...);
+        }
     };
 
     class TK_API RkManager final
@@ -65,6 +88,23 @@ namespace toolkit
             return TypeRegistry::newObject(type);
         }
 
+        static RkObject* newObject(TypeHandle type, ArgValue* args, const u32 argCount)
+        {
+            return TypeRegistry::newObject(type, args, argCount);
+        }
+
+        template <class T>
+        static T* newObject()
+        {
+            return static_cast<T*>(newObject(T::staticTypeHandle()));
+        }
+
+        template <class T>
+        static T* newObject(ArgValue* args, const u32 argCount)
+        {
+            return static_cast<T*>(newObject(T::staticTypeHandle(), args, argCount));
+        }
+
         static void destroyObject(RkObject* object)
         {
             TypeRegistry::destroyObject(object);
@@ -73,6 +113,11 @@ namespace toolkit
         static ObjectHandle newObjectHandle(TypeHandle type)
         {
             return TypeRegistry::newObjectHandle(type);
+        }
+
+        static ObjectHandle newObjectHandle(TypeHandle type, ArgValue* args, const u32 argCount)
+        {
+            return TypeRegistry::newObjectHandle(type, args, argCount);
         }
 
         template <class T>
@@ -105,6 +150,18 @@ namespace toolkit
         static TkArray<RkObject*> getObjects()
         {
             return TypeRegistry::getObjects();
+        }
+
+        template <class Ret = void, class Obj = RkObject*, class... Args>
+        static Ret invoke(const RkMethod& method, Obj&& instance, Args&&... args)
+        {
+            return TypeRegistry::invoke<Ret>(method, toolkit::forward<Obj>(instance), toolkit::forward<Args>(args)...);
+        }
+
+        template <class Ret = void, class Obj = RkObject*, class... Args>
+        static Ret invoke(const RkMethod* method, Obj&& instance, Args&&... args)
+        {
+            return TypeRegistry::invoke<Ret>(method, toolkit::forward<Obj>(instance), toolkit::forward<Args>(args)...);
         }
     };
 }

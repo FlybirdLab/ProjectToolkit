@@ -38,7 +38,7 @@ set(TK_GRAPHICS_BACKEND_VALUES
 )
 
 if(WIN32)
-    set(TK_GRAPHICS_BACKEND_DEFAULT vulkan) # directx12
+    set(TK_GRAPHICS_BACKEND_DEFAULT directx11) # directx12
 elseif(APPLE)
     set(TK_GRAPHICS_BACKEND_DEFAULT metal)
 elseif(UNIX AND NOT APPLE)
@@ -81,14 +81,14 @@ elseif(TK_GRAPHICS_BACKEND STREQUAL "directx11")
         message(FATAL_ERROR "TkGraphics backend 'directx11' is only supported on Windows")
     endif()
     set(TK_GRAPHICS_BACKEND_DIRECTX11 1)
-    list(APPEND LNKS d3d11.lib dxgi.lib dxguid.lib d3dcompiler.lib)
+    AddDX11(INCS LNKS)
 
 elseif(TK_GRAPHICS_BACKEND STREQUAL "directx12")
     if(NOT WIN32)
         message(FATAL_ERROR "TkGraphics backend 'directx12' is only supported on Windows")
     endif()
     set(TK_GRAPHICS_BACKEND_DIRECTX12 1)
-    list(APPEND LNKS d3d12.lib dxgi.lib dxguid.lib d3dcompiler.lib)
+    AddDX12(INCS LNKS)
 
 elseif(TK_GRAPHICS_BACKEND STREQUAL "vulkan")
     set(TK_GRAPHICS_BACKEND_VULKAN 1)
@@ -148,36 +148,6 @@ file(GLOB_RECURSE src
         "src/*.mm"
         "src/*.c"
 )
-list(FILTER src EXCLUDE REGEX ".*/backends/null/.*")
-list(FILTER src EXCLUDE REGEX ".*/backends/dx11/.*")
-list(FILTER src EXCLUDE REGEX ".*/backends/dx12/.*")
-list(FILTER src EXCLUDE REGEX ".*/backends/vulkan/.*")
-list(FILTER src EXCLUDE REGEX ".*/backends/opengl/.*")
-list(FILTER src EXCLUDE REGEX ".*/backends/opengles/.*")
-list(FILTER src EXCLUDE REGEX ".*/backends/metal/.*")
-
-if(TK_GRAPHICS_BACKEND_NULL)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/null/*.cpp" "src/toolkit/graphics/backends/null/*.c" "src/toolkit/graphics/backends/null/*.m" "src/toolkit/graphics/backends/null/*.mm")
-    list(APPEND src ${backend_src})
-elseif(TK_GRAPHICS_BACKEND_DIRECTX11)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/dx11/*.cpp" "src/toolkit/graphics/backends/dx11/*.c")
-    list(APPEND src ${backend_src})
-elseif(TK_GRAPHICS_BACKEND_DIRECTX12)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/dx12/*.cpp" "src/toolkit/graphics/backends/dx12/*.c")
-    list(APPEND src ${backend_src})
-elseif(TK_GRAPHICS_BACKEND_VULKAN)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/vulkan/*.cpp" "src/toolkit/graphics/backends/vulkan/*.c")
-    list(APPEND src ${backend_src})
-elseif(TK_GRAPHICS_BACKEND_OPENGL)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/opengl/*.cpp" "src/toolkit/graphics/backends/opengl/*.c")
-    list(APPEND src ${backend_src})
-elseif(TK_GRAPHICS_BACKEND_OPENGLES)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/opengles/*.cpp" "src/toolkit/graphics/backends/opengles/*.c")
-    list(APPEND src ${backend_src})
-elseif(TK_GRAPHICS_BACKEND_METAL)
-    file(GLOB_RECURSE backend_src "src/toolkit/graphics/backends/metal/*.cpp" "src/toolkit/graphics/backends/metal/*.m" "src/toolkit/graphics/backends/metal/*.mm")
-    list(APPEND src ${backend_src})
-endif()
 
 add_library(TkGraphics STATIC
         ${src}

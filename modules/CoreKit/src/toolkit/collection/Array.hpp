@@ -9,6 +9,7 @@
 
 #include <toolkit/memory/ContainerMemory.hpp>
 #include <toolkit/base/Assert.hpp>
+#include <initializer_list>
 
 namespace toolkit
 {

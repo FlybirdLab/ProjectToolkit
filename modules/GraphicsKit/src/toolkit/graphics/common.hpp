@@ -108,6 +108,7 @@ namespace toolkit
 
         kMax
     };
+    const char* toString(GfxBackendType);
 
     // Shader profile types.
     enum class GfxShaderProfile
@@ -122,6 +123,7 @@ namespace toolkit
 
         kMax
     };
+    const char* toString(GfxShaderProfile);
 
     // Graphics feature levels.
     enum class GfxFeatureLevel
@@ -135,6 +137,7 @@ namespace toolkit
 
         kMax
     };
+    const char* toString(GfxFeatureLevel);
 
     // Multisample count level.
     enum class GfxMSAALevel : i32
@@ -215,6 +218,7 @@ namespace toolkit
         // The graphics device run out of video memory to allocate.
         kGPUOutOfMemory,
     };
+    const char* toString(FatalErrorType);
 
     // Shader compilation flags.
     enum class GfxShaderFlags : u32

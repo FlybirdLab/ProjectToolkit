@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include <toolkit/collection/HashMap.hpp>
 #include "toolkit/collection/StaticArray.hpp"
 #include <toolkit/net/common.hpp>
+#include <toolkit/net/NetManager.hpp>
 #include <toolkit/types/Span.hpp>
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/types/Pair.hpp>
@@ -29,20 +31,20 @@ namespace toolkit
     };
 
     // Network RPC identifier name (pair of type and function name)
-    typedef TkPair<ScriptingTypeHandle, TkStringView> NetRpcName;
+    typedef TkPair<TypeHandle, TkStringView> NetRpcName;
 
     // Network RPC descriptor
     struct TK_API NetRpcInfo
     {
-        u8 server : 1;
-        u8 client : 1;
-        u8 channel : 4;
-        void (*execute)(ScriptingObject *obj, NetStream *stream, void *tag);
-        bool (*invoke)(ScriptingObject *obj, void **args);
-        void* tag;
+        u8 server : 1 = 0;
+        u8 client : 1 = 0;
+        u8 channel : 4 = 0;
+        void (*execute)(RkObject *obj, NetStream *stream, void *tag) = nullptr;
+        bool (*invoke)(RkObject *obj, void **args) = nullptr;
+        void *tag = nullptr;
 
         // Global table for registered RPCs. Key: pair of type, RPC name. Value: RPC descriptor.
-        static TkHashMap<NetRpcName, NetRpcInfo> RPCsTable;
+        static TkHashMap<NetRpcName, NetRpcInfo> rpcsTable;
     };
 
     // Gets the pointer to the RPC argument into the args buffer
@@ -63,22 +65,20 @@ namespace toolkit
 // Network RPC implementation (placed in the beginning of the method body)
 #define NETWORK_RPC_IMPL(type, name, ...)                                                                                                                       \
     {                                                                                                                                                           \
-        const NetRpcInfo *rpcInfoPtr = NetRpcInfo::RPCsTable.TryGet(NetRpcName(type::TypeInitializer, StringAnsiView(#name)));                      \
-        if (rpcInfoPtr == nullptr)                                                                                                                              \
+        const auto rpcInfoIt = NetRpcInfo::rpcsTable.find(NetRpcName(type::TypeInitializer, TkStringView(#name)));                              \
+        if (rpcInfoIt == NetRpcInfo::rpcsTable.End())                                                                                                           \
         {                                                                                                                                                       \
-            LogError("Invalid RPC {0}::{1}. Ensure to use proper type name and method name (and 'Network' tag on a code module).", TEXT(#type), TEXT(#name)); \
-            if (System::isDebuggerPresent())                                                                                                                  \
-                PLATFORM_DEBUG_BREAK;                                                                                                                           \
-            TK_ASSERT("Invalid RPC.", __FILE__, __LINE__);                                                                                               \
+            LogError("Invalid RPC %s::%s. Ensure to use proper type name and method name.", #type, #name);                                                       \
+            TK_ASSERT(false && "Invalid RPC.");                                                                                                                 \
             return;                                                                                                                                             \
         }                                                                                                                                                       \
-        const NetRpcInfo &rpcInfo = *rpcInfoPtr;                                                                                                            \
-        const NetManagerMode networkMode = NetworkManager::Mode;                                                                                            \
+        const NetRpcInfo &rpcInfo = rpcInfoIt->value;                                                                                                           \
+        const NetManagerMode networkMode = NetManager::mode;                                                                                                    \
         if ((rpcInfo.server && networkMode == NetManagerMode::kClient) || (rpcInfo.client && networkMode != NetManagerMode::kClient))                     \
         {                                                                                                                                                       \
             TkStaticArray<void *, 16> args;                                                                                                            \
-            netRpcInitArg(args, __VA_ARGS__);                                                                                                               \
-            if (rpcInfo.invoke(this, args.get()))                                                                                                               \
+            __VA_OPT__(netRpcInitArg(args, __VA_ARGS__);)                                                                                                  \
+            if (rpcInfo.invoke != nullptr && rpcInfo.invoke(this, args.get()))                                                                              \
                 return;                                                                                                                                         \
         }                                                                                                                                                       \
     }
@@ -86,8 +86,8 @@ namespace toolkit
 // Network RPC override implementation (placed in the beginning of the overriden method body - after call to the base class method)
 #define NETWORK_RPC_OVERRIDE_IMPL(type, name, ...)                                                                                          \
     {                                                                                                                                       \
-        const NetRpcInfo &rpcInfo = NetRpcInfo::RPCsTable[NetRpcName(type::TypeInitializer, StringAnsiView(#name))];            \
-        const NetManagerMode networkMode = NetworkManager::Mode;                                                                        \
+        const NetRpcInfo &rpcInfo = NetRpcInfo::rpcsTable[NetRpcName(type::TypeInitializer, TkStringView(#name))];              \
+        const NetManagerMode networkMode = NetManager::mode;                                                                            \
         if ((rpcInfo.server && networkMode == NetManagerMode::kClient) || (rpcInfo.client && networkMode != NetManagerMode::kClient)) \
         {                                                                                                                                   \
             if (rpcInfo.server && networkMode == NetManagerMode::kClient)                                                                \

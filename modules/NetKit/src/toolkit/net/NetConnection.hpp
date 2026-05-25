@@ -11,11 +11,11 @@
 namespace toolkit
 {
     // Network connection structure - used to identify connected peers when we're listening.
-    struct TK_API NetConnection
+    rkstruct TK_API NetConnection
     {
     public:
         // The identifier of the connection.
-        u32 connectionId;
+        rkfield() u32 connectionId;
     };
 
     template <>

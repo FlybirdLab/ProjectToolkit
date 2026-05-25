@@ -1,11 +1,16 @@
-// Created by cubevlmu on 2025/11/30.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
 #include <toolkit/common.hpp>
 #include <toolkit/base/TypeTraits.hpp>
-#include <string>
+#if TK_DEBUG
+#include <string_view>
+#endif
 
 namespace toolkit
 {

@@ -24,6 +24,7 @@ set(HEAD)
 SetPlatformDeps(INCS LNKS)
 
 AddTkCore(INCS LNKS DEPS)
+AddTkReflect(INCS LNKS DEPS)
 #################################################################
 # backend option
 #################################################################
@@ -75,7 +76,6 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/toolkit/net/environment.hpp"
     @ONLY
 )
-
 #################################################################
 # project configurations
 #################################################################
@@ -85,9 +85,21 @@ file(GLOB_RECURSE src
     "src/*.mm"
     "src/*.c"
 )
+file(GLOB_RECURSE gen
+    "generated/*.cpp"
+)
 
 add_library(TkNet STATIC
     ${src}
+    ${gen}
+)
+
+tk_target_rkgen(TkNet
+    RECURSIVE
+    SOURCE_DIRS
+        src
+    OUTPUT_DIR
+        ${CMAKE_SOURCE_DIR}/modules/NetKit/generated
 )
 
 target_include_directories(TkNet PRIVATE

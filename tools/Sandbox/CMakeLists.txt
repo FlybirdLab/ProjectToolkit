@@ -29,6 +29,8 @@ AddTkCore(INCS LNKS DEPS)
 AddTkWindow(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
 AddTkGraphics(INCS LNKS DEPS)
+AddTkReflect(INCS LNKS DEPS)
+AddTkNet(INCS LNKS DEPS)
 
 ########################################################
 # project configurations

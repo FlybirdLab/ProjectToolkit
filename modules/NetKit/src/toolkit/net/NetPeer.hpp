@@ -20,9 +20,11 @@ namespace toolkit
     public:
         // Start listening for incoming connections.
         // Once this is called, this peer becomes a server.
+        // Return true on success.
         bool listen();
         // Start connection handshake with the end point specified in the <seealso cref="NetworkConfig"/> structure.
         // Once this is called, this peer becomes a client.
+        // Return true on success.
         bool connect();
         // Disconnect from the server.
         void disconnect();

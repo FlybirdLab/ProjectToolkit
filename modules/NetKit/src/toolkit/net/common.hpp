@@ -8,6 +8,8 @@
 
 #include <toolkit/net/environment.hpp>
 #include <toolkit/common.hpp>
+#include <toolkit/reflect/RkObject.hpp>
+#include <toolkit/reflect/common.hpp>  
 #include <toolkit/types/String.hpp>
 
 namespace toolkit
@@ -23,15 +25,18 @@ namespace toolkit
     class NetClient;
     class NetStream;
     class NetReplicationHierarchy;
+    class NetReplicationHierarchyUpdateResult;
+    class NetInternal;
 
     struct NetEvent;
     struct NetConnection;
     struct NetMessage;
     struct NetDriverStats;
     struct NetRpcParams;
+    struct NetClientsMask;
 
         // The high-level network connection state.
-    enum class NetConnectionState
+    rkenum class NetConnectionState
     {
         // Not connected.
         kOffline = 0,
@@ -46,7 +51,7 @@ namespace toolkit
     };
 
     // The low-level network channel type for message sending.
-    enum class NetChannelType
+    rkenum class NetChannelType
     {
         // Invalid channel type.
         kNone = 0,
@@ -61,7 +66,7 @@ namespace toolkit
     };
 
     // Low-level network configuration structure. Provides settings for the network driver and all internal components.
-    struct TK_API NetConfig
+    rkstruct TK_API NetConfig
     {
     public:
         NetConfig() = default;
@@ -71,18 +76,17 @@ namespace toolkit
 
     public:
         // The network driver instance (implements INetworkDriver) that will be used to create and manage the peer, send and receive messages.
-        NetDriver *driver = nullptr;
+        rkfield() NetDriver *driver = nullptr;
         // The upper limit on how many peers can join when we're listening.
-        u64 connectionLimit = 32;
+        rkfield() u64 connectionLimit = 32;
         // Address used to connect to or listen at.
-        TkString address = TkString("127.0.0.1");
+        rkfield() TkString address = TkString("127.0.0.1");
         // The port to connect to or listen at.
-        u64 port = 7777;
+        rkfield() u64 port = 7777;
         // The size of a message buffer in bytes. Should be lower than the MTU (maximal transmission unit) - typically 1500 bytes.
-        u64 messageSize = 1500;
-
+        rkfield() u64 messageSize = 1500;
         // The amount of pooled messages that can be used at once (receiving and sending!).
-        u64 messagePoolSize = 2048;
+        rkfield() u64 messagePoolSize = 2048;
     };
 
 }

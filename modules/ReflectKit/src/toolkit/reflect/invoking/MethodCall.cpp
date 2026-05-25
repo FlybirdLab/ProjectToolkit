@@ -16,7 +16,7 @@ namespace toolkit
         switch (expected)
         {
         case ArgPassing::kValue:
-            return actual == ArgPassing::kValue;
+            return actual == ArgPassing::kValue || actual == ArgPassing::kLValueRef || actual == ArgPassing::kConstLValueRef || actual == ArgPassing::kRValueRef;
         case ArgPassing::kConstLValueRef:
             return actual == ArgPassing::kValue || actual == ArgPassing::kLValueRef || actual == ArgPassing::kConstLValueRef || actual == ArgPassing::kRValueRef;
         case ArgPassing::kLValueRef:

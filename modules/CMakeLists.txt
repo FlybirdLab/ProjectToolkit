@@ -10,5 +10,10 @@ add_subdirectory(AudioKit)
 add_subdirectory(LocaleKit)
 add_subdirectory(GraphicsKit)
 add_subdirectory(ReflectKit)
-add_subdirectory(MediaKit)
-# add_subdirectory(NetKit)
+
+if (NOT TARGET RkGen)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/tools/RkGen ${CMAKE_BINARY_DIR}/tools/RkGen)
+endif()
+
+add_subdirectory(VideoKit)
+add_subdirectory(NetKit)

@@ -132,13 +132,13 @@ namespace toolkit
 
         if (!result)
         {
-            LogError("Shader compilation '%s' failed (profile: %i)", options.targetName, options.profile);
+            LogError("Shader compilation '%s' failed (profile: %s)", options.targetName, toolkit::toString(options.profile));
         }
         else
         {
             // Success
             const TkDateTime endTime = TkDateTime::nowUTC();
-            LogInfo("Shader compilation '%s' succeed in %i ms (profile: %i)", options.targetName, TkMath::ceilToInt(static_cast<float>((endTime - startTime).getTotalMilliseconds())), options.profile);
+            LogInfo("Shader compilation '%s' succeed in %i ms (profile: %s)", options.targetName, TkMath::ceilToInt(static_cast<float>((endTime - startTime).getTotalMilliseconds())), toolkit::toString(options.profile));
         }
 
         return result;

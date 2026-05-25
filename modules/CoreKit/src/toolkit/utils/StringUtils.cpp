@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/12/8.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #include "StringUtils.hpp"
 
@@ -9,6 +12,15 @@
 #include "toolkit/types/StringView.hpp"
 #include "toolkit/types/Span.hpp"
 #include "toolkit/environment.hpp"
+
+#include <cctype>
+#include <cstring>
+
+#if TK_WINDOWS
+#include <string.h>
+#else
+#include <strings.h>
+#endif
 
 namespace toolkit
 {
@@ -57,7 +69,7 @@ namespace toolkit
 	}
 	bool TkStringUtils::equalIStrings(const char *lhs, const char *rhs)
 	{
-#if TK_COMPILER_MSVC
+#if TK_WINDOWS
 		return _stricmp(lhs, rhs) == 0;
 #else
 		return strcasecmp(lhs, rhs) == 0;
@@ -65,7 +77,7 @@ namespace toolkit
 	}
 	bool TkStringUtils::equalIStrings(const char *lhs, const char *rhs, size_t len)
 	{
-#if TK_COMPILER_MSVC
+#if TK_WINDOWS
 		return _strnicmp(lhs, rhs, len) == 0;
 #else
 		return strncasecmp(lhs, rhs, len) == 0;
@@ -86,7 +98,7 @@ namespace toolkit
 	}
 	i32 TkStringUtils::compareIStrings(const char *str1, const char *str2)
 	{
-#if TK_COMPILER_MSVC
+#if TK_WINDOWS
 		return _stricmp(str1, str2);
 #else
 		return strcasecmp(str1, str2);
@@ -94,7 +106,7 @@ namespace toolkit
 	}
 	i32 TkStringUtils::compareIStrings(const char *str1, const char *str2, i32 maxCount)
 	{
-#if TK_COMPILER_MSVC
+#if TK_WINDOWS
 		return _strnicmp(str1, str2, maxCount);
 #else
 		return strncasecmp(str1, str2, maxCount);
@@ -855,14 +867,14 @@ namespace toolkit
 	}
 
 	bool TkStringUtils::isWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
-	bool TkStringUtils::isUpper(char c) { return isupper(c) != 0; }
-	bool TkStringUtils::isLower(char c) { return islower(c) != 0; }
-	bool TkStringUtils::isAlpha(char c) { return iswalpha(c) != 0; }
-	bool TkStringUtils::isPunct(char c) { return ispunct(c) != 0; }
-	bool TkStringUtils::isAlnum(char c) { return isalnum(c) != 0; }
-	bool TkStringUtils::isDigit(char c) { return isdigit(c) != 0; }
-	bool TkStringUtils::isHexDigit(char c) { return isxdigit(c) != 0; }
-	char TkStringUtils::toUpper(char c) { return toupper(c); }
+	bool TkStringUtils::isUpper(char c) { return std::isupper(static_cast<unsigned char>(c)) != 0; }
+	bool TkStringUtils::isLower(char c) { return std::islower(static_cast<unsigned char>(c)) != 0; }
+	bool TkStringUtils::isAlpha(char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; }
+	bool TkStringUtils::isPunct(char c) { return std::ispunct(static_cast<unsigned char>(c)) != 0; }
+	bool TkStringUtils::isAlnum(char c) { return std::isalnum(static_cast<unsigned char>(c)) != 0; }
+	bool TkStringUtils::isDigit(char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; }
+	bool TkStringUtils::isHexDigit(char c) { return std::isxdigit(static_cast<unsigned char>(c)) != 0; }
+	char TkStringUtils::toUpper(char c) { return static_cast<char>(std::toupper(static_cast<unsigned char>(c))); }
 
 	bool TkStringUtils::fromHexString(const char *str, i32 length, u32 &result)
 	{

@@ -24,6 +24,11 @@ namespace toolkit
     {
     }
 
+    RkObject::RkObject()
+        : m_id(TkUuid::create())
+    {
+    }
+
     RkObject::~RkObject()
     {
         onDeleting();
@@ -73,6 +78,13 @@ namespace toolkit
             TypeRegistry::onObjectIdChanged(this, oldId);
     }
 
+    void RkObject::applySpawnParams(const ObjectSpawnParams &params)
+    {
+        TK_ASSERT(!m_isRegistered && "Spawn params must be applied before object registration.");
+        m_id = params.id.isValid() ? params.id : TkUuid::create();
+        m_type = params.type;
+    }
+
     bool RkObject::canCast(const TypeHandle &from, const TypeHandle &to)
     {
         if (from == to)
@@ -87,6 +99,11 @@ namespace toolkit
         return TypeRegistry::newObject(type);
     }
 
+    RkObject *RkObject::newObject(const TypeHandle type, ArgValue *args, const u32 argCount)
+    {
+        return TypeRegistry::newObject(type, args, argCount);
+    }
+
     void RkObject::destroyObject(RkObject *object)
     {
         TypeRegistry::destroyObject(object);
@@ -95,6 +112,11 @@ namespace toolkit
     ObjectHandle RkObject::newObjectHandle(const TypeHandle type)
     {
         return TypeRegistry::newObjectHandle(type);
+    }
+
+    ObjectHandle RkObject::newObjectHandle(const TypeHandle type, ArgValue *args, const u32 argCount)
+    {
+        return TypeRegistry::newObjectHandle(type, args, argCount);
     }
 
     TypeInitializer RkObject::TypeInitializer(

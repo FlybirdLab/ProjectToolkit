@@ -96,8 +96,6 @@ namespace toolkit
     void *System::alloc(psize size)
     {
         // return ::_aligned_malloc(size, 16);
-        // return ::malloc(size);
-        // return rpmalloc(size);
         return rpaligned_alloc(16, size);
     }
 
@@ -111,8 +109,7 @@ namespace toolkit
     {
         if (!ptr)
             return;
-        // ::free(ptr);
-        // _aligned_free(ptr);
+        // ::_aligned_free(ptr);
         rpfree(ptr);
     }
 
@@ -120,7 +117,6 @@ namespace toolkit
     {
         TK_ASSERT(false);
         // return ::_aligned_realloc(ptr, size, 16);
-        // return ::realloc(ptr, size);
         return rprealloc(ptr, size);
     }
 
