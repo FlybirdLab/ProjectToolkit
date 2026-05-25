@@ -181,6 +181,11 @@ namespace toolkit
                 VALIDATE_DIRECTX_CALL(tempAdapter->GetDesc(&adapter.description));
                 adapters.add(adapter);
             }
+            if (tempAdapter)
+            {
+                tempAdapter->Release();
+                tempAdapter = nullptr;
+            }
         }
 
         // Find the best performing adapter and prefer using it instead of the first device
@@ -203,6 +208,11 @@ namespace toolkit
                             break;
                         }
                     }
+                }
+                if (tempAdapter)
+                {
+                    tempAdapter->Release();
+                    tempAdapter = nullptr;
                 }
             }
         }
@@ -631,10 +641,20 @@ namespace toolkit
         if (m_state == DeviceState::kDisposed)
             return;
 
-        m_state = DeviceState::kDisposing;
-
         waitForGPU();
+
+        // The immediate context retains COM references to bound resources and states.
+        // Drop those references before releasing tracked graphics resources.
+        if (m_imContext)
+        {
+            m_imContext->ClearState();
+            m_imContext->Flush();
+        }
+
+        GFX_DEL_RESOURCE(m_dummyVB);
         preDispose();
+
+        m_state = DeviceState::kDisposing;
 
         // Static samplers
         DX_DEL(m_samplerLinearClamp, 0);
@@ -662,6 +682,17 @@ namespace toolkit
             DX_DEL(rasterizerStates[i], 0);
         }
 
+        // Process deferred D3D11 destruction after tracked resources and state objects
+        // have released their native handles.
+        if (m_imContext)
+        {
+            m_imContext->ClearState();
+            m_imContext->Flush();
+        }
+
+        // Drop DXGI output handles before releasing the factory.
+        DirectXDevice::dispose();
+
         // Clear DirectX objects
         if (m_mainContext)
         {
@@ -673,11 +704,26 @@ namespace toolkit
             TkMemory::deletePtr(m_adapter);
             m_adapter = nullptr;
         }
-        DX_DEL(m_imContext, 0);
-        DX_DEL(m_device, 0);
-        DX_DEL(m_factoryDXGI, 0);
+        // Top-level D3D11 objects: do a loose Release (no refcount assert). The debug
+        // layer (D3D11_CREATE_DEVICE_DEBUG) tracks live objects internally and the
+        // returned ref count is not a clean "should be zero" — see DX12 for the same
+        // pattern.
+        if (m_imContext)
+        {
+            m_imContext->Release();
+            m_imContext = nullptr;
+        }
+        if (m_device)
+        {
+            m_device->Release();
+            m_device = nullptr;
+        }
+        if (m_factoryDXGI)
+        {
+            m_factoryDXGI->Release();
+            m_factoryDXGI = nullptr;
+        }
 
-        DirectXDevice::dispose();
         m_state = DeviceState::kDisposed;
     }
 

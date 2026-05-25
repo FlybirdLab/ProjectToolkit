@@ -8,9 +8,11 @@
 
 namespace toolkit
 {
+    class TkCommandLine;
+
     class GraphicsSandbox final
     {
     public:
-        int run();
+        int run(const TkCommandLine &commandLine);
     };
 }

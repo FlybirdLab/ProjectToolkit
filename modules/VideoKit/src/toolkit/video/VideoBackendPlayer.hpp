@@ -9,7 +9,7 @@
 #include "toolkit/collection/DataCollection.hpp"
 #include "toolkit/graphics/utils/PixelFormat.hpp"
 #include "toolkit/types/TimeSpan.hpp"
-#include <toolkit/media/common.hpp>
+#include <toolkit/video/common.hpp>
 #include <toolkit/math/Transform.hpp>
 
 namespace toolkit {

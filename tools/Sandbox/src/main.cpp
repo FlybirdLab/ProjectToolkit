@@ -19,6 +19,8 @@ namespace
     {
         LogInfo("Usage: Sandbox [graphics|net] [command] [options]");
         LogInfo("  graphics  Run the graphics triangle sample (default).");
+        LogInfo("            [--backend=dx12|dx11|vulkan]  Pick which compiled-in backend to use.");
+        LogInfo("            [--list-backends]             List backends compiled into this build.");
         LogInfo("  net check                                   Run NetKit local checks (default).");
         LogInfo("  net server [--port=7777] [--timeout=30]    Listen and reply to one client ping.");
         LogInfo("  net client [--address=127.0.0.1] [--port=7777]");
@@ -44,7 +46,7 @@ int main(int argc, char **argv)
     else if (mode == "graphics" || mode == "render")
     {
         GraphicsSandbox sandbox;
-        result = sandbox.run();
+        result = sandbox.run(commandLine);
     }
     else if (mode == "net" || mode == "network")
     {

@@ -8,7 +8,7 @@
 
 #include "toolkit/math/Transform.hpp"
 #include "toolkit/types/StringView.hpp"
-#include <toolkit/media/common.hpp>
+#include <toolkit/video/common.hpp>
 
 namespace toolkit
 {

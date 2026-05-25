@@ -9,7 +9,6 @@ set(CMAKE_OBJCXX_STANDARD 17)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wno-deprecated-literal-operator)
 endif()
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-extensions")
 #################################################################
 set(INCS
         "${CMAKE_SOURCE_DIR}/modules/GraphicsKit/src"
@@ -24,105 +23,9 @@ set(HEAD
         ""
 )
 #################################################################
-# backend option
+# multi-backend selection (see cmakes/GraphicsBackends.cmake)
 #################################################################
-set(TK_GRAPHICS_BACKEND_VALUES
-        none
-        null
-        directx11
-        directx12
-        vulkan
-        opengl
-        opengles
-        metal
-)
-
-if(WIN32)
-    set(TK_GRAPHICS_BACKEND_DEFAULT directx11) # directx12
-elseif(APPLE)
-    set(TK_GRAPHICS_BACKEND_DEFAULT metal)
-elseif(UNIX AND NOT APPLE)
-    set(TK_GRAPHICS_BACKEND_DEFAULT vulkan)
-else()
-    set(TK_GRAPHICS_BACKEND_DEFAULT null)
-endif()
-
-set(TK_GRAPHICS_BACKEND "${TK_GRAPHICS_BACKEND_DEFAULT}" CACHE STRING "TkGraphics backend")
-
-string(TOLOWER "${TK_GRAPHICS_BACKEND}" TK_GRAPHICS_BACKEND)
-set(TK_GRAPHICS_BACKEND "${TK_GRAPHICS_BACKEND}" CACHE STRING "TkGraphics backend" FORCE)
-set_property(CACHE TK_GRAPHICS_BACKEND PROPERTY STRINGS ${TK_GRAPHICS_BACKEND_VALUES})
-
-list(FIND TK_GRAPHICS_BACKEND_VALUES "${TK_GRAPHICS_BACKEND}" TK_GRAPHICS_BACKEND_INDEX)
-if(TK_GRAPHICS_BACKEND_INDEX EQUAL -1)
-    message(FATAL_ERROR
-            "Invalid TK_GRAPHICS_BACKEND='${TK_GRAPHICS_BACKEND}'. "
-            "Valid values are: ${TK_GRAPHICS_BACKEND_VALUES}"
-    )
-endif()
-
-set(TK_GRAPHICS_BACKEND_NONE 0)
-set(TK_GRAPHICS_BACKEND_NULL 0)
-set(TK_GRAPHICS_BACKEND_DIRECTX11 0)
-set(TK_GRAPHICS_BACKEND_DIRECTX12 0)
-set(TK_GRAPHICS_BACKEND_VULKAN 0)
-set(TK_GRAPHICS_BACKEND_OPENGL 0)
-set(TK_GRAPHICS_BACKEND_OPENGLES 0)
-set(TK_GRAPHICS_BACKEND_METAL 0)
-
-if(TK_GRAPHICS_BACKEND STREQUAL "none")
-    set(TK_GRAPHICS_BACKEND_NONE 1)
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "null")
-    set(TK_GRAPHICS_BACKEND_NULL 1)
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "directx11")
-    if(NOT WIN32)
-        message(FATAL_ERROR "TkGraphics backend 'directx11' is only supported on Windows")
-    endif()
-    set(TK_GRAPHICS_BACKEND_DIRECTX11 1)
-    AddDX11(INCS LNKS)
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "directx12")
-    if(NOT WIN32)
-        message(FATAL_ERROR "TkGraphics backend 'directx12' is only supported on Windows")
-    endif()
-    set(TK_GRAPHICS_BACKEND_DIRECTX12 1)
-    AddDX12(INCS LNKS)
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "vulkan")
-    set(TK_GRAPHICS_BACKEND_VULKAN 1)
-    AddVulkanSDK(INCS LNKS)
-    AddVolk(INCS LNKS)
-    AddVMA(INCS LNKS)
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "opengl")
-    set(TK_GRAPHICS_BACKEND_OPENGL 1)
-    find_package(OpenGL REQUIRED)
-    list(APPEND LNKS OpenGL::GL)
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "opengles")
-    set(TK_GRAPHICS_BACKEND_OPENGLES 1)
-    message(FATAL_ERROR "TkGraphics backend 'opengles' is not wired yet")
-
-elseif(TK_GRAPHICS_BACKEND STREQUAL "metal")
-    if(NOT APPLE)
-        message(FATAL_ERROR "TkGraphics backend 'metal' is only supported on Apple platforms")
-    endif()
-    set(TK_GRAPHICS_BACKEND_METAL 1)
-    find_library(METAL_FRAMEWORK Metal REQUIRED)
-    find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
-    find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
-    list(APPEND LNKS
-            ${METAL_FRAMEWORK}
-            ${QUARTZCORE_FRAMEWORK}
-            ${FOUNDATION_FRAMEWORK}
-    )
-
-endif()
-
-message(STATUS "TkGraphics backend: ${TK_GRAPHICS_BACKEND}")
-
+ConfigureGraphicsBackends(INCS LNKS)
 #################################################################
 # generate environment header
 #################################################################
@@ -197,6 +100,6 @@ target_link_libraries(TkGraphics PRIVATE
 target_compile_definitions(TkGraphics PRIVATE
         ${TK_GRAPHICS_PRIVATE_DEFINITIONS}
 )
-target_compile_options(TkGraphics PRIVATE 
+target_compile_options(TkGraphics PRIVATE
         "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
 )

@@ -21,6 +21,7 @@
 #include <toolkit/platforms/ProcessInitArgs.hpp>
 #include <toolkit/platforms/System.hpp>
 #include <toolkit/threading/Thread.hpp>
+#include <toolkit/utils/CommandLine.hpp>
 #include <toolkit/windowing/Window.hpp>
 #include <toolkit/windowing/WindowSystem.hpp>
 
@@ -28,30 +29,68 @@
 #include <Windows.h>
 #endif
 
-#if GFX_API_DIRECTX12
-#define SANDBOX_GFX_BACKEND_ARG "dx"
-#define SANDBOX_GFX_SHADER_CACHE_NAME "Triangle_dx_sm6.shadercache"
-#define SANDBOX_GFX_BACKEND_NAME "DirectX 12"
-#define SANDBOX_GFX_BACKEND_TYPE GfxBackendType::kDirectX12
-#elif GFX_API_DIRECTX11
-#define SANDBOX_GFX_BACKEND_ARG "d3d"
-#define SANDBOX_GFX_SHADER_CACHE_NAME "Triangle_d3d_sm5.shadercache"
-#define SANDBOX_GFX_BACKEND_NAME "DirectX 11"
-#define SANDBOX_GFX_BACKEND_TYPE GfxBackendType::kDirectX11
-#elif GFX_API_VULKAN
-#define SANDBOX_GFX_BACKEND_ARG "vk"
-#define SANDBOX_GFX_SHADER_CACHE_NAME "Triangle_vk_sm5.shadercache"
-#define SANDBOX_GFX_BACKEND_NAME "Vulkan"
-#define SANDBOX_GFX_BACKEND_TYPE GfxBackendType::kVulkan
-#else
-#error "Sandbox: no supported graphics backend is enabled (expected GFX_API_DIRECTX12, GFX_API_DIRECTX11 or GFX_API_VULKAN)."
+#ifndef SANDBOX_DEFAULT_BACKEND_NAME
+#define SANDBOX_DEFAULT_BACKEND_NAME ""
 #endif
 
 namespace toolkit
 {
     namespace
     {
-        bool compileTriangleShader(TkString &cachePath)
+        struct BackendDescriptor
+        {
+            const char *cliName;          // matches --backend=<this>
+            const char *compilerArg;      // passed to ShaderCompiler --backend
+            const char *cacheFileName;    // produced shader cache name
+            const char *displayName;
+            GfxBackendType type;
+        };
+
+        constexpr BackendDescriptor kBackends[] = {
+#if GFX_API_DIRECTX12
+            {"dx12", "dx", "Triangle_dx_sm6.shadercache", "DirectX 12", GfxBackendType::kDirectX12},
+#endif
+#if GFX_API_DIRECTX11
+            {"dx11", "d3d", "Triangle_d3d_sm5.shadercache", "DirectX 11", GfxBackendType::kDirectX11},
+#endif
+#if GFX_API_VULKAN
+            {"vulkan", "vk", "Triangle_vk_sm5.shadercache", "Vulkan", GfxBackendType::kVulkan},
+#endif
+        };
+
+        constexpr i32 kBackendCount = sizeof(kBackends) / sizeof(kBackends[0]);
+
+        static_assert(kBackendCount > 0, "Sandbox needs at least one graphics backend enabled at compile time.");
+
+        const BackendDescriptor *pickBackend(const TkCommandLine &cmd)
+        {
+            TkString requested = cmd.get("backend");
+            if (requested.isEmpty())
+                requested = cmd.get("b");
+            if (requested.isEmpty())
+                requested = TkString(SANDBOX_DEFAULT_BACKEND_NAME);
+
+            if (!requested.isEmpty())
+            {
+                requested = requested.toLowerAscii();
+                for (i32 i = 0; i < kBackendCount; ++i)
+                {
+                    if (requested == kBackends[i].cliName)
+                        return &kBackends[i];
+                }
+                LogWarn("Sandbox: --backend=%s is not compiled in; falling back to the first available backend.", requested.getText());
+            }
+            return &kBackends[0];
+        }
+
+        void logAvailableBackends()
+        {
+            LogInfo("Available graphics backends (--backend=<name>):");
+            for (i32 i = 0; i < kBackendCount; ++i)
+                LogInfo("  %s - %s", kBackends[i].cliName, kBackends[i].displayName);
+        }
+
+        bool compileTriangleShader(const BackendDescriptor &backend, TkString &cachePath)
         {
             const TkString shaderPath = TkString(SANDBOX_SHADER_SRC_DIR) / "Triangle.shader";
             const TkString outputDir = System::getWorkDir() / "shader-output";
@@ -63,7 +102,10 @@ namespace toolkit
 
             ProcessInitArgs compilerArgs;
             compilerArgs.file = TkString::format("\"%s\"", SANDBOX_SHADER_COMPILER_PATH);
-            compilerArgs.args = TkString::format("--file \"%s\" --backend " SANDBOX_GFX_BACKEND_ARG " --out \"%s\"", shaderPath.getText(), outputDir.getText());
+            compilerArgs.args = TkString::format("--file \"%s\" --backend %s --out \"%s\"",
+                                                 shaderPath.getText(),
+                                                 backend.compilerArg,
+                                                 outputDir.getText());
             compilerArgs.workDir = System::getWorkDir();
             compilerArgs.logOutput = true;
             compilerArgs.saveOutput = false;
@@ -77,7 +119,7 @@ namespace toolkit
                 return false;
             }
 
-            cachePath = outputDir / SANDBOX_GFX_SHADER_CACHE_NAME;
+            cachePath = outputDir / backend.cacheFileName;
             if (!TkFileSystem::isFileExist(cachePath))
             {
                 LogError("Compiled shader cache was not produced: %s", cachePath.getText());
@@ -107,8 +149,17 @@ namespace toolkit
         }
     }
 
-    int GraphicsSandbox::run()
+    int GraphicsSandbox::run(const TkCommandLine &commandLine)
     {
+        if (commandLine.has("list-backends"))
+        {
+            logAvailableBackends();
+            return 0;
+        }
+
+        const BackendDescriptor *backend = pickBackend(commandLine);
+        LogInfo("Sandbox using backend: %s (%s)", backend->displayName, backend->cliName);
+
 #if TK_WINDOWS
         WindowSystem::init(GetModuleHandleW(nullptr));
 #else
@@ -116,21 +167,21 @@ namespace toolkit
 #endif
 
         TkString shaderCachePath;
-        if (!compileTriangleShader(shaderCachePath))
+        if (!compileTriangleShader(*backend, shaderCachePath))
         {
             WindowSystem::dispose();
             return 1;
         }
 
-        if (!GfxManager::createDevice(SANDBOX_GFX_BACKEND_TYPE))
+        if (!GfxManager::createDevice(backend->type))
         {
-            LogError("Failed to create " SANDBOX_GFX_BACKEND_NAME " graphics device.");
+            LogError("Failed to create %s graphics device.", backend->displayName);
             WindowSystem::dispose();
             return 1;
         }
 
         WindowParams params;
-        params.title = "Toolkit Sandbox - Graphics Triangle (" SANDBOX_GFX_BACKEND_NAME ")";
+        params.title = TkString::format("Toolkit Sandbox - Graphics Triangle (%s)", backend->displayName);
         params.size = Pos(960.0f, 540.0f);
         params.startPos = WindowStartPos::kCenterScreen;
 
