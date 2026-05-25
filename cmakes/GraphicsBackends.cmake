@@ -37,7 +37,11 @@ set(_TK_GRAPHICS_BACKENDS_INCLUDED TRUE)
 set(TK_GFX_ALL_BACKENDS NULL DIRECTX11 DIRECTX12 VULKAN OPENGL OPENGLES METAL)
 # Backends with no source-level implementation yet. They are still detected so
 # the option is visible in the cache, but they will not be enabled by default.
-set(TK_GFX_UNIMPLEMENTED_BACKENDS NULL OPENGL OPENGLES METAL)
+#
+# OPENGL is implemented as a Phase-1 skeleton (no draw / no real GL context
+# yet); it is removed from the unimplemented list so it can be opted into with
+# -DTK_GFX_OPENGL_ENABLE=ON.
+set(TK_GFX_UNIMPLEMENTED_BACKENDS NULL OPENGLES METAL)
 
 # ----------------------------------------------------------------------------
 # Detection helpers
@@ -100,11 +104,10 @@ function(_tk_gfx_detect_vulkan)
 endfunction()
 
 function(_tk_gfx_detect_opengl)
-    if(APPLE)
-        # Prefer Metal on Apple; legacy GL is deprecated.
-        _tk_gfx_set_available(OPENGL FALSE)
-        return()
-    endif()
+    # macOS deprecated the OpenGL framework in 10.14 but still ships it with a
+    # 4.1 Core profile -- which is exactly what this fallback backend targets.
+    # We detect it like any other platform; the deprecation warnings are
+    # silenced inside platform/macos/GLPlatformMacOS.mm via pragma diagnostic.
     find_package(OpenGL QUIET)
     if(OPENGL_FOUND OR OpenGL_FOUND)
         _tk_gfx_set_available(OPENGL TRUE)
@@ -156,6 +159,13 @@ endfunction()
 function(ConfigureGraphicsBackends incVar lnkVar)
     DetectGraphicsBackends()
 
+    # Mutual-exclusion: OPENGL and OPENGLES share environment macros / sources
+    # and cannot both be ON at once. Fail fast at configure time rather than at
+    # link time.
+    if(TK_GFX_OPENGL_ENABLE AND TK_GFX_OPENGLES_ENABLE)
+        message(FATAL_ERROR "TkGraphics: TK_GFX_OPENGL_ENABLE and TK_GFX_OPENGLES_ENABLE cannot both be ON. Choose one.")
+    endif()
+
     set(_enabled "")
     set(_disabled "")
 
@@ -191,6 +201,12 @@ function(ConfigureGraphicsBackends incVar lnkVar)
     if(TK_GFX_OPENGL_ENABLE)
         find_package(OpenGL REQUIRED)
         list(APPEND ${lnkVar} OpenGL::GL)
+        # glad provides the function-pointer loader used by the OpenGL backend.
+        AddGLAD(${incVar} ${lnkVar})
+        if(APPLE)
+            find_library(_TK_OGL_COCOA_FW Cocoa REQUIRED)
+            list(APPEND ${lnkVar} ${_TK_OGL_COCOA_FW})
+        endif()
     endif()
     if(TK_GFX_METAL_ENABLE)
         find_library(METAL_FRAMEWORK Metal REQUIRED)

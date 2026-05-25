@@ -29,8 +29,8 @@ set(SRCS
 # compiles them all in and selects one at runtime via --backend=<name>.
 # This option only sets the *default* when --backend is not passed; users can
 # still pick any compiled-in backend from the command line.
-set(SANDBOX_GFX_BACKEND_VALUES auto dx12 dx11 vulkan)
-set(SANDBOX_GFX_BACKEND "auto" CACHE STRING "Sandbox default graphics backend (auto|dx12|dx11|vulkan). 'auto' = first compiled-in (preference: dx12 > dx11 > vulkan).")
+set(SANDBOX_GFX_BACKEND_VALUES auto dx12 dx11 vulkan opengl)
+set(SANDBOX_GFX_BACKEND "auto" CACHE STRING "Sandbox default graphics backend (auto|dx12|dx11|vulkan|opengl). 'auto' = first compiled-in (preference: dx12 > dx11 > vulkan > opengl).")
 set_property(CACHE SANDBOX_GFX_BACKEND PROPERTY STRINGS ${SANDBOX_GFX_BACKEND_VALUES})
 string(TOLOWER "${SANDBOX_GFX_BACKEND}" SANDBOX_GFX_BACKEND)
 
@@ -53,12 +53,17 @@ elseif(SANDBOX_GFX_BACKEND STREQUAL "vulkan")
         message(FATAL_ERROR "SANDBOX_GFX_BACKEND=vulkan requires TK_GFX_VULKAN_ENABLE=ON.")
     endif()
     set(_sandbox_default "vulkan")
+elseif(SANDBOX_GFX_BACKEND STREQUAL "opengl")
+    if(NOT TK_GFX_OPENGL_ENABLE)
+        message(FATAL_ERROR "SANDBOX_GFX_BACKEND=opengl requires TK_GFX_OPENGL_ENABLE=ON.")
+    endif()
+    set(_sandbox_default "opengl")
 else()
     message(FATAL_ERROR "Invalid SANDBOX_GFX_BACKEND='${SANDBOX_GFX_BACKEND}'. Valid: ${SANDBOX_GFX_BACKEND_VALUES}")
 endif()
 
-if(NOT (TK_GFX_DIRECTX12_ENABLE OR TK_GFX_DIRECTX11_ENABLE OR TK_GFX_VULKAN_ENABLE))
-    message(FATAL_ERROR "Sandbox needs at least one of TK_GFX_DIRECTX12_ENABLE / TK_GFX_DIRECTX11_ENABLE / TK_GFX_VULKAN_ENABLE to be ON.")
+if(NOT (TK_GFX_DIRECTX12_ENABLE OR TK_GFX_DIRECTX11_ENABLE OR TK_GFX_VULKAN_ENABLE OR TK_GFX_OPENGL_ENABLE))
+    message(FATAL_ERROR "Sandbox needs at least one of TK_GFX_DIRECTX12_ENABLE / TK_GFX_DIRECTX11_ENABLE / TK_GFX_VULKAN_ENABLE / TK_GFX_OPENGL_ENABLE to be ON.")
 endif()
 
 list(APPEND HEAD "SANDBOX_DEFAULT_BACKEND_NAME=\"${_sandbox_default}\"")

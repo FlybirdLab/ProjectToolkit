@@ -38,6 +38,8 @@ namespace toolkit
             return "dx_sm6";
         case GfxShaderProfile::kVulkan_SM5:
             return "vk_sm5";
+        case GfxShaderProfile::kGLSL_410:
+            return "glsl410";
         default:
             return "unknown";
         }
@@ -47,16 +49,18 @@ namespace toolkit
     {
         std::printf(
             "Usage:\n"
-            "  ShaderCompiler --file <shader-file> --backend <d3d|dx|vk|all> --out <dir>\n"
-            "  ShaderCompiler --source-dir <dir> --backend <d3d,dx,vk> --out <dir>\n"
+            "  ShaderCompiler --file <shader-file> --backend <d3d|dx|vk|opengl|all> --out <dir>\n"
+            "  ShaderCompiler --source-dir <dir> --backend <d3d,dx,vk,opengl> --out <dir>\n"
             "\n"
             "Aliases:\n"
             "  --input <file>       same as --file\n"
             "  --type <targets>     same as --backend\n"
             "  --target <targets>   same as --backend\n"
+            "  opengl|gl|ogl        OpenGL 4.1 (GLSL 410) fallback backend\n"
             "\n"
             "Notes:\n"
-            "  opengl and metal are recognized but not implemented yet.\n");
+            "  'all' covers d3d/dx/vk; pass 'opengl' explicitly to emit GLSL 410.\n"
+            "  metal is recognized but not implemented yet.\n");
     }
 
     TkString makeAbsolutePath(TkStringView path)
@@ -187,7 +191,12 @@ namespace toolkit
             profiles.addUnique(GfxShaderProfile::kVulkan_SM5);
             return;
         }
-        if (normalized == "opengl" || normalized == "gl" || normalized == "metal" || normalized == "mtl")
+        if (normalized == "opengl" || normalized == "gl" || normalized == "ogl")
+        {
+            profiles.addUnique(GfxShaderProfile::kGLSL_410);
+            return;
+        }
+        if (normalized == "metal" || normalized == "mtl")
         {
             LogWarn("[ShaderCompiler] backend '%s' is recognized but not implemented yet.", normalized);
             return;

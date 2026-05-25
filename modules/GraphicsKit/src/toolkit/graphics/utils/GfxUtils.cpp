@@ -97,6 +97,12 @@ namespace toolkit
             return GfxFeatureLevel::kSM4;
         case GfxShaderProfile::kGLSL_440:
         case GfxShaderProfile::kGLSL_410:
+            // GLSL 4.1 Core lines up roughly with SM5 capability-wise (no
+            // compute / tessellation in 4.1, but everything below). Mapping
+            // these to ES2 was a stale placeholder from when the OpenGL
+            // backend was a skeleton; it caused Parser to filter out every
+            // function tagged FEATURE_LEVEL_SM4/SM5.
+            return GfxFeatureLevel::kSM5;
         case GfxShaderProfile::kUnknown:
             return GfxFeatureLevel::kES2;
         default:

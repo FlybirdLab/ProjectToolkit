@@ -20,6 +20,7 @@
 #include "DebugDataExporter.hpp"
 #include "ShaderProcessing.hpp"
 #include "backends/ShaderCompilerD3D.hpp"
+#include "backends/ShaderCompilerGLSL.hpp"
 #include "toolkit/graphics/utils/GfxUtils.hpp"
 #include "toolkit/io/MemoryStream.hpp"
 #include "toolkit/platforms/System.hpp"
@@ -161,6 +162,9 @@ namespace toolkit
             break;
         case GfxShaderProfile::kVulkan_SM5:
             result = TkMemory::newObject<ShaderCompilerVulkan>(TkMemory::getDefault(), profile);
+            break;
+        case GfxShaderProfile::kGLSL_410:
+            result = TkMemory::newObject<ShaderCompilerGLSL>(TkMemory::getDefault(), profile);
             break;
         default:
             break;

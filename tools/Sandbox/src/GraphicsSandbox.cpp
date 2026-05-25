@@ -41,6 +41,7 @@ namespace toolkit
         {
             const char *cliName;          // matches --backend=<this>
             const char *compilerArg;      // passed to ShaderCompiler --backend
+            const char *shaderFileName;   // shader source under SANDBOX_SHADER_SRC_DIR
             const char *cacheFileName;    // produced shader cache name
             const char *displayName;
             GfxBackendType type;
@@ -48,13 +49,18 @@ namespace toolkit
 
         constexpr BackendDescriptor kBackends[] = {
 #if GFX_API_DIRECTX12
-            {"dx12", "dx", "Triangle_dx_sm6.shadercache", "DirectX 12", GfxBackendType::kDirectX12},
+            {"dx12",   "dx",     "Triangle.shader",      "Triangle_dx_sm6.shadercache",  "DirectX 12",        GfxBackendType::kDirectX12},
 #endif
 #if GFX_API_DIRECTX11
-            {"dx11", "d3d", "Triangle_d3d_sm5.shadercache", "DirectX 11", GfxBackendType::kDirectX11},
+            {"dx11",   "d3d",    "Triangle.shader",      "Triangle_d3d_sm5.shadercache", "DirectX 11",        GfxBackendType::kDirectX11},
 #endif
 #if GFX_API_VULKAN
-            {"vulkan", "vk", "Triangle_vk_sm5.shadercache", "Vulkan", GfxBackendType::kVulkan},
+            {"vulkan", "vk",     "Triangle.shader",      "Triangle_vk_sm5.shadercache",  "Vulkan",            GfxBackendType::kVulkan},
+#endif
+#if GFX_API_OPENGL
+            // OpenGL fallback: uses a parallel GLSL 410 source file because the
+            // GLSL passthrough compiler can't ingest the HLSL Triangle.shader.
+            {"opengl", "opengl", "Triangle.glsl.shader", "Triangle.glsl_glsl410.shadercache", "OpenGL 4.1",   GfxBackendType::kOpenGL4_1},
 #endif
         };
 
@@ -92,7 +98,7 @@ namespace toolkit
 
         bool compileTriangleShader(const BackendDescriptor &backend, TkString &cachePath)
         {
-            const TkString shaderPath = TkString(SANDBOX_SHADER_SRC_DIR) / "Triangle.shader";
+            const TkString shaderPath = TkString(SANDBOX_SHADER_SRC_DIR) / backend.shaderFileName;
             const TkString outputDir = System::getWorkDir() / "shader-output";
             if (!TkFileSystem::isDirExist(outputDir) && !TkFileSystem::makeDir(outputDir))
             {
