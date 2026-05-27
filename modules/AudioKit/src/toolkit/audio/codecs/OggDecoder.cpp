@@ -199,5 +199,14 @@ namespace toolkit
         return valid;
     }
 
+    bool OggVorbisDecoder::isEOF() const
+    {
+        if (file.datasource == nullptr)
+            return true;
+        const ogg_int64_t current = ov_pcm_tell(const_cast<OggVorbis_File *>(&file));
+        const ogg_int64_t total = ov_pcm_total(const_cast<OggVorbis_File *>(&file), -1);
+        return current < 0 || total < 0 || current >= total;
+    }
+
 }
 #endif

@@ -39,6 +39,7 @@ namespace toolkit
         void read(byte *samples, u32 numSamples) override;
         u32 readSamples(byte *samples, u32 numSamples) override;
         bool isValid(ITkStream *stream, u32 offset = 0) override;
+        bool isEOF() const override;
 
     private:
         void close();

@@ -90,6 +90,16 @@ namespace toolkit
 
     private:
         void releaseBackBuffer();
+        // Releases swap chain image views + VkSwapchainKHR but KEEPS the
+        // VkSurfaceKHR alive. Used during resize so we can pass the old
+        // swap chain into vkCreateSwapchainKHR as oldSwapchain (which lets
+        // the driver reuse pages) and so we don't churn the surface object
+        // (creating/destroying a Vulkan surface is heavy and several ICDs
+        // leak memory across surface cycles).
+        void releaseSwapchainOnly(bool retainHandleForReuse);
+        // Tears down the surface as well. Only used on full dispose or
+        // VK_ERROR_SURFACE_LOST_KHR.
+        void releaseSurface();
         bool createSwapChain(i32 width, i32 height);
 
     public:

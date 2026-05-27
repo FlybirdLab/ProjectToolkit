@@ -6,7 +6,9 @@
 
 #pragma once
 
+#ifndef TK_USE_RPMALLOC
 #define TK_USE_RPMALLOC 1
+#endif
 #define TK_TRACY_ENABLE 0
 #define TK_CRASH_LOG    1
 #define TK_HEADLESS     0

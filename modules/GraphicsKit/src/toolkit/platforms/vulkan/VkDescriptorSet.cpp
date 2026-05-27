@@ -109,9 +109,10 @@ namespace toolkit
     {
         TkStaticArray<VkDescriptorPoolSize, VK_DESCRIPTOR_TYPE_END + 1> types;
 
-        // Keep the first pool small for simple apps; the pool manager allocates
-        // more pools on demand when larger scenes need them.
-        const u32 MaxSetsAllocations = 32;
+        // Larger pool so per-draw descriptor allocations don't churn pool count.
+        // Combined with reset-based recycling (no per-set free) this keeps total
+        // descriptor pool memory bounded.
+        const u32 MaxSetsAllocations = 256;
         m_descriptorSetsMax = MaxSetsAllocations * (VK_HASH_POOLS_WITH_LAYOUT_TYPES ? 1 : m_layout.setLayouts.count());
         for (u32 typeIndex = VK_DESCRIPTOR_TYPE_BEGIN; typeIndex <= VK_DESCRIPTOR_TYPE_END; typeIndex++)
         {
@@ -128,7 +129,7 @@ namespace toolkit
 
         VkDescriptorPoolCreateInfo createInfo;
         VkUtils::zeroStruct(createInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
-        createInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        createInfo.flags = 0;
         createInfo.poolSizeCount = types.count();
         createInfo.pPoolSizes = types.get();
         createInfo.maxSets = m_descriptorSetsMax;
@@ -145,7 +146,7 @@ namespace toolkit
 
     void VulkanDescriptorPool::track(const VulkanDescriptorSetLayout &layout)
     {
-#if TK_DEBUG
+#if VK_DEBUG
         for (u32 typeIndex = VK_DESCRIPTOR_TYPE_BEGIN; typeIndex <= VK_DESCRIPTOR_TYPE_END; typeIndex++)
         {
             TK_ASSERT(m_layout.layoutTypes[typeIndex] == layout.layoutTypes[typeIndex]);
@@ -157,7 +158,7 @@ namespace toolkit
 
     void VulkanDescriptorPool::trackRemoveUsage(const VulkanDescriptorSetLayout &layout)
     {
-#if TK_DEBUG
+#if VK_DEBUG
         for (u32 typeIndex = VK_DESCRIPTOR_TYPE_BEGIN; typeIndex <= VK_DESCRIPTOR_TYPE_END; typeIndex++)
         {
             TK_ASSERT(m_layout.layoutTypes[typeIndex] == layout.layoutTypes[typeIndex]);
@@ -175,11 +176,16 @@ namespace toolkit
         m_allocatedDescriptorSetsCount = 0;
     }
 
-    bool VulkanDescriptorPool::allocateDescriptorSets(const VkDescriptorSetAllocateInfo &descriptorSetAllocateInfo, VkDescriptorSet *result)
+    bool VulkanDescriptorPool::allocateDescriptorSets(const VulkanDescriptorSetLayout &layout, const VkDescriptorSetAllocateInfo &descriptorSetAllocateInfo, VkDescriptorSet *result)
     {
         VkDescriptorSetAllocateInfo allocateInfo = descriptorSetAllocateInfo;
         allocateInfo.descriptorPool = m_handle;
-        return vkAllocateDescriptorSets(m_device->device, &allocateInfo, result) == VK_SUCCESS;
+        if (vkAllocateDescriptorSets(m_device->device, &allocateInfo, result) == VK_SUCCESS)
+        {
+            track(layout);
+            return true;
+        }
+        return false;
     }
 
     VulkanTypedDescriptorPoolSet::~VulkanTypedDescriptorPoolSet()
@@ -198,7 +204,7 @@ namespace toolkit
         if (layout.handles.hasItems())
         {
             auto *pool = m_poolListCurrent->element;
-            while (!pool->allocateDescriptorSets(layout.allocateInfo, outSets))
+            while (!pool->allocateDescriptorSets(layout, layout.allocateInfo, outSets))
             {
                 pool = getFreePool(true);
             }
@@ -322,7 +328,6 @@ namespace toolkit
             {
                 m_poolSets.removeAt(i);
                 TkMemory::deletePtr(poolSet);
-                break;
             }
         }
     }

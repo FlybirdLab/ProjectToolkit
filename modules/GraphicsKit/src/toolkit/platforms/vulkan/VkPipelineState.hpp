@@ -39,6 +39,10 @@ namespace toolkit
         VulkanTypedDescriptorPoolSet *currentTypedDescriptorPoolSet = nullptr;
         TkArray<VkDescriptorSet> descriptorSetHandles;
 
+        // Marks the descriptor set as needing re-allocation + re-write.
+        // Set true whenever the pool set is swapped or bindings change.
+        bool descriptorSetInvalid = true;
+
         inline bool acquirePoolSet(VulkanCmdBuffer *cmdBuffer)
         {
             // Pipeline state has no current descriptor pools set or set owner is not current - acquire a new pool set
@@ -49,6 +53,7 @@ namespace toolkit
                     currentTypedDescriptorPoolSet->getOwner()->refs--;
                 currentTypedDescriptorPoolSet = cmdBufferPoolSet->acquireTypedPoolSet(*descriptorSetsLayout);
                 currentTypedDescriptorPoolSet->getOwner()->refs++;
+                descriptorSetInvalid = true;
                 return true;
             }
             return false;
@@ -139,6 +144,10 @@ namespace toolkit
         TkArray<VkDescriptorSet> descriptorSetHandles;
         TkArray<u32> dynamicOffsets;
 
+        // Marks the descriptor set as needing re-allocation + re-write.
+        // Set true whenever the pool set is swapped or bindings change.
+        bool descriptorSetInvalid = true;
+
     public:
         inline bool acquirePoolSet(VulkanCmdBuffer *cmdBuffer)
         {
@@ -154,6 +163,7 @@ namespace toolkit
                     currentTypedDescriptorPoolSet->getOwner()->refs--;
                 currentTypedDescriptorPoolSet = cmdBufferPoolSet->acquireTypedPoolSet(*descriptorSetsLayout);
                 currentTypedDescriptorPoolSet->getOwner()->refs++;
+                descriptorSetInvalid = true;
                 return true;
             }
             return false;

@@ -20,6 +20,7 @@ include(${CMAKE_SOURCE_DIR}/libs/index.cmake)
 project(ToolkitProject)
 ##########################################################
 add_subdirectory(modules)
+ConfigureToolkitInstall()
 add_subdirectory(tools)
 IF(USE_TEST)
 add_subdirectory(tests)

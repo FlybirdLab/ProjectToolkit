@@ -60,6 +60,9 @@ namespace toolkit
         // Check if the data in the provided stream valid audio data for the current format. You should check this before calling Open().
         virtual bool isValid(ITkStream *stream, u32 offset = 0) = 0;
 
+        // Returns true when all samples have been consumed (read position is at or past the end).
+        virtual bool isEOF() const { return false; }
+
     public:
         static AudioDecoder *createDecoder(AudioCodecs codec);
         static void destroyDecoder(AudioDecoder *decoder);

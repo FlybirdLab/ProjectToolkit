@@ -325,6 +325,19 @@ namespace toolkit
         // Cache it
         m_pipelines.add(key, pipeline);
 
+#if TK_DEBUG
+        // Sanity guard: with the current cache key (renderPass*, vertexLayout*),
+        // the pipeline cache should stay bounded — typically a handful of entries.
+        // If this trips, something keyed in upstream caches (e.g. RenderPass) has
+        // started churning per-frame and is leaking pipelines.
+        if (m_pipelines.count() > 64)
+        {
+            const TkString vsName = debugDesc.vs ? debugDesc.vs->getName() : TkString::Empty;
+            const TkString psName = debugDesc.ps ? debugDesc.ps->getName() : TkString::Empty;
+            LogWarn("Vulkan pipeline cache for VS=%s PS=%s grew to %d variants — investigate render pass churn.", *vsName, *psName, m_pipelines.count());
+        }
+#endif
+
         return pipeline;
     }
 

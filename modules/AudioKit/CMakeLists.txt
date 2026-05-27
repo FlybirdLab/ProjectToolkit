@@ -36,6 +36,9 @@ option(TK_AUDIO_ENABLE_OGG "Enable Ogg Vorbis codec" OFF)
 if(TK_AUDIO_ENABLE_OGG)
     AddVorbis(INCS LNKS)
 endif()
+if(WIN32)
+    AddMP4V2(INCS LNKS)
+endif()
 #################################################################
 # backend option
 #################################################################
@@ -80,6 +83,10 @@ set(TK_AUDIO_BACKEND_COREAUDIO 0)
 set(TK_CODECS_VORBIS 0)
 if(TK_AUDIO_ENABLE_OGG)
     set(TK_CODECS_VORBIS 1)
+endif()
+set(TK_CODECS_M4A 0)
+if(WIN32)
+    set(TK_CODECS_M4A 1)
 endif()
 
 if(TK_AUDIO_BACKEND STREQUAL "none")

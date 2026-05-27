@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <limits>
+#include <stdint.h>
 
 #include <toolkit/forward.hpp>
 #include <toolkit/environment.hpp>

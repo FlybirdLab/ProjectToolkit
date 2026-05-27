@@ -13,3 +13,5 @@ build
 .vscode
 .claude
 references
+install
+shader-output

@@ -25,12 +25,12 @@ namespace toolkit
         Audio::Sources.remove(this);
     }
 
-    AudioClip *AudioSource::getClip() const
+    IAudioClip *AudioSource::getClip() const
     {
         return m_clip;
     }
 
-    void AudioSource::setClip(AudioClip *clip)
+    void AudioSource::setClip(IAudioClip *clip)
     {
         if (m_clip == clip)
             return;
@@ -313,7 +313,7 @@ namespace toolkit
         {
             i32 processedBuffers = 0;
             ANativeSource::getProcessedBuffersCount(m_sourceId, processedBuffers);
-            const i32 maxIndex = TkMath::clamp(m_clip->getTotalChunks(), 0, AUDIO_CLIP_MAX_CHUNKS);
+            const i32 maxIndex = m_clip->getTotalChunks();
             const i32 index = TkMath::clamp(m_streamingFirstChunk + processedBuffers, 0, maxIndex);
             time += m_clip->getBufferStartTime(index);
         }
@@ -396,7 +396,7 @@ namespace toolkit
             ANativeSource::dequeueProcessedBuffers(m_sourceId);
             m_streamingFirstChunk += processedBuffers;
 
-            const i32 totalBuffers = m_clip->getBuffers().count();
+            const i32 totalBuffers = m_clip->getTotalChunks();
             if (m_streamingFirstChunk >= totalBuffers)
             {
                 if (m_loop)
@@ -504,12 +504,11 @@ namespace toolkit
         auto &queue = m_clip->getStreamingQueue();
         queue.clear();
 
-        const auto &buffers = m_clip->getBuffers();
         const i32 residency = TkMath::clamp(kDefaultStreamingResidency, 1, AUDIO_CLIP_MAX_CHUNKS);
         for (i32 i = 0; i < residency; ++i)
         {
             const i32 chunkIndex = m_streamingFirstChunk + i;
-            if (chunkIndex >= 0 && chunkIndex < buffers.count() && buffers[chunkIndex] == 0)
+            if (chunkIndex >= 0 && chunkIndex < m_clip->getTotalChunks() && !m_clip->isChunkLoaded(chunkIndex))
                 queue.add(chunkIndex);
         }
 
@@ -525,8 +524,7 @@ namespace toolkit
         if (!useStreaming() || m_sourceId == 0 || m_clip == nullptr || !m_needToUpdateStreamingBuffers)
             return false;
 
-        const auto &buffers = m_clip->getBuffers();
-        if (m_streamingFirstChunk < 0 || m_streamingFirstChunk >= buffers.count())
+        if (m_streamingFirstChunk < 0 || m_streamingFirstChunk >= m_clip->getTotalChunks())
             return false;
 
         i32 queuedBuffers = 0;
@@ -537,11 +535,11 @@ namespace toolkit
         for (i32 i = queuedBuffers; i < residency; ++i)
         {
             const i32 chunkIndex = m_streamingFirstChunk + i;
-            if (chunkIndex >= buffers.count())
+            if (chunkIndex >= m_clip->getTotalChunks())
                 break;
 
-            const u32 bufferId = buffers[chunkIndex];
-            if (bufferId == 0)
+            const u32 bufferId = m_clip->getChunkBufferId(chunkIndex);
+            if (bufferId == 0 || !m_clip->isChunkLoaded(chunkIndex))
             {
                 requestClipStreamingUpdate();
                 m_needToUpdateStreamingBuffers = true;

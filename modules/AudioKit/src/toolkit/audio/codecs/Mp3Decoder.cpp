@@ -96,7 +96,8 @@ namespace toolkit
         m_io.seek_data = &m_ioCtx;
 
         stream->setPos(offset);
-        const int result = mp3dec_ex_open_cb(&m_exd, &m_io, 0);
+        // Streaming chunks seek by interleaved PCM sample index, not compressed byte offset.
+        const int result = mp3dec_ex_open_cb(&m_exd, &m_io, MP3D_SEEK_TO_SAMPLE);
         if (result != 0)
         {
             close();
@@ -236,5 +237,10 @@ namespace toolkit
         const bool valid = mp3dec_detect_cb(&io, probe.get(), probe.count()) == 0;
         stream->setPos(savedPos);
         return valid;
+    }
+
+    bool MP3Decoder::isEOF() const
+    {
+        return !m_isOpen || m_readSampleOffset >= m_info.numSamples;
     }
 }

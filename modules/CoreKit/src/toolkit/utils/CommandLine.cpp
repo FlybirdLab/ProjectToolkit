@@ -90,6 +90,16 @@ namespace toolkit
         return m_positionals;
     }
 
+    void TkCommandLine::getAll(TkStringView name, TkArray<TkString> &out) const
+    {
+        const TkString normalized = normalizeName(name);
+        for (const auto &option : m_options)
+        {
+            if (option.name == normalized && option.hasValue)
+                out.add(option.value);
+        }
+    }
+
     bool TkCommandLine::isOption(TkStringView arg)
     {
         return arg.length() > 1 && arg[0] == '-';

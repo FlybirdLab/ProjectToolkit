@@ -138,6 +138,35 @@ namespace toolkit
         }
     } s_lifeTime;
 
+#else
+
+    void *System::alloc(psize size)
+    {
+        return ::_aligned_malloc(size, 16);
+    }
+
+    void *System::allocAligned(psize size, psize alignment)
+    {
+        return ::_aligned_malloc(size, alignment);
+    }
+
+    void System::free(void *ptr)
+    {
+        if (!ptr)
+            return;
+        ::_aligned_free(ptr);
+    }
+
+    void *System::realloc(void *ptr, psize size)
+    {
+        return ::_aligned_realloc(ptr, size, 16);
+    }
+
+    void *System::reallocAligned(void *ptr, psize size, psize newSize, psize align)
+    {
+        return ::_aligned_realloc(ptr, newSize, align);
+    }
+
 #endif
 
     bool Win32System::readRegVal(void *root, const TkStringView key, const TkStringView name, TkString *result)

@@ -16,6 +16,14 @@ TEST(AudioDecoderTest, FactoryCreatesSupportedDecoders)
     ASSERT_NE(mp3, nullptr);
     ASSERT_NE(wav, nullptr);
 
+#if TK_CODECS_M4A
+    AudioDecoder *m4a = AudioDecoder::createDecoder(AudioCodecs::kM4a);
+    ASSERT_NE(m4a, nullptr);
+    AudioDecoder::destroyDecoder(m4a);
+#else
+    EXPECT_EQ(AudioDecoder::createDecoder(AudioCodecs::kM4a), nullptr);
+#endif
+
 #if TK_CODECS_VORBIS
     AudioDecoder *ogg = AudioDecoder::createDecoder(AudioCodecs::kOgg);
     ASSERT_NE(ogg, nullptr);

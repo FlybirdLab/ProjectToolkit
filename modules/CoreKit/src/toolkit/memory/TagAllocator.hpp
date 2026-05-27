@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <string_view>
+
 #include <toolkit/memory/Memory.hpp>
 
 namespace toolkit {

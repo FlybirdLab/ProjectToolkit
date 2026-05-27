@@ -7,7 +7,7 @@
 #pragma once
 
 #include "toolkit/graphics/utils/PixelFormat.hpp"
-#include <sdhc/common.hpp>
+#include <toolkit/shader/core/common.hpp>
 
 #include <toolkit/base/Math.hpp>
 

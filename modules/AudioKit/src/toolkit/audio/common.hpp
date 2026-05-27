@@ -13,6 +13,7 @@
 namespace toolkit
 {
     inline static constexpr i32 AUDIO_CLIP_MAX_CHUNKS = 16;
+    inline static constexpr i32 AUDIO_STREAM_RING_SIZE = 4;
 
 // The maximum amount of listeners used at once
 #define AUDIO_MAX_LISTENERS 1
@@ -30,7 +31,8 @@ namespace toolkit
         kUnknown = 0,
         kMp3,
         kOgg,
-        kWav
+        kWav,
+        kM4a
     };
 
     // Meta-data describing a chunk of audio.

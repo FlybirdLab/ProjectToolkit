@@ -152,7 +152,7 @@ namespace toolkit
             return m_device;
         }
         bool init() override;
-        void drawBegin() override;
+        void beginFrame() override;
         void renderEnd() override;
         void dispose() final override;
         void waitForGPU() override;

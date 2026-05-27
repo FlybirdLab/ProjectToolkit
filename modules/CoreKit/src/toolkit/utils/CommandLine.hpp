@@ -34,6 +34,9 @@ namespace toolkit
         bool has(TkStringView name) const;
         bool get(TkStringView name, TkString &value) const;
         TkString get(TkStringView name, TkStringView defaultValue = TkStringView()) const;
+        // Collect every value supplied for `name` in the order they appear on
+        // the command line. Used for repeatable options such as `-I` / `--include-dir`.
+        void getAll(TkStringView name, TkArray<TkString> &out) const;
         const TkArray<TkString> &getPositionals() const;
 
     private:

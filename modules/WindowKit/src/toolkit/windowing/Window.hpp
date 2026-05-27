@@ -63,6 +63,10 @@ namespace toolkit
         TkAction<> onGotFocus;
         // Event fired when window lost focus.
         TkAction<> onLostFocus;
+        // Event fired when the user starts moving or resizing the window.
+        TkAction<> onSizeMoveBegin;
+        // Event fired when the user finishes moving or resizing the window.
+        TkAction<> onSizeMoveEnd;
 
     public:
         // Return true if that window is the main window.

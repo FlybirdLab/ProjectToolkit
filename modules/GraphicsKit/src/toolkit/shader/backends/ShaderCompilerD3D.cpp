@@ -5,8 +5,8 @@
  */
 
 #include "ShaderCompilerD3D.hpp"
-#include "sdhc/Compiler.hpp"
-#include "sdhc/Context.hpp"
+#include "toolkit/shader/core/Compiler.hpp"
+#include "toolkit/shader/core/Context.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/graphics/GfxShaderProgram.hpp"
 #include "toolkit/platforms/win32/ComPointer.hpp"

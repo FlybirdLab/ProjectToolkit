@@ -172,6 +172,15 @@ namespace toolkit
             out.type = GL_UNSIGNED_BYTE;
             out.renderable = true;
             return true;
+        case PixelFormat::kB8G8R8X8_UNorm:
+            // Media Foundation RGB32 frames arrive as BGRX. Upload using the
+            // same BGRA byte layout; the unused alpha channel is irrelevant
+            // when video frames are sampled as opaque color.
+            out.internalFormat = GL_RGBA8;
+            out.format = GL_BGRA;
+            out.type = GL_UNSIGNED_BYTE;
+            out.renderable = true;
+            return true;
         case PixelFormat::kR16G16B16A16_Float:
             out.internalFormat = GL_RGBA16F;
             out.format = GL_RGBA;

@@ -15,6 +15,7 @@
 #include <toolkit/graphics/GfxShader.hpp>
 #include <toolkit/graphics/GfxSwapChain.hpp>
 #include <toolkit/graphics/GfxWindow.hpp>
+#include <toolkit/shader/format/GfxShaderAssetLoader.hpp>
 #include <toolkit/io/MemoryStream.hpp>
 #include <toolkit/memory/Memory.hpp>
 #include <toolkit/platforms/FileSystem.hpp>
@@ -41,26 +42,22 @@ namespace toolkit
         {
             const char *cliName;          // matches --backend=<this>
             const char *compilerArg;      // passed to ShaderCompiler --backend
-            const char *shaderFileName;   // shader source under SANDBOX_SHADER_SRC_DIR
-            const char *cacheFileName;    // produced shader cache name
             const char *displayName;
             GfxBackendType type;
         };
 
         constexpr BackendDescriptor kBackends[] = {
 #if GFX_API_DIRECTX12
-            {"dx12",   "dx",     "Triangle.shader",      "Triangle_dx_sm6.shadercache",  "DirectX 12",        GfxBackendType::kDirectX12},
+            {"dx12",   "dx",     "DirectX 12",        GfxBackendType::kDirectX12},
 #endif
 #if GFX_API_DIRECTX11
-            {"dx11",   "d3d",    "Triangle.shader",      "Triangle_d3d_sm5.shadercache", "DirectX 11",        GfxBackendType::kDirectX11},
+            {"dx11",   "d3d",    "DirectX 11",        GfxBackendType::kDirectX11},
 #endif
 #if GFX_API_VULKAN
-            {"vulkan", "vk",     "Triangle.shader",      "Triangle_vk_sm5.shadercache",  "Vulkan",            GfxBackendType::kVulkan},
+            {"vulkan", "vk",     "Vulkan",            GfxBackendType::kVulkan},
 #endif
 #if GFX_API_OPENGL
-            // OpenGL fallback: uses a parallel GLSL 410 source file because the
-            // GLSL passthrough compiler can't ingest the HLSL Triangle.shader.
-            {"opengl", "opengl", "Triangle.glsl.shader", "Triangle.glsl_glsl410.shadercache", "OpenGL 4.1",   GfxBackendType::kOpenGL4_1},
+            {"opengl", "opengl", "OpenGL 4.1",        GfxBackendType::kOpenGL4_1},
 #endif
         };
 
@@ -98,14 +95,19 @@ namespace toolkit
 
         bool compileTriangleShader(const BackendDescriptor &backend, TkString &cachePath)
         {
-            const TkString shaderPath = TkString(SANDBOX_SHADER_SRC_DIR) / backend.shaderFileName;
-            const TkString outputDir = System::getWorkDir() / "shader-output";
+            // Shader payloads are backend-specific; keep concurrent clients
+            // from replacing the tksd that a different backend is loading.
+            const TkString outputDir = (System::getWorkDir() / "shader-output") / TkString(backend.cliName);
             if (!TkFileSystem::isDirExist(outputDir) && !TkFileSystem::makeDir(outputDir))
             {
                 LogError("Failed to create shader output directory: %s", outputDir.getText());
                 return false;
             }
 
+            // Feed the .tkshader manifest into ShaderCompiler. The compiler
+            // produces a single .tksd per manifest; the runtime loads it via
+            // GfxShaderAssetLoader.
+            const TkString shaderPath = TkString(SANDBOX_SHADER_SRC_DIR) / "Triangle.tkshader";
             ProcessInitArgs compilerArgs;
             compilerArgs.file = TkString::format("\"%s\"", SANDBOX_SHADER_COMPILER_PATH);
             compilerArgs.args = TkString::format("--file \"%s\" --backend %s --out \"%s\"",
@@ -125,30 +127,12 @@ namespace toolkit
                 return false;
             }
 
-            cachePath = outputDir / backend.cacheFileName;
+            // Manifest base name "Sandbox/Triangle" -> "Sandbox_Triangle.tksd"
+            // (the slash is sanitized into '_' by ShaderManifestCompiler).
+            cachePath = outputDir / TkString("Sandbox_Triangle.tksd");
             if (!TkFileSystem::isFileExist(cachePath))
             {
-                LogError("Compiled shader cache was not produced: %s", cachePath.getText());
-                return false;
-            }
-            return true;
-        }
-
-        bool loadShaderCache(const TkString &path, TkArray<byte> &bytes)
-        {
-            OpenFileParams params{path, FileMode::kOpenExisting, FileAccess::kRead, FileShare::kReadWrite};
-            FileHandle file = TkFileSystem::openFile(params);
-            if (!file)
-            {
-                LogError("Failed to open compiled shader cache: %s", path.getText());
-                return false;
-            }
-
-            const bool loaded = TkFileSystem::readAsBytes(file, bytes);
-            TkFileSystem::closeFile(file);
-            if (!loaded || bytes.isEmpty())
-            {
-                LogError("Failed to read compiled shader cache: %s", path.getText());
+                LogError("Compiled .tksd was not produced: %s", cachePath.getText());
                 return false;
             }
             return true;
@@ -202,17 +186,25 @@ namespace toolkit
             return 1;
         }
 
-        TkArray<byte> shaderBytes;
         GfxShader *shader = nullptr;
         GfxPipelineState *pipeline = nullptr;
         bool initialized = false;
 
-        if (loadShaderCache(shaderCachePath, shaderBytes))
         {
-            MemoryIStream shaderStream(shaderBytes);
+            // .tksd path: hand the manifest to the runtime loader. The asset
+            // contains exactly one pass ("Forward") for this sandbox, so the
+            // loader picks the default pass and feeds the assembled blob into
+            // GfxShader::create() internally.
             GfxDevice *device = GfxManager::getDevice();
-            shader = device->createShader("Sandbox.TriangleShader");
-            if (shader && shader->create(shaderStream))
+            TkString loadError;
+            shader = GfxShaderAssetLoader::loadShaderFromTksd(
+                device, shaderCachePath, TkStringView("Forward"), &loadError);
+            if (shader == nullptr)
+            {
+                LogError("Failed to load tksd shader '%s': %s",
+                         shaderCachePath.getText(), loadError.getText());
+            }
+            else
             {
                 auto *vs = shader->getVS("VSMain");
                 auto *ps = shader->getPS("PSMain");
@@ -229,7 +221,6 @@ namespace toolkit
                     initialized = pipeline != nullptr && pipeline->init(desc);
                 }
             }
-            shaderBytes.clear();
         }
 
         if (!initialized)

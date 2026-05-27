@@ -30,7 +30,11 @@ SetPlatformDeps(INCS LNKS)
 
 AddTkCore(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
+AddTkWindow(INCS LNKS DEPS)
 AddTkGraphics(INCS LNKS DEPS)
+AddTkAudio(INCS LNKS DEPS)
+
+AddVideoSystemLib(INCS LNKS)
 #################################################################
 # project configurations
 #################################################################
@@ -56,7 +60,11 @@ target_compile_definitions(TkVideo PRIVATE
         $<$<CONFIG:Debug>:TK_DEBUG>
         TK_ENABLE_SIMD
         TK_STATIC_PLUGINS
+
+        $<$<BOOL:${WIN32}>:VIDEO_API_MF=1>
+        $<$<BOOL:${APPLE}>:VIDEO_API_AV=1>
+        $<$<BOOL:${ANDROID}>:VIDEO_API_ANDROID=1>
 )
-target_compile_options(TkVideo PRIVATE 
+target_compile_options(TkVideo PRIVATE
         "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
 )

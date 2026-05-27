@@ -112,7 +112,7 @@ namespace toolkit
                         continue;
 #endif
                     LogError("Failed to create %i Shader program '%s' (%s).", static_cast<i32>(type), TkString(initializer.name).getText(), name.getText());
-                    return true;
+                    return false;
                 }
 
                 // Add to the collection

@@ -1,12 +1,20 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #include <cstdio>
 
-#include <sdhc/Compilation.hpp>
+#include <toolkit/shader/core/Compilation.hpp>
+#include <toolkit/shader/source/SourceManager.hpp>
+#include <toolkit/shader/diagnostics/DiagnosticSink.hpp>
+#include <toolkit/shader/diagnostics/Diagnostic.hpp>
+#include <toolkit/shader/diagnostics/TextDiagnosticPrinter.hpp>
+#include <toolkit/shader/diagnostics/JsonDiagnosticPrinter.hpp>
+#include <toolkit/shader/manifest/ShaderManifestCompiler.hpp>
+#include <toolkit/shader/cache/ShaderJobCache.hpp>
+#include <toolkit/shader/compilegraph/CompilerScheduler.hpp>
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/io/MemoryStream.hpp>
 #include <toolkit/platforms/FileSystem.hpp>
@@ -14,16 +22,22 @@
 #include <toolkit/types/Path.hpp>
 #include <toolkit/types/String.hpp>
 #include <toolkit/types/UUID.hpp>
+#include <toolkit/types/DateTime.hpp>
 #include <toolkit/utils/CommandLine.hpp>
 
 using namespace toolkit;
 
 namespace toolkit
 {
+    enum class DiagnosticFormat
+    {
+        Text,
+        Json,
+    };
+
     struct CompileInput
     {
         TkString path;
-        TkString source;
     };
 
     const char *profileName(GfxShaderProfile profile)
@@ -49,14 +63,38 @@ namespace toolkit
     {
         std::printf(
             "Usage:\n"
-            "  ShaderCompiler --file <shader-file> --backend <d3d|dx|vk|opengl|all> --out <dir>\n"
-            "  ShaderCompiler --source-dir <dir> --backend <d3d,dx,vk,opengl> --out <dir>\n"
+            "  ShaderCompiler --file <shader.tkshader> --backend <d3d|dx|vk|opengl|all> --out <dir>\n"
+            "  ShaderCompiler --source-dir <dir>      --backend <d3d,dx,vk,opengl> --out <dir>\n"
+            "\n"
+            "Inputs:\n"
+            "  *.tkshader               Toolkit shader manifest (only accepted input)\n"
             "\n"
             "Aliases:\n"
-            "  --input <file>       same as --file\n"
-            "  --type <targets>     same as --backend\n"
-            "  --target <targets>   same as --backend\n"
-            "  opengl|gl|ogl        OpenGL 4.1 (GLSL 410) fallback backend\n"
+            "  --input <file>           same as --file\n"
+            "  --type <targets>         same as --backend\n"
+            "  --target <targets>       same as --backend\n"
+            "  opengl|gl|ogl            OpenGL 4.1 (GLSL 410) backend\n"
+            "\n"
+            "Includes:\n"
+            "  -I <path>                add an include search directory (repeatable)\n"
+            "  --include-dir <path>     same as -I\n"
+            "                           Search order: dir of the file doing the #include,\n"
+            "                           manifest dir, then -I dirs in CLI order. The set\n"
+            "                           participates in the cache hash, so changing -I\n"
+            "                           invalidates the cache.\n"
+            "\n"
+            "Cache:\n"
+            "  --cache-dir=<path>       job cache directory (default: .shader-cache)\n"
+            "  --no-cache               disable read/write of the job cache\n"
+            "  --jobs=<N>               parallel job count (N>1 falls back to serial)\n"
+            "  --show-stats             print compile stats at the end\n"
+            "\n"
+            "Diagnostics:\n"
+            "  --diagnostics=text       human-readable output (default)\n"
+            "  --diagnostics=json       structured JSON array on stdout\n"
+            "\n"
+            "Output:\n"
+            "  Each .tkshader produces one `<name>.tksd` file in --out.\n"
             "\n"
             "Notes:\n"
             "  'all' covers d3d/dx/vk; pass 'opengl' explicitly to emit GLSL 410.\n"
@@ -72,23 +110,6 @@ namespace toolkit
         return result;
     }
 
-    bool readTextFile(TkStringView path, TkString &text)
-    {
-        OpenFileParams params{
-            .path = path,
-            .mode = FileMode::kOpenExisting,
-            .access = FileAccess::kRead,
-            .share = FileShare::kRead,
-        };
-        FileHandle file = TkFileSystem::openFile(params);
-        if (!TkFileSystem::isFileOpened(file))
-            return false;
-
-        const bool result = TkFileSystem::readAsText(file, text);
-        TkFileSystem::closeFile(file);
-        return result;
-    }
-
     bool ensureDirectory(TkStringView path)
     {
         if (TkFileSystem::isDirExist(path))
@@ -96,35 +117,53 @@ namespace toolkit
         return TkFileSystem::makeDir(path);
     }
 
-    bool isShaderSourceFile(TkStringView path)
+    bool isManifestFile(TkStringView path)
     {
-        return TkPath::hasExtension(path, "shader") || TkPath::hasExtension(path, "hlsl");
+        return TkPath::hasExtension(path, "tkshader");
     }
 
-    bool collectInputsFromFile(TkStringView path, TkArray<CompileInput> &inputs)
+    bool collectInputsFromFile(
+        DiagnosticSink &diagnostics,
+        TkStringView path,
+        TkArray<CompileInput> &inputs)
     {
         CompileInput input;
         input.path = makeAbsolutePath(path);
+        if (!isManifestFile(input.path))
+        {
+            LogError("[ShaderCompiler] only .tkshader inputs are accepted: %s", input.path);
+            diagnostics.error(
+                SourceRange::invalid(),
+                TKSHD_INVALID_CLI,
+                TkString::format("only .tkshader inputs are accepted: %s", input.path));
+            return false;
+        }
         if (!TkFileSystem::isFileExist(input.path))
         {
             LogError("[ShaderCompiler] input file not found: %s", input.path);
-            return false;
-        }
-        if (!readTextFile(input.path, input.source))
-        {
-            LogError("[ShaderCompiler] failed to read input file: %s", input.path);
+            diagnostics.error(
+                SourceRange::invalid(),
+                TKSHD_READ_SOURCE_FAILED,
+                TkString::format("input file not found: %s", input.path));
             return false;
         }
         inputs.add(input);
         return true;
     }
 
-    bool collectInputsFromDirectory(TkStringView path, TkArray<CompileInput> &inputs)
+    bool collectInputsFromDirectory(
+        DiagnosticSink &diagnostics,
+        TkStringView path,
+        TkArray<CompileInput> &inputs)
     {
         const TkString dir = makeAbsolutePath(path);
         if (!TkFileSystem::isDirExist(dir))
         {
             LogError("[ShaderCompiler] source directory not found: %s", dir);
+            diagnostics.error(
+                SourceRange::invalid(),
+                TKSHD_NO_INPUT,
+                TkString::format("source directory not found: %s", dir));
             return false;
         }
 
@@ -132,28 +171,30 @@ namespace toolkit
         if (!TkFileSystem::listDir(files, dir, "*", true))
         {
             LogError("[ShaderCompiler] failed to list source directory: %s", dir);
+            diagnostics.error(
+                SourceRange::invalid(),
+                TKSHD_NO_INPUT,
+                TkString::format("failed to list source directory: %s", dir));
             return false;
         }
 
         for (const auto &file : files)
         {
-            if (!isShaderSourceFile(file))
+            if (!isManifestFile(file))
                 continue;
 
             CompileInput input;
             input.path = file;
-            if (!readTextFile(input.path, input.source))
-            {
-                LogError("[ShaderCompiler] failed to read input file: %s", input.path);
-                return false;
-            }
             inputs.add(input);
         }
 
         return true;
     }
 
-    void addBackendProfile(TkStringView backend, TkArray<GfxShaderProfile> &profiles)
+    void addBackendProfile(
+        DiagnosticSink &diagnostics,
+        TkStringView backend,
+        TkArray<GfxShaderProfile> &profiles)
     {
         i32 start = 0;
         i32 end = backend.length();
@@ -199,69 +240,64 @@ namespace toolkit
         if (normalized == "metal" || normalized == "mtl")
         {
             LogWarn("[ShaderCompiler] backend '%s' is recognized but not implemented yet.", normalized);
+            diagnostics.warning(
+                SourceRange::invalid(),
+                TKSHD_UNSUPPORTED_BACKEND,
+                TkString::format("backend '%s' is recognized but not implemented yet", normalized));
             return;
         }
 
         LogWarn("[ShaderCompiler] unknown backend '%s'.", normalized);
+        diagnostics.warning(
+            SourceRange::invalid(),
+            TKSHD_UNSUPPORTED_BACKEND,
+            TkString::format("unknown backend '%s'", normalized));
     }
 
-    void parseBackends(TkStringView value, TkArray<GfxShaderProfile> &profiles)
+    void parseBackends(
+        DiagnosticSink &diagnostics,
+        TkStringView value,
+        TkArray<GfxShaderProfile> &profiles)
     {
         TkString text(value);
         TkArray<TkString> parts;
         text.split(',', parts);
         if (parts.isEmpty())
-            addBackendProfile(text, profiles);
+            addBackendProfile(diagnostics, text, profiles);
         for (const auto &part : parts)
-            addBackendProfile(part, profiles);
+            addBackendProfile(diagnostics, part, profiles);
     }
 
-    TkString makeTargetName(TkStringView inputPath)
+    DiagnosticFormat parseDiagnosticFormat(const TkCommandLine &args)
     {
-        TkString name(TkPath::getBaseName(inputPath));
-        if (name.isEmpty())
-            name = "ShaderCompilerInput";
-        return name;
-    }
-
-    TkString makeOutputPath(TkStringView outputDir, TkStringView inputPath, GfxShaderProfile profile)
-    {
-        TkString base(TkPath::getBaseName(inputPath));
-        if (base.isEmpty())
-            base = "shader";
-        return TkString(outputDir) / TkString::format("%s_%s.shadercache", base, profileName(profile));
-    }
-
-    bool compileOne(const CompileInput &input, GfxShaderProfile profile, TkStringView outputDir, u32 index)
-    {
-        MemoryOStream output(1024 * 1024 * 8);
-
-        ShaderCompilationOptions options;
-        options.targetName = makeTargetName(input.path);
-        options.targetID = TkUuid(0x53444348, index + 1, static_cast<u32>(profile), 0x20260502);
-        options.source = input.source.get();
-        options.srcLen = input.source.length();
-        options.profile = profile;
-        options.noOptimize = true;
-        options.generateDebugData = true;
-        options.treatWarningsAsErrors = true;
-        options.output = &output;
-
-        LogInfo("[ShaderCompiler] compiling %s as %s", input.path, profileName(profile));
-        if (!ShadersCompilation::compile(options))
-            return false;
-
-        const TkString outputPath = makeOutputPath(outputDir, input.path, profile);
-        if (!output.saveToFile(outputPath))
+        TkString value;
+        if (args.get("diagnostics", value))
         {
-            LogError("[ShaderCompiler] failed to save %s", outputPath);
-            return false;
+            const TkString normalized = value.toLowerAscii();
+            if (normalized == "json")
+                return DiagnosticFormat::Json;
         }
+        return DiagnosticFormat::Text;
+    }
 
-        TkArray<TkString> includes;
-        ShadersCompilation::extractShaderIncludes(output.getHandle(), output.getPosition(), includes);
-        LogInfo("[ShaderCompiler] wrote %s (%i bytes, includes=%i)", outputPath, output.getPosition(), includes.count());
-        return true;
+    void emitDiagnostics(
+        const DiagnosticSink &sink,
+        const SourceManager &sources,
+        DiagnosticFormat format)
+    {
+        if (sink.getDiagnostics().count() == 0)
+            return;
+
+        if (format == DiagnosticFormat::Json)
+        {
+            JsonDiagnosticPrinter printer;
+            printer.print(sink, sources);
+        }
+        else
+        {
+            TextDiagnosticPrinter printer;
+            printer.print(sink, sources);
+        }
     }
 }
 
@@ -278,6 +314,54 @@ int main(int argc, char **argv)
         System::beforeQuit();
         System::quit();
         return 0;
+    }
+
+    const DiagnosticFormat diagFormat = parseDiagnosticFormat(args);
+    SourceManager sources;
+    DiagnosticSink diagnostics;
+
+    // ---- Job cache plumbing. ----
+    ShaderJobCache jobCache;
+    TkString cacheDir;
+    if (args.get("cache-dir", cacheDir))
+        jobCache.setCacheDirectory(TkStringView(cacheDir));
+    else
+        jobCache.setCacheDirectory(TkStringView(TkString(".shader-cache")));
+    if (args.has("no-cache"))
+        jobCache.setEnabled(false);
+
+    // ---- Scheduler stub. ----
+    CompilerScheduler scheduler;
+    TkString jobsValue;
+    if (args.get("jobs", jobsValue))
+    {
+        i32 jobsCount = 0;
+        for (i32 i = 0; i < jobsValue.length(); i++)
+        {
+            const char c = jobsValue[i];
+            if (c < '0' || c > '9') { jobsCount = 0; break; }
+            jobsCount = jobsCount * 10 + (c - '0');
+        }
+        if (jobsCount <= 0) jobsCount = 1;
+        scheduler.setJobCount(static_cast<u32>(jobsCount));
+    }
+
+    const bool showStats = args.has("show-stats");
+    ShaderManifestCompileResult aggregateStats;
+
+    // Tie cache verbose-logging to --show-stats so the same flag the user
+    // already uses to investigate cache hit/miss numbers also shows the
+    // underlying hash / path / outcome for every lookup.
+    jobCache.setVerbose(showStats);
+
+    // ---- Include search directories. ----
+    TkArray<TkString> includeDirs;
+    args.getAll(TkStringView("I"), includeDirs);
+    args.getAll(TkStringView("include-dir"), includeDirs);
+    for (i32 i = 0; i < includeDirs.count(); i++)
+    {
+        TkString abs = makeAbsolutePath(TkStringView(includeDirs[i]));
+        includeDirs[i] = abs;
     }
 
     TkString inputFile = args.get("file");
@@ -307,6 +391,7 @@ int main(int argc, char **argv)
     if (inputFile.isEmpty() && sourceDir.isEmpty())
     {
         printUsage();
+        emitDiagnostics(diagnostics, sources, diagFormat);
         System::beforeQuit();
         System::quit();
         return 1;
@@ -314,6 +399,11 @@ int main(int argc, char **argv)
     if (!inputFile.isEmpty() && !sourceDir.isEmpty())
     {
         LogError("[ShaderCompiler] use either --file or --source-dir, not both.");
+        diagnostics.error(
+            SourceRange::invalid(),
+            TKSHD_INVALID_CLI,
+            "use either --file or --source-dir, not both");
+        emitDiagnostics(diagnostics, sources, diagFormat);
         System::beforeQuit();
         System::quit();
         return 1;
@@ -321,6 +411,11 @@ int main(int argc, char **argv)
     if (!ensureDirectory(outputDir))
     {
         LogError("[ShaderCompiler] failed to create output directory: %s", outputDir);
+        diagnostics.error(
+            SourceRange::invalid(),
+            TKSHD_WRITE_OUTPUT_FAILED,
+            TkString::format("failed to create output directory: %s", outputDir));
+        emitDiagnostics(diagnostics, sources, diagFormat);
         System::beforeQuit();
         System::quit();
         return 1;
@@ -328,21 +423,34 @@ int main(int argc, char **argv)
 
     TkArray<CompileInput> inputs;
     const bool collectedInputs = !inputFile.isEmpty()
-        ? collectInputsFromFile(inputFile, inputs)
-        : collectInputsFromDirectory(sourceDir, inputs);
+        ? collectInputsFromFile(diagnostics, inputFile, inputs)
+        : collectInputsFromDirectory(diagnostics, sourceDir, inputs);
     if (!collectedInputs || inputs.isEmpty())
     {
-        LogError("[ShaderCompiler] no shader input files found.");
+        LogError("[ShaderCompiler] no .tkshader input files found.");
+        if (!diagnostics.hasError())
+        {
+            diagnostics.error(
+                SourceRange::invalid(),
+                TKSHD_NO_INPUT,
+                "no .tkshader input files found");
+        }
+        emitDiagnostics(diagnostics, sources, diagFormat);
         System::beforeQuit();
         System::quit();
         return 1;
     }
 
     TkArray<GfxShaderProfile> profiles;
-    parseBackends(backendText, profiles);
+    parseBackends(diagnostics, backendText, profiles);
     if (profiles.isEmpty())
     {
         LogError("[ShaderCompiler] no supported backend selected.");
+        diagnostics.error(
+            SourceRange::invalid(),
+            TKSHD_UNSUPPORTED_BACKEND,
+            "no supported backend selected");
+        emitDiagnostics(diagnostics, sources, diagFormat);
         System::beforeQuit();
         System::quit();
         return 1;
@@ -354,23 +462,63 @@ int main(int argc, char **argv)
         LogInfo("[ShaderCompiler] include changed: %s action=%i", path, static_cast<i32>(action));
     });
 
+    const TkDateTime statsStart = TkDateTime::nowUTC();
+
     i32 failed = 0;
     u32 inputIndex = 0;
     for (const auto &input : inputs)
     {
-        for (const auto profile : profiles)
-        {
-            if (!compileOne(input, profile, outputDir, inputIndex))
-                failed++;
-        }
+        ShaderManifestCompileOptions mopts;
+        mopts.manifestPath = input.path;
+        mopts.outputDir = outputDir;
+        mopts.profiles = profiles;
+        mopts.sources = &sources;
+        mopts.diagnostics = &diagnostics;
+        mopts.cache = jobCache.isEnabled() ? &jobCache : nullptr;
+        mopts.inputIndex = inputIndex;
+        mopts.includeDirs = includeDirs;
+
+        ShaderManifestCompileResult mresult;
+        ShaderManifestCompiler manifestCompiler;
+        manifestCompiler.compile(mopts, mresult);
+        failed += mresult.failedCount;
+
+        aggregateStats.caseCount += mresult.caseCount;
+        aggregateStats.failedCount += mresult.failedCount;
+        aggregateStats.cacheHit += mresult.cacheHit;
+        aggregateStats.cacheMiss += mresult.cacheMiss;
+        aggregateStats.compiled += mresult.compiled;
+        aggregateStats.dependencyTotalCount += mresult.dependencyTotalCount;
+        aggregateStats.includeMissingCount += mresult.includeMissingCount;
+        aggregateStats.includeCycleCount += mresult.includeCycleCount;
         inputIndex++;
     }
 
     ShadersCompilation::dispose();
+
+    emitDiagnostics(diagnostics, sources, diagFormat);
+
+    if (showStats)
+    {
+        const TkDateTime statsEnd = TkDateTime::nowUTC();
+        const f64 elapsedMs = static_cast<f64>((statsEnd - statsStart).getTotalMilliseconds());
+        std::printf("Shader compile stats:\n");
+        std::printf("  jobs:       %i\n", aggregateStats.caseCount);
+        std::printf("  cache hit:  %i\n", aggregateStats.cacheHit);
+        std::printf("  cache miss: %i\n", aggregateStats.cacheMiss);
+        std::printf("  compiled:   %i\n", aggregateStats.compiled);
+        std::printf("  failed:     %i\n", aggregateStats.failedCount);
+        std::printf("  deps:       %i (missing=%i, cycles=%i)\n",
+                    aggregateStats.dependencyTotalCount,
+                    aggregateStats.includeMissingCount,
+                    aggregateStats.includeCycleCount);
+        std::printf("  time:        %.1f ms\n", elapsedMs);
+    }
+
     System::beforeQuit();
     System::quit();
 
-    if (failed != 0)
+    if (failed != 0 || diagnostics.hasError())
     {
         std::printf("ShaderCompiler failed: %i case(s)\n", failed);
         return 1;

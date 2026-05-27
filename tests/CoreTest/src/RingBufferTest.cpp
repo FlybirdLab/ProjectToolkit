@@ -7,6 +7,8 @@
 #include "toolkit/collection/RingBuffer.hpp"
 #include "common.hpp"
 
+#include <cstdlib>
+
 struct TestObj
 {
     static i32 ctorCount;
@@ -106,7 +108,7 @@ TEST(RingBufferTest, Stress)
 
     for (int i = 0; i < kIterations; ++i)
     {
-        if ((rand() & 1) && refCount > 0)
+        if ((std::rand() & 1) && refCount > 0)
         {
             rb.popFront();
             --refCount;
@@ -116,7 +118,7 @@ TEST(RingBufferTest, Stress)
         }
         else
         {
-            int v = rand();
+            int v = std::rand();
             rb.pushBack(v);
             ref[refCount++] = v;
         }

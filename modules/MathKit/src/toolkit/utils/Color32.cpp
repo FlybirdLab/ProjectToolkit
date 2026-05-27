@@ -6,6 +6,8 @@
 
 #include "Color32.hpp"
 
+#include <cstdlib>
+
 #include "Color.hpp"
 #include "toolkit/math/Vector4.hpp"
 #include "toolkit/types/String.hpp"
@@ -67,7 +69,7 @@ namespace toolkit
 
     Color32 Color32::random()
     {
-        return fromRGB(rand());
+        return fromRGB(std::rand());
     }
 
 }

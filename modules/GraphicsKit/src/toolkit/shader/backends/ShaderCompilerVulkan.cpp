@@ -6,7 +6,7 @@
 
 #include "ShaderCompilerVulkan.hpp"
 #include "toolkit/debug/Logger.hpp"
-#include "../Context.hpp"
+#include "toolkit/shader/core/Context.hpp"
 #include "toolkit/graphics/GfxShaderProgram.hpp"
 
 // Use glslang for HLSL to SPIR-V translation

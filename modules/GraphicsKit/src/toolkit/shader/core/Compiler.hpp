@@ -7,8 +7,8 @@
 #pragma once
 
 #include "toolkit/graphics/GfxVertexLayout.hpp"
-#include <sdhc/ShaderMeta.hpp>
-#include <sdhc/common.hpp>
+#include <toolkit/shader/core/ShaderMeta.hpp>
+#include <toolkit/shader/core/common.hpp>
 
 namespace toolkit
 {

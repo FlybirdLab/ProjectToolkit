@@ -164,9 +164,9 @@ namespace toolkit
                               arraySize,
                               toolkit::toString(dimensions),
                               mipLevels,
-                              format,
-                              multiSampleLevel,
-                              flags,
+                              (i32)format,
+                              (i32)multiSampleLevel,
+                              (i32)flags,
                               (i32)usage);
     }
 

@@ -8,8 +8,8 @@
 #include "Compiler.hpp"
 #include "Context.hpp"
 #include "ShaderMeta.hpp"
-#include "backends/ShaderCompilerDX.hpp"
-#include "backends/ShaderCompilerVulkan.hpp"
+#include "toolkit/shader/backends/ShaderCompilerDX.hpp"
+#include "toolkit/shader/backends/ShaderCompilerVulkan.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/debug/Profiler.hpp"
 #include "toolkit/collection/HashMap.hpp"
@@ -18,13 +18,14 @@
 #include "toolkit/threading/Sync.hpp"
 #include "toolkit/types/DateTime.hpp"
 #include "DebugDataExporter.hpp"
-#include "ShaderProcessing.hpp"
-#include "backends/ShaderCompilerD3D.hpp"
-#include "backends/ShaderCompilerGLSL.hpp"
-#include "toolkit/graphics/utils/GfxUtils.hpp"
+#include "toolkit/shader/backends/ShaderCompilerD3D.hpp"
+#include "toolkit/shader/backends/ShaderCompilerGLSL.hpp"
 #include "toolkit/io/MemoryStream.hpp"
 #include "toolkit/platforms/System.hpp"
 #include "toolkit/types/Path.hpp"
+
+#include <toolkit/shader/diagnostics/DiagnosticSink.hpp>
+#include <toolkit/shader/source/SourceManager.hpp>
 
 namespace toolkit
 {
@@ -60,25 +61,43 @@ namespace toolkit
     {
         PROFILE_NAMED("Shader.Compile");
 
+        DiagnosticSink *sink = options.diagnostics;
+        SourceRange primaryRange = SourceRange::invalid();
+        if (options.primaryFileId != 0)
+        {
+            SourceLocation loc;
+            loc.fileId = options.primaryFileId;
+            primaryRange.begin = loc;
+            primaryRange.end = loc;
+        }
+
         // Validate input options
         if (options.targetName.isEmpty() || !options.targetID.isValid())
         {
             LogWarn("Unknown target object.");
+            if (sink != nullptr)
+                sink->error(primaryRange, TKSHD_INVALID_OPTIONS, "unknown shader target name or id");
             return false;
         }
         if (options.output == nullptr)
         {
             LogWarn("Missing output.");
+            if (sink != nullptr)
+                sink->error(primaryRange, TKSHD_INVALID_OPTIONS, "missing output stream");
             return false;
         }
         if (options.profile == GfxShaderProfile::kUnknown)
         {
             LogWarn("Unknown shader profile.");
+            if (sink != nullptr)
+                sink->error(primaryRange, TKSHD_UNSUPPORTED_PROFILE, "unknown shader profile");
             return false;
         }
         if (options.source == nullptr || options.srcLen < 1)
         {
             LogWarn("Missing source code.");
+            if (sink != nullptr)
+                sink->error(primaryRange, TKSHD_INVALID_OPTIONS, "missing shader source");
             return false;
         }
 
@@ -87,19 +106,105 @@ namespace toolkit
             options.srcLen--;
 
         const TkDateTime startTime = TkDateTime::nowUTC();
-        const GfxFeatureLevel featureLevel = GfxUtils::getFeatureLevel(options.profile);
 
-        // Process shader source to collect metadata
+        // Process shader source to collect metadata.
+        //
+        // `.tkshader` is the only authoring path now, and ShaderManifestCompiler
+        // always populates `prebuiltEntries` from each pass's stage declarations
+        // (or the embedded GLSL VSMain/PSMain convention). The legacy META_VS /
+        // META_PS token scanner was removed in the cleanup phase.
         ShaderMeta meta;
-        if (!Parser::process(options.targetName, options.source, options.srcLen, options.macros, featureLevel, &meta))
+        if (options.prebuiltEntries.isEmpty())
         {
-            LogWarn("Failed to parse source code.");
+            LogWarn("ShaderCompilationOptions::prebuiltEntries is empty -- caller must populate entry points.");
+            if (sink != nullptr)
+            {
+                Diagnostic d;
+                d.severity = DiagnosticSeverity::Error;
+                d.code = TKSHD_PARSE_FAILED;
+                d.message = TkString::format("shader '%s' has no entry points (prebuiltEntries empty)", options.targetName);
+                d.range = primaryRange;
+                d.backend = TkString(toolkit::toString(options.profile));
+                sink->report(d);
+            }
             return false;
+        }
+        for (i32 i = 0; i < options.prebuiltEntries.count(); i++)
+        {
+            const PrebuiltShaderEntry &e = options.prebuiltEntries[i];
+            switch (e.stage)
+            {
+            case ShaderStage::kVertex:
+            {
+                VertexShaderMeta vsMeta;
+                vsMeta.name = e.name;
+                vsMeta.flags = GfxShaderFlags::kDefault;
+                vsMeta.minFeatureLevel = GfxFeatureLevel::kSM4;
+                vsMeta.permutations.add(ShaderPermutation());
+                meta.vs.add(vsMeta);
+                break;
+            }
+            case ShaderStage::kPixel:
+            {
+                PixelShaderMeta psMeta;
+                psMeta.name = e.name;
+                psMeta.flags = GfxShaderFlags::kDefault;
+                psMeta.minFeatureLevel = GfxFeatureLevel::kSM4;
+                psMeta.permutations.add(ShaderPermutation());
+                meta.ps.add(psMeta);
+                break;
+            }
+            case ShaderStage::kHull:
+            {
+                HullShaderMeta hsMeta;
+                hsMeta.name = e.name;
+                hsMeta.flags = GfxShaderFlags::kDefault;
+                hsMeta.minFeatureLevel = GfxFeatureLevel::kSM5;
+                hsMeta.permutations.add(ShaderPermutation());
+                hsMeta.controlPointsCount = 0;
+                meta.hs.add(hsMeta);
+                break;
+            }
+            case ShaderStage::kDomain:
+            {
+                DomainShaderMeta dsMeta;
+                dsMeta.name = e.name;
+                dsMeta.flags = GfxShaderFlags::kDefault;
+                dsMeta.minFeatureLevel = GfxFeatureLevel::kSM5;
+                dsMeta.permutations.add(ShaderPermutation());
+                meta.ds.add(dsMeta);
+                break;
+            }
+            case ShaderStage::kGeometry:
+            {
+                GeometryShaderMeta gsMeta;
+                gsMeta.name = e.name;
+                gsMeta.flags = GfxShaderFlags::kDefault;
+                gsMeta.minFeatureLevel = GfxFeatureLevel::kSM4;
+                gsMeta.permutations.add(ShaderPermutation());
+                meta.gs.add(gsMeta);
+                break;
+            }
+            case ShaderStage::kCompute:
+            {
+                ComputeShaderMeta csMeta;
+                csMeta.name = e.name;
+                csMeta.flags = GfxShaderFlags::kDefault;
+                csMeta.minFeatureLevel = GfxFeatureLevel::kSM5;
+                csMeta.permutations.add(ShaderPermutation());
+                meta.cs.add(csMeta);
+                break;
+            }
+            default:
+                break;
+            }
         }
         const i32 shadersCount = meta.getShadersCount();
         if (shadersCount == 0)
         {
             LogWarn("Shader has no valid functions.");
+            if (sink != nullptr)
+                sink->warning(primaryRange, TKSHD_INVALID_OPTIONS, "shader has no valid functions");
         }
 
         // Perform actual compilation
@@ -112,6 +217,16 @@ namespace toolkit
             if (compiler == nullptr)
             {
                 LogError("Shader compiler request failed.");
+                if (sink != nullptr)
+                {
+                    Diagnostic d;
+                    d.severity = DiagnosticSeverity::Error;
+                    d.code = TKSHD_UNSUPPORTED_PROFILE;
+                    d.message = TkString::format("no compiler registered for profile '%s'", toolkit::toString(options.profile));
+                    d.range = primaryRange;
+                    d.backend = TkString(toolkit::toString(options.profile));
+                    sink->report(d);
+                }
                 return false;
             }
             TK_ASSERT(compiler->getProfile() == options.profile);
@@ -121,6 +236,16 @@ namespace toolkit
 
             // Dismiss compiler
             freeCompiler(compiler);
+
+            // Hand the backend-populated reflection back to the caller via
+            // `options`. The context is destroyed at the end of this scope --
+            // copying here is the seam that keeps backends from needing a
+            // const_cast on the options pointer (they write into the
+            // context's own arrays instead). Other backends that don't
+            // produce reflection leave the context arrays empty, which is
+            // the same observable state as before.
+            options.reflectionBindings = context.reflectionBindings;
+            options.reflectionVertexInputs = context.reflectionVertexInputs;
 
 #if GFX_USE_SHADERS_DEBUG_LAYER
             // Export debug data
@@ -134,6 +259,16 @@ namespace toolkit
         if (!result)
         {
             LogError("Shader compilation '%s' failed (profile: %s)", options.targetName, toolkit::toString(options.profile));
+            if (sink != nullptr)
+            {
+                Diagnostic d;
+                d.severity = DiagnosticSeverity::Error;
+                d.code = TKSHD_BACKEND_COMPILE_FAILED;
+                d.message = TkString::format("shader '%s' compilation failed", options.targetName);
+                d.range = primaryRange;
+                d.backend = TkString(toolkit::toString(options.profile));
+                sink->report(d);
+            }
         }
         else
         {
@@ -574,6 +709,44 @@ namespace toolkit
     void ShaderCompilationContext::onError(const char *message)
     {
         LogError("Failed to compile '%s'. %s", options->targetName, message);
+
+        // Route the backend's textual error through the structured diagnostic
+        // sink when one is wired up. The location is anchored at the primary
+        // input file (we usually don't have a finer range from the backend).
+        if (options != nullptr && options->diagnostics != nullptr)
+        {
+            SourceRange range = SourceRange::invalid();
+            if (options->primaryFileId != 0)
+            {
+                SourceLocation loc;
+                loc.fileId = options->primaryFileId;
+                range.begin = loc;
+                range.end = loc;
+            }
+
+            Diagnostic d;
+            d.severity = DiagnosticSeverity::Error;
+            d.code = TKSHD_BACKEND_COMPILE_FAILED;
+            d.message = TkString(message);
+            d.range = range;
+            d.backend = TkString(toolkit::toString(options->profile));
+            options->diagnostics->report(d);
+        }
+    }
+
+    DiagnosticSink *ShaderCompilationContext::diagnostics() const
+    {
+        return options != nullptr ? options->diagnostics : nullptr;
+    }
+
+    SourceManager *ShaderCompilationContext::sourceManager() const
+    {
+        return options != nullptr ? options->sourceManager : nullptr;
+    }
+
+    u32 ShaderCompilationContext::primaryFileId() const
+    {
+        return options != nullptr ? options->primaryFileId : 0;
     }
 
     void ShaderCompilationContext::onCollectDebugInfo(ShaderFunctionMeta &meta, i32 permutationIndex, const char *data, const i32 dataLength)

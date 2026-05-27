@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <toolkit/audio/AudioClip.hpp>
+#include <toolkit/audio/IAudioClip.hpp>
 #include <toolkit/audio/AudioSystem.hpp>
 #include <toolkit/base/Math.hpp>
 #include <toolkit/math/Quat.hpp>
@@ -28,8 +28,8 @@ namespace toolkit
         AudioSource();
         ~AudioSource();
 
-        AudioClip *getClip() const;
-        void setClip(AudioClip *clip);
+        IAudioClip *getClip() const;
+        void setClip(IAudioClip *clip);
 
         const Vec3 &getPosition() const;
         void setPosition(const Vec3 &position);
@@ -92,7 +92,7 @@ namespace toolkit
         void destroyNativeSource();
 
     private:
-        AudioClip *m_clip = nullptr;
+        IAudioClip *m_clip = nullptr;
         Vec3 m_position = Vec3::kZero;
         Vec3 m_velocity = Vec3::kZero;
         Vec3 m_previousPosition = Vec3::kZero;

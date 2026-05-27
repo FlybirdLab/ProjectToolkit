@@ -7,16 +7,19 @@
 #pragma once
 
 #include <toolkit/common.hpp>
+#include <toolkit/audio/common.hpp>
 
 namespace toolkit
 {
     class Video;
     class VideoPlayer;
-    class VideoBackend;
+    class VideoSystem;
+    class VNativePlayer;
+    class VFrameUploadTask;
     struct VideoBackendPlayer;
     struct VideoBackendPlayerInfo;
     class GfxTexture;
     class GfxBuffer;
     class GfxPipelineState;
-
+    class GfxConstantBuffer;
 }

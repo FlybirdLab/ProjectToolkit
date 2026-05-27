@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "sdhc/Compiler.hpp"
+#include "toolkit/shader/core/Compiler.hpp"
 
 namespace toolkit
 {

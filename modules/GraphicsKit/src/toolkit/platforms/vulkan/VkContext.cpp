@@ -389,10 +389,18 @@ namespace toolkit
     {
         auto cmdBuffer = m_cmdBufferManager->getCmdBuffer();
 
-        // Build render targets layout descriptor and framebuffer key
+        // Build render targets layout descriptor and framebuffer key.
+        // CRITICAL: both structs are compared with TkMemory::memoryCompare on
+        // the whole sizeof(), so we MUST zero them out before populating —
+        // otherwise padding bytes / unused bitfield bits / un-touched array
+        // slots all carry stack garbage and turn every begin into a cache
+        // miss, leaking a fresh VulkanRenderPass + VulkanFramebuffer per
+        // draw call.
         VulkanFramebuffer::Key framebufferKey;
+        TkMemory::memoryClear(&framebufferKey, sizeof(framebufferKey));
         framebufferKey.attachmentCount = m_rtCount;
         VulkanRenderTargetLayout layout;
+        TkMemory::memoryClear(&layout, sizeof(layout));
         layout.rtsCount = m_rtCount;
         layout.blendEnable = m_currentState && m_currentState->blendEnable;
         layout.depthFormat = m_rtDepth ? m_rtDepth->getFormat() : PixelFormat::kUnknown;
@@ -438,14 +446,16 @@ namespace toolkit
             layout.writeDepth = false;
         }
         layout.msaa = handle->getMSAA();
-        layout.extent.width = handle->extent.width;
-        layout.extent.height = handle->extent.height;
+        // extent is NOT part of the render pass cache key — keep it local
+        VkExtent2D extent;
+        extent.width = handle->extent.width;
+        extent.height = handle->extent.height;
         layout.layers = handle->layers;
 
         // Get or create objects
         auto renderPass = m_device->getOrCreateRenderPass(layout);
         framebufferKey.renderPass = renderPass;
-        auto framebuffer = m_device->getOrCreateFramebuffer(framebufferKey, layout.extent, layout.layers);
+        auto framebuffer = m_device->getOrCreateFramebuffer(framebufferKey, extent, layout.layers);
         m_renderPass = renderPass;
 
         flushBarriers();
@@ -671,8 +681,8 @@ namespace toolkit
         // Update descriptors
         updateDescriptorSets(*pipelineState->descriptorInfo, pipelineState->dsWriter, needsWrite);
 
-        // Allocate sets if need to
-        // if (needsWrite) // TODO: write on change only?f
+        // Allocate sets only when bindings or pool set actually changed
+        if (needsWrite || pipelineState->descriptorSetInvalid)
         {
             if (!pipelineState->allocateDescriptorSets())
             {
@@ -682,6 +692,7 @@ namespace toolkit
             pipelineState->dsWriter.setDescriptorSet(descriptorSet);
 
             vkUpdateDescriptorSets(m_device->device, pipelineState->dsWriteContainer.descriptorWrites.count(), pipelineState->dsWriteContainer.descriptorWrites.get(), 0, nullptr);
+            pipelineState->descriptorSetInvalid = false;
         }
     }
 
@@ -709,8 +720,8 @@ namespace toolkit
                 remainingHasDescriptorsPerStageMask >>= 1;
             }
 
-            // Allocate sets if need to
-            // if (needsWrite) // TODO: write on change only?
+            // Allocate sets only when bindings or pool set actually changed
+            if (needsWrite || pipelineState->descriptorSetInvalid)
             {
                 if (!pipelineState->currentTypedDescriptorPoolSet->allocateDescriptorSets(*pipelineState->descriptorSetsLayout, pipelineState->descriptorSetHandles.get()))
                     return;
@@ -725,6 +736,7 @@ namespace toolkit
                 }
 
                 vkUpdateDescriptorSets(m_device->device, pipelineState->dsWriteContainer.descriptorWrites.count(), pipelineState->dsWriteContainer.descriptorWrites.get(), 0, nullptr);
+                pipelineState->descriptorSetInvalid = false;
             }
         }
 
@@ -1557,7 +1569,7 @@ namespace toolkit
 
             // Copy
             VkImageCopy region;
-            TkMemory::memoryClear(&region, sizeof(VkBufferImageCopy));
+            TkMemory::memoryClear(&region, sizeof(region));
             region.extent.width = mipWidth;
             region.extent.height = mipHeight;
             region.extent.depth = mipDepth;
@@ -1610,7 +1622,7 @@ namespace toolkit
         bufferCopy.srcOffset = 0;
         bufferCopy.dstOffset = dstOffset;
         bufferCopy.size = 4;
-        vkCmdCopyBuffer(cmdBuffer->getHandle(), srcBufferVulkan->getHandle(), dstBufferVulkan->getHandle(), 1, &bufferCopy);
+        vkCmdCopyBuffer(cmdBuffer->getHandle(), counter->getHandle(), dstBufferVulkan->getHandle(), 1, &bufferCopy);
     }
 
     void VulkanContext::copyResource(GfxResource *dstResource, GfxResource *srcResource)
@@ -1844,7 +1856,7 @@ namespace toolkit
                 srcTextureVulkan->getMipSize(srcMipIndex, mipWidth, mipHeight, mipDepth);
                 VkImageCopy region;
                 ;
-                region.extent = {TkMath::max<u32>(mipWidth, 1), TkMath::max<u32>(mipWidth, 1), TkMath::max<u32>(mipDepth, 1)};
+                region.extent = {TkMath::max<u32>(mipWidth, 1), TkMath::max<u32>(mipHeight, 1), TkMath::max<u32>(mipDepth, 1)};
                 region.srcOffset = {0, 0, 0};
                 region.srcSubresource.baseArrayLayer = srcArrayIndex;
                 region.srcSubresource.layerCount = 1;

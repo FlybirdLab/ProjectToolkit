@@ -6,6 +6,8 @@
 
 #include "Color.hpp"
 
+#include <cstdlib>
+
 #include "toolkit/math/Vector3.hpp"
 #include "toolkit/math/Vector4.hpp"
 #include "Color32.hpp"
@@ -103,7 +105,7 @@ namespace toolkit
 
     Color Color::random()
     {
-        return fromRGB(rand(), 1);
+        return fromRGB(std::rand(), 1);
     }
 
     TkString Color::toString() const

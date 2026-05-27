@@ -145,6 +145,12 @@ namespace toolkit
 
     void DX12UploadBuffer::beginGeneration(u64 generation)
     {
+        // Upload allocations recorded in an earlier frame may still be read
+        // by the GPU. Reuse a page only after it has passed through the
+        // generation timeout below; never retain the prior frame's cursor.
+        m_currentPage = nullptr;
+        m_currentOffset = 0;
+
         // Restore ready pages to be reused
         for (i32 i = 0; m_usedPages.hasItems() && i < m_usedPages.count(); i++)
         {

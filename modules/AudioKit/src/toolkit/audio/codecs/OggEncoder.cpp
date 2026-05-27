@@ -8,6 +8,8 @@
 
 #if TK_CODECS_VORBIS
 
+#include <cstdlib>
+
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/collection/Array.hpp"
 #include "toolkit/audio/AudioTool.hpp"
@@ -46,7 +48,7 @@ namespace toolkit
         m_userData = userData;
         m_closed = false;
 
-        ogg_stream_init(&_oggState, rand());
+        ogg_stream_init(&_oggState, std::rand());
         vorbis_info_init(&_vorbisInfo);
 
         i32 status = vorbis_encode_init_vbr(&_vorbisInfo, numChannels, sampleRate, quality);

@@ -50,7 +50,7 @@ namespace toolkit
 
 #if VK_EXT_debug_report
 
-    static VKAPI_ATTR VkBool32 VKAPI_PTR DebugReportFunction(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, u64_t srcObject, size_t location, i32 msgCode, const char *layerPrefix, const char *msg, void *userData)
+    static VKAPI_ATTR VkBool32 VKAPI_PTR DebugReportFunction(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, u64 srcObject, size_t location, i32 msgCode, const char *layerPrefix, const char *msg, void *userData)
     {
         const char *msgPrefix = "UNKNOWN";
         if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
@@ -441,8 +441,7 @@ namespace toolkit
         u32 hash = (i32)key.msaa * 11;
         combineHash(hash, key.flags);
         combineHash(hash, (u32)key.depthFormat * 93473262);
-        combineHash(hash, key.extent.width);
-        combineHash(hash, key.extent.height);
+        // Extent intentionally excluded — see VulkanRenderTargetLayout in VkDevice.hpp.
         for (i32 i = 0; i < lengthOf(key.rtvsFormats); i++)
             combineHash(hash, (u32)key.rtvsFormats[i]);
         return hash;
@@ -600,7 +599,7 @@ namespace toolkit
         createInfo.pSubpasses = &subpassDesc;
         VALIDATE_VK_RESULT(vkCreateRenderPass(device->device, &createInfo, nullptr, &handle));
 #if VK_USE_DEBUG_DATA
-        DebugCreateInfo = createInfo;
+        debugCreateInfo = createInfo;
 #endif
     }
 
@@ -977,8 +976,26 @@ namespace toolkit
     {
     }
 
+    static inline u32 stagingAlignUpPow2(u32 v)
+    {
+        if (v <= 1) return 1;
+        v--;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        return v + 1;
+    }
+
     GfxBuffer *VulkanStagingManager::acquireBuffer(u32 size, GfxResourceUsage usage)
     {
+        // Bucket sizing: round up to a power of two (min 64KB) so a small set
+        // of physical staging buffers can serve a wide range of upload sizes
+        // without exact-size matching causing pool fragmentation.
+        const u32 kMinBucket = 64u * 1024u;
+        const u32 bucketSize = TkMath::max(stagingAlignUpPow2(size), kMinBucket);
+
         // Try reuse free buffer
         {
             TkMutexGuard lock(m_locker);
@@ -986,7 +1003,10 @@ namespace toolkit
             for (i32 i = 0; i < m_freeBuffers.count(); i++)
             {
                 auto &freeBuffer = m_freeBuffers[i];
-                if (freeBuffer.buffer->getSize() == size && freeBuffer.buffer->getDescription().usage == usage)
+                const u32 freeSize = freeBuffer.buffer->getSize();
+                // Reuse when the buffer is large enough and not wastefully large (<= 2x the bucket).
+                if (freeSize >= size && freeSize <= bucketSize * 2 &&
+                    freeBuffer.buffer->getDescription().usage == usage)
                 {
                     const auto buffer = freeBuffer.buffer;
                     m_freeBuffers.removeAt(i);
@@ -995,9 +1015,9 @@ namespace toolkit
             }
         }
 
-        // Allocate new buffer
+        // Allocate new buffer at bucket size
         auto buffer = m_device->createBuffer("Pooled Staging");
-        if (!buffer || !buffer->init(GfxBufferDescription::buffer(size, GfxBufferFlags::kNone, PixelFormat::kUnknown, nullptr, 0, usage)))
+        if (!buffer || !buffer->init(GfxBufferDescription::buffer(bucketSize, GfxBufferFlags::kNone, PixelFormat::kUnknown, nullptr, 0, usage)))
         {
             LogWarn("Failed to create pooled staging buffer.");
             GFX_DEL_RESOURCE(buffer);
@@ -1010,8 +1030,8 @@ namespace toolkit
 
             m_allBuffers.add(buffer);
 #if TK_DEBUG
-            m_allBuffersAllocSize += size;
-            m_allBuffersTotalSize += size;
+            m_allBuffersAllocSize += bucketSize;
+            m_allBuffersTotalSize += bucketSize;
             m_allBuffersPeekSize = TkMath::max(m_allBuffersTotalSize, m_allBuffersPeekSize);
 #endif
         }
@@ -1057,12 +1077,14 @@ namespace toolkit
             }
         }
 
-        // Free staging buffers that has not been used for a few frames
+        // Free staging buffers that have remained unused beyond the streaming
+        // retention window. Do not tie pool eviction to the much shorter GPU
+        // deletion safety delay or video frame gaps will churn large buffers.
         const u64 frameIndex = m_device ? m_device->getFrameIndex() : 0;
         for (i32 i = m_freeBuffers.count() - 1; i >= 0; i--)
         {
             auto &e = m_freeBuffers.get()[i];
-            if (e.frameNumber + VK_RESOURCE_DELETE_SAFE_FRAMES_COUNT < frameIndex)
+            if (e.frameNumber + VK_STAGING_BUFFER_NOT_USED_FRAME_TIMEOUT < frameIndex)
             {
                 auto buffer = e.buffer;
 
@@ -2093,10 +2115,10 @@ namespace toolkit
         return GfxDevice::init();
     }
 
-    void VulkanDevice::drawBegin()
+    void VulkanDevice::beginFrame()
     {
         // Base
-        GfxDevice::drawBegin();
+        GfxDevice::beginFrame();
 
         // Flush resources
         deferredDeletionQueue.releaseResources();
@@ -2349,7 +2371,11 @@ namespace toolkit
 
 // TODO: expose it as a command line or engine parameter to end-user
 #if GFX_ENABLE_DIAGNOSTICS
-    VulkanValidationLevel ValidationLevel = VulkanValidationLevel::ErrorsAndWarningsPerf;
+    // Default lowered from ErrorsAndWarningsPerf to ErrorsAndWarnings: the perf
+    // category from KHRONOS validation is very chatty and inflates the layer's
+    // working set noticeably. Errors/warnings are enough for normal dev work;
+    // bump this to ErrorsAndWarningsPerf or higher when actively profiling.
+    VulkanValidationLevel ValidationLevel = VulkanValidationLevel::ErrorsAndWarnings;
 #else
     VulkanValidationLevel ValidationLevel = VulkanValidationLevel::Disabled;
 #endif
@@ -2586,6 +2612,7 @@ namespace toolkit
             }
         }
 
+#if VK_DEBUG
         if (foundUniqueLayers.hasItems())
         {
             LogInfo("Found instance layers:");
@@ -2605,6 +2632,7 @@ namespace toolkit
                 LogInfo("- %s", *name);
             }
         }
+#endif
 
         // TODO: expose as a command line parameter or sth
         const bool useVkTrace = false;
@@ -2794,6 +2822,7 @@ namespace toolkit
             deviceLayerExtensions[i].getExtensions(foundUniqueExtensions);
         }
 
+#if VK_DEBUG
         if (foundUniqueLayers.hasItems())
         {
             LogInfo("Found device layers:");
@@ -2813,6 +2842,7 @@ namespace toolkit
                 LogInfo("- %s", *name);
             }
         }
+#endif
 
         // Add device layers for debugging
 #ifdef VK_EXT_tooling_info

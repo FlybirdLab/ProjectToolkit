@@ -249,4 +249,12 @@ namespace toolkit
         return valid;
     }
 
+    bool WavDecoder::isEOF() const
+    {
+        if (m_stream == nullptr || mDataSize == 0)
+            return true;
+        const u32 currentPos = m_stream->pos();
+        return currentPos >= mDataOffset + mDataSize;
+    }
+
 }

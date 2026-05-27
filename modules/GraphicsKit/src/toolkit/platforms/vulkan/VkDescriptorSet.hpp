@@ -154,7 +154,7 @@ namespace toolkit
         void track(const VulkanDescriptorSetLayout &layout);
         void trackRemoveUsage(const VulkanDescriptorSetLayout &layout);
         void reset();
-        bool allocateDescriptorSets(const VkDescriptorSetAllocateInfo &descriptorSetAllocateInfo, VkDescriptorSet *result);
+        bool allocateDescriptorSets(const VulkanDescriptorSetLayout &layout, const VkDescriptorSetAllocateInfo &descriptorSetAllocateInfo, VkDescriptorSet *result);
     };
 
     class VulkanDescriptorPoolSetContainer;

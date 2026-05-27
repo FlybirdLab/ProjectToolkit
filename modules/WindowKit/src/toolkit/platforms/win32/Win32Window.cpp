@@ -1493,12 +1493,14 @@ namespace toolkit
         case WM_ENTERSIZEMOVE:
         {
             m_isResizing = true;
+            m_window->onSizeMoveBegin();
             break;
         }
         case WM_EXITSIZEMOVE:
             m_isResizing = false;
             checkForWindowResize();
             updateRegion();
+            m_window->onSizeMoveEnd();
             break;
         case WM_SETFOCUS:
             m_window->onGotFocusTrigger();

@@ -5,7 +5,7 @@
  */
 
 #include "ShaderCompilerDX.hpp"
-#include "../Context.hpp"
+#include "toolkit/shader/core/Context.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/graphics/GfxShaderProgram.hpp"
 #include "toolkit/platforms/win32/ComPointer.hpp"

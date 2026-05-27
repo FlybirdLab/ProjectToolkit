@@ -12,6 +12,7 @@
 #include "VkContext.hpp"
 #include "toolkit/debug/Logger.hpp"
 #include "toolkit/debug/Profiler.hpp"
+#include "toolkit/graphics/GfxManager.hpp"
 #include "toolkit/graphics/GfxWindow.hpp"
 #include "VkPlatform.hpp"
 #include "VkAdapter.hpp"
@@ -55,7 +56,7 @@ namespace toolkit
         m_backBuffers.clear();
     }
 
-    void VulkanSwapChain::onReleaseData()
+    void VulkanSwapChain::releaseSwapchainOnly(bool retainHandleForReuse)
     {
         GfxDeviceLock lock(m_device);
 
@@ -63,22 +64,32 @@ namespace toolkit
 
         releaseBackBuffer();
 
-        // Release data
         m_currentImageIndex = -1;
         m_semaphoreIndex = 0;
         m_acquiredImageIndex = -1;
         m_acquiredSemaphore = nullptr;
-        if (m_swapChain != VK_NULL_HANDLE)
+
+        if (!retainHandleForReuse && m_swapChain != VK_NULL_HANDLE)
         {
             vkDestroySwapchainKHR(m_device->device, m_swapChain, nullptr);
             m_swapChain = VK_NULL_HANDLE;
         }
+        m_width = m_height = 0;
+    }
+
+    void VulkanSwapChain::releaseSurface()
+    {
         if (m_surface != VK_NULL_HANDLE)
         {
             vkDestroySurfaceKHR(VulkanDevice::instance, m_surface, nullptr);
             m_surface = VK_NULL_HANDLE;
         }
-        m_width = m_height = 0;
+    }
+
+    void VulkanSwapChain::onReleaseData()
+    {
+        releaseSwapchainOnly(false);
+        releaseSurface();
     }
 
     bool VulkanSwapChain::isFullscreen()
@@ -191,24 +202,29 @@ namespace toolkit
         GfxDeviceLock lock(m_device);
         const auto device = m_device->device;
 
-        // Check if surface has been created before
-        if (m_surface != VK_NULL_HANDLE)
+        // Recreation path: tear down image views + backbuffers but KEEP the
+        // surface and the old VkSwapchainKHR (we'll feed it into the new
+        // swapchain's oldSwapchain field so the driver can reuse memory).
+        const bool isRecreate = (m_swapChain != VK_NULL_HANDLE);
+        VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE;
+        if (isRecreate)
         {
-            // Release previous data
-            releaseData();
-
-            // Flush removed resources
+            oldSwapChain = m_swapChain;
+            releaseSwapchainOnly(true);
+            // Make sure stale image views / framebuffers from the previous
+            // swapchain are gone before the driver hands us new images that
+            // might re-use those handles.
             m_device->deferredDeletionQueue.releaseResources(true);
         }
-        TK_ASSERT(m_surface == VK_NULL_HANDLE);
-        TK_ASSERT(m_backBuffers.count() == 0);
-
-        // Create platform-dependent surface
-        VulkanPlatform::createSurface(windowHandle, VulkanDevice::instance, &m_surface);
+        // First-time path: create the platform-specific VkSurfaceKHR exactly once.
         if (m_surface == VK_NULL_HANDLE)
         {
-            LogWarn("Failed to create Vulkan surface.");
-            return false;
+            VulkanPlatform::createSurface(windowHandle, VulkanDevice::instance, &m_surface);
+            if (m_surface == VK_NULL_HANDLE)
+            {
+                LogWarn("Failed to create Vulkan surface.");
+                return false;
+            }
         }
         m_memoryUsage = 1;
 
@@ -338,7 +354,11 @@ namespace toolkit
                 default: break;
                 }
             }
-            if (foundPresentModeMailbox)
+            if (GfxManager::useVSync && foundPresentModeFifo)
+            {
+                presentMode = VK_PRESENT_MODE_FIFO_KHR;
+            }
+            else if (foundPresentModeMailbox)
             {
                 presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
             }
@@ -394,12 +414,23 @@ namespace toolkit
         swapChainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
         if (surfProperties.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
             swapChainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        // Letting the driver reuse memory pages from the previous swapchain
+        // avoids ICD-side allocator churn on every window resize.
+        swapChainInfo.oldSwapchain = oldSwapChain;
 
         // Create swap chain
         VkBool32 supportsPresent;
         VALIDATE_VK_RESULT(vkGetPhysicalDeviceSurfaceSupportKHR(gpu, m_device->presentQueue->getFamilyIndex(), m_surface, &supportsPresent));
         TK_ASSERT(supportsPresent);
         VALIDATE_VK_RESULT(vkCreateSwapchainKHR(device, &swapChainInfo, nullptr, &m_swapChain));
+
+        // Spec: after a successful vkCreateSwapchainKHR with oldSwapchain, the
+        // old handle is in retired state and safe to destroy. Driver pages
+        // referenced by the new chain are kept alive automatically.
+        if (oldSwapChain != VK_NULL_HANDLE)
+        {
+            vkDestroySwapchainKHR(device, oldSwapChain, nullptr);
+        }
 
         // Cache data
         m_width = width;
@@ -502,16 +533,20 @@ namespace toolkit
             else if (status == (i32)Status::kLostSurface)
             {
                 LogWarn("Swapchain surface lost");
+                // Only this path actually needs a new VkSurfaceKHR. The
+                // out-of-date path below reuses the existing surface to
+                // avoid the heavy create/destroy cycle in the ICD.
+                releaseSurface();
             }
             else
             {
                 return status;
             }
 
-            // Recreate swapchain
-            TK_ASSERT(m_swapChain != VK_NULL_HANDLE);
+            // Recreate swapchain (createSwapChain handles the existing-surface
+            // case internally and feeds the old VkSwapchainKHR into oldSwapchain).
+            TK_ASSERT(m_swapChain != VK_NULL_HANDLE || m_surface == VK_NULL_HANDLE);
             i32 width = m_width, height = m_height;
-            releaseData();
             m_device->waitForGPU();
             m_device->deferredDeletionQueue.releaseResources(true);
             if (!createSwapChain(width, height))
@@ -601,9 +636,10 @@ namespace toolkit
                 return;
             }
 
-            // Rebuild swapchain for the next present
+            // Rebuild swapchain for the next present. Surface stays alive —
+            // createSwapChain will reuse it and pass the previous handle
+            // through oldSwapchain so the driver reuses backbuffer memory.
             i32 width = m_width, height = m_height;
-            releaseData();
             if (!createSwapChain(width, height))
             {
                 LogError("Swapchain recreate failed!");

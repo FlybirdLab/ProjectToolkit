@@ -231,4 +231,14 @@
     #define TK_API TK_LIBRARY_IMPORT
 #endif
 
+// =======================================================
+// Memory allocator
+// =======================================================
+// Set TK_USE_RPMALLOC to 1 to replace the system allocator with rpmalloc.
+// Set to 0 to fall back to the CRT/platform allocator (malloc/_aligned_malloc).
+// Can also be overridden from cmake with -DTK_USE_RPMALLOC=0.
+#ifndef TK_USE_RPMALLOC
+#define TK_USE_RPMALLOC 1
+#endif
+
 #include <toolkit/definations.hpp>

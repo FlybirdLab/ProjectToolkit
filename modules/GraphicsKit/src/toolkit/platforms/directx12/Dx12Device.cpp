@@ -581,13 +581,13 @@ namespace toolkit
         return DirectXDevice::init();
     }
 
-    void DX12Device::drawBegin()
+    void DX12Device::beginFrame()
     {
         // PROFILE_CPU_NAMED("Wait For GPU");
         m_commandQueue->waitForFence(m_mainContext->frameFenceValues[1]);
 
         // Base
-        DirectXDevice::drawBegin();
+        DirectXDevice::beginFrame();
 
         updateRes2Dispose();
         uploadBuffer->beginGeneration(m_frameIndex);

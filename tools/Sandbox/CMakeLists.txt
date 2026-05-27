@@ -72,6 +72,7 @@ if(_sandbox_default STREQUAL "")
 else()
     message(STATUS "Sandbox default backend: ${_sandbox_default}")
 endif()
+
 ########################################################
 # dependencies
 ########################################################
@@ -81,6 +82,11 @@ AddTkMath(INCS LNKS DEPS)
 AddTkGraphics(INCS LNKS DEPS)
 AddTkReflect(INCS LNKS DEPS)
 AddTkNet(INCS LNKS DEPS)
+AddTkAudio(INCS LNKS DEPS)
+AddTkVideo(INCS LNKS DEPS)
+
+list(APPEND HEAD "SANDBOX_AUDIO_TEST_FILE=\"${CMAKE_SOURCE_DIR}/docs/testdata/audio/alive.mp3\"")
+list(APPEND HEAD "SANDBOX_VIDEO_TEST_FILE=\"${CMAKE_SOURCE_DIR}/docs/testdata/video/sample.mp4\"")
 
 ########################################################
 # project configurations

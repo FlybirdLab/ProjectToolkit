@@ -12,6 +12,7 @@ namespace toolkit
 {
     class Audio;
     class AudioClip;
+    class AudioStreamClip;
     class AudioListener;
     class AudioSource;
 }

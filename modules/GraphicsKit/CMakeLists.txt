@@ -51,6 +51,10 @@ file(GLOB_RECURSE src
         "src/*.mm"
         "src/*.c"
 )
+# Exclude compiler-only sources owned by the TkShaderCompilerCore target.
+# `src/toolkit/shader/format/` is intentionally KEPT in TkGraphics so the
+# runtime can read .tksd containers without depending on the compiler library.
+list(FILTER src EXCLUDE REGEX "/src/toolkit/shader/(core|backends|source|diagnostics|lexer|parser|sema|manifest|compilegraph|cache)/")
 
 add_library(TkGraphics STATIC
         ${src}
@@ -103,3 +107,9 @@ target_compile_definitions(TkGraphics PRIVATE
 target_compile_options(TkGraphics PRIVATE
         "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
 )
+
+#################################################################
+# TkShaderCompilerCore -- shader compilation lib (separate target,
+# physically lives under src/toolkit/shader/).
+#################################################################
+add_subdirectory(src/toolkit/shader)

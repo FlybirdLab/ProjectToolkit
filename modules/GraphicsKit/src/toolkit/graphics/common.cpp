@@ -7,22 +7,6 @@
 #include <toolkit/graphics/common.hpp>
 
 namespace toolkit {
-    
-    // Shader profile types.
-    static const char* s_GfxShaderProfile[] =
-    {
-        "Unknown",
-        "DirectX SM4",
-        "DirectX SM5",
-        "GLSL 410",
-        "GLSL 440",
-        "Vulkan SM5",
-        "DirectX SM6",
-        "Max"
-    };
-    const char* toString(GfxShaderProfile s) {
-        return s_GfxShaderProfile[(int)s];
-    }
 
     static const char* s_GfxBackendType[] =
     {

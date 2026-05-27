@@ -9,30 +9,17 @@
 #include <toolkit/common.hpp>
 #include <toolkit/graphics/typedef.hpp>
 #include <toolkit/graphics/environment.hpp>
+#include <toolkit/shader/common.hpp>
 
 #include <toolkit/base/Enum.hpp>
 #include <toolkit/base/Hash.hpp>
 
 namespace toolkit
 {
-    // Shader program type
-    TK_DECLARE_ENUM_EX_6(ShaderStage, i32, 0, Vertex, Hull, Domain, Geometry, Pixel, Compute);
-    static constexpr i32 ShaderStage_Count = ShaderStage_const_size;
-    static constexpr i32 kShaderStageCount = ShaderStage_const_size;
-
     // Helper type used to synchronize CPU and GPU work
     typedef u64 GfxSyncPoint;
     // Default latency (in frames) between CPU and GPU used for async gpu jobs
     static constexpr u32 kGfxAsyncLatency = 2;
-
-    // Shader macro definition structure
-    struct ShaderMacro
-    {
-        // Macro name
-        const char *name;
-        // Macro value
-        const char *definition;
-    };
 
     // Graphics resource types.
     enum class GfxResType
@@ -109,21 +96,6 @@ namespace toolkit
         kMax
     };
     const char* toString(GfxBackendType);
-
-    // Shader profile types.
-    enum class GfxShaderProfile
-    {
-        kUnknown = 0,
-        kDirectX_SM4,
-        kDirectX_SM5,
-        kGLSL_410,
-        kGLSL_440,
-        kVulkan_SM5,
-        kDirectX_SM6,
-
-        kMax
-    };
-    const char* toString(GfxShaderProfile);
 
     // Graphics feature levels.
     enum class GfxFeatureLevel
@@ -219,16 +191,6 @@ namespace toolkit
         kGPUOutOfMemory,
     };
     const char* toString(FatalErrorType);
-
-    // Shader compilation flags.
-    enum class GfxShaderFlags : u32
-    {
-        kDefault = 0,
-        kHidden = 1,
-        kNoFastMath = 2,
-        kVertexToGeometryShader = 4,
-    };
-    TK_DECLARE_ENUM_OPERATORS(GfxShaderFlags);
 
     // Render target blending mode descriptor.
     struct TK_API GfxBlendingMode

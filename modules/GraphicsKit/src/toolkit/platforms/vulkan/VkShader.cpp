@@ -22,9 +22,14 @@ namespace toolkit
 
 #ifndef VK_UNIFORM_RING_BUFFER_SIZE
 #if TK_WINDOWS || TK_LINUX || TK_MACOS
-#define VK_UNIFORM_RING_BUFFER_SIZE (4 * 1024 * 1024)
+// Permanently mapped host-visible ring buffer for per-frame uniform writes.
+// Default lowered from 4 MB → 1 MB to shrink the baseline footprint of the
+// Vulkan backend (triangle / sandbox demos write a few hundred bytes per frame).
+// Real-world scenes that submit many CB updates per frame can bump this back up
+// via the TK_GRAPHICS_UNIFORM_RING_BUFFER_SIZE CMake cache variable.
+#define VK_UNIFORM_RING_BUFFER_SIZE (1 * 1024 * 1024)
 #else
-#define VK_UNIFORM_RING_BUFFER_SIZE (2 * 1024 * 1024)
+#define VK_UNIFORM_RING_BUFFER_SIZE (512 * 1024)
 #endif
 #endif
 
@@ -104,13 +109,35 @@ namespace toolkit
 
     GfxShaderProgram *VulkanShader::createShaderProgram(ShaderStage type, const GfxShaderProgramInitializer &initializer, TkSpan<byte> bytecode, MemoryIStream &stream)
     {
+        const i32 headerSize = static_cast<i32>(sizeof(SpirvShaderHeader));
+        if (bytecode.length() < headerSize + static_cast<i32>(sizeof(u32)))
+        {
+            LogError("Invalid Vulkan shader bytecode for '%s': payload is too short (%i bytes).",
+                     initializer.name.getText(), bytecode.length());
+            return nullptr;
+        }
+
         // Extract the SPIR-V shader header from the cache
-        SpirvShaderHeader *header = (SpirvShaderHeader *)bytecode.get();
-        bytecode = bytecode.slice(sizeof(SpirvShaderHeader));
+        const SpirvShaderHeader *header = reinterpret_cast<const SpirvShaderHeader *>(bytecode.get());
+        if (header->type != SpirvShaderHeader::Types::kRaw)
+        {
+            LogError("Invalid Vulkan shader bytecode for '%s': unsupported SPIR-V payload type.",
+                     initializer.name.getText());
+            return nullptr;
+        }
+        bytecode = bytecode.slice(headerSize);
+
+        u32 spirvMagic = 0;
+        TkMemory::memoryCopy(&spirvMagic, bytecode.get(), sizeof(spirvMagic));
+        if (bytecode.length() % static_cast<i32>(sizeof(u32)) != 0 || spirvMagic != 0x07230203u)
+        {
+            LogError("Invalid Vulkan shader bytecode for '%s': SPIR-V module is malformed.",
+                     initializer.name.getText());
+            return nullptr;
+        }
 
         // Extract the SPIR-V bytecode
         ByteCollection spirv;
-        TK_ASSERT(header->type == SpirvShaderHeader::Types::kRaw);
         spirv.link(bytecode);
 
         // Create shader module from SPIR-V bytecode

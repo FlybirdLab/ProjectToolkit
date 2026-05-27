@@ -10,7 +10,7 @@
 #include "toolkit/debug/Profiler.hpp"
 #include "Context.hpp"
 #include "toolkit/types/StringBuilder.hpp"
-#include <sdhc/common.hpp>
+#include <toolkit/shader/core/common.hpp>
 #include "toolkit/io/MemoryStream.hpp"
 #include <toolkit/platforms/System.hpp>
 #include <toolkit/platforms/FileSystem.hpp>

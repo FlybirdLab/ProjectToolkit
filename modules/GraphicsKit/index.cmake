@@ -20,3 +20,17 @@ function(AddTkGraphics incVar lnkVar depVar)
     set(${lnkVar} ${${lnkVar}} PARENT_SCOPE)
     set(${depVar} ${${depVar}} PARENT_SCOPE)
 endfunction()
+
+
+function(AddTkShaderCompilerCore incVar lnkVar depVar)
+
+    list(APPEND ${depVar} "TkShaderCompilerCore")
+    list(APPEND ${incVar}
+        "${CMAKE_SOURCE_DIR}/modules/GraphicsKit/src"
+    )
+    list(APPEND ${lnkVar} "TkShaderCompilerCore")
+
+    set(${incVar} ${${incVar}} PARENT_SCOPE)
+    set(${lnkVar} ${${lnkVar}} PARENT_SCOPE)
+    set(${depVar} ${${depVar}} PARENT_SCOPE)
+endfunction()

@@ -40,12 +40,10 @@ namespace toolkit
     {
     }
 
-    FileIStream::~FileIStream()
-    {
-        // Ensure to be file closed and deleted
-        if (m_file)
-            TkFileSystem::closeFile(m_file);
-    }
+FileIStream::~FileIStream()
+{
+    close();
+}
 
     void FileIStream::flush()
     {
@@ -59,11 +57,14 @@ namespace toolkit
         }*/
     }
 
-    void FileIStream::close()
+void FileIStream::close()
+{
+    if (m_file)
     {
-        if (m_file)
-            TkFileSystem::closeFile(m_file);
+        TkFileSystem::closeFile(m_file);
+        m_file = nullptr;
     }
+}
 
     u32 FileIStream::length()
     {
@@ -177,15 +178,10 @@ namespace toolkit
         TK_ASSERT(m_file);
     }
 
-    FileOStream::~FileOStream()
-    {
-        // Ensure to be file flushed, closed and deleted
-        if (m_file)
-        {
-            flush();
-            TkFileSystem::closeFile(m_file);
-        }
-    }
+FileOStream::~FileOStream()
+{
+    close();
+}
 
     void FileOStream::flush()
     {
@@ -199,14 +195,15 @@ namespace toolkit
         }
     }
 
-    void FileOStream::close()
+void FileOStream::close()
+{
+    if (m_file)
     {
-        if (m_file)
-        {
-            flush();
-            TkFileSystem::closeFile(m_file);
-        }
+        flush();
+        TkFileSystem::closeFile(m_file);
+        m_file = nullptr;
     }
+}
 
     u32 FileOStream::length()
     {

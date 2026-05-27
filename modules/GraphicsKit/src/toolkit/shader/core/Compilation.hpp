@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <sdhc/common.hpp>
+#include <toolkit/shader/core/common.hpp>
 #include <toolkit/base/Function.hpp>
 #include <toolkit/platforms/FileSystem.hpp>
 

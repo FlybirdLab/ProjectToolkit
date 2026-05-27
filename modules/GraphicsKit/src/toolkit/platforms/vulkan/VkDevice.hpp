@@ -161,7 +161,12 @@ namespace toolkit
         GfxMSAALevel msaa;
         PixelFormat depthFormat;
         PixelFormat rtvsFormats[GFX_MAX_RT_BINDED];
-        VkExtent2D extent;
+
+        // Render pass identity must NOT include framebuffer dimensions (extent).
+        // Vulkan render passes are defined by attachment formats / sample counts /
+        // load-store ops only — including extent here would create a fresh render
+        // pass on every window resize and leak the old ones until device dispose.
+        // Extent belongs to the framebuffer cache key instead.
 
         TK_FORCE_INLINE bool operator==(const VulkanRenderTargetLayout &other) const
         {
@@ -477,7 +482,7 @@ namespace toolkit
         GfxAdapter *getAdapter() const override;
         void *getNativePtr() const override;
         bool init() override;
-        void drawBegin() override;
+        void beginFrame() override;
         void dispose() override;
         void waitForGPU() override;
         GfxTexture *createTexture(const TkStringView &name) override;

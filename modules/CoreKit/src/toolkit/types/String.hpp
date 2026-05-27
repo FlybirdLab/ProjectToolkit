@@ -165,6 +165,33 @@ namespace toolkit
 			return findLast(subStr.get(), searchCase, startPosition);
 		}
 
+		// indexOf -- name-compatible alias for `find`. Returns the offset of
+		// the first occurrence, or -1 if not present. Provided so callers
+		// reaching for Java/JS-style naming don't have to translate at each
+		// call site. Mirrors the overload set of `find` itself; TkStringView
+		// is not a TkString member because that type isn't a complete type
+		// here (use `subStr.get()` at the call site if you have a view).
+		TK_FORCE_INLINE i32 indexOf(char c) const
+		{
+			return find(c);
+		}
+		TK_FORCE_INLINE i32 indexOf(const char *subStr, bool searchCase = true, i32 startPosition = -1) const
+		{
+			return find(subStr, searchCase, startPosition);
+		}
+		TK_FORCE_INLINE i32 indexOf(const TkString &subStr, bool searchCase = true, i32 startPosition = -1) const
+		{
+			return find(subStr.get(), searchCase, startPosition);
+		}
+		TK_FORCE_INLINE i32 lastIndexOf(char c) const
+		{
+			return findLast(c);
+		}
+		TK_FORCE_INLINE i32 lastIndexOf(const char *subStr, bool searchCase = true, i32 startPosition = -1) const
+		{
+			return findLast(subStr, searchCase, startPosition);
+		}
+
 		i32 findFirstOf(char c, i32 startPos = 0) const;
 		i32 findFirstOf(const char *str, i32 startPos = 0) const;
 

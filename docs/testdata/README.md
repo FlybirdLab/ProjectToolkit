@@ -10,3 +10,5 @@
 - `docs/testdata/audio/audio_tone.mp3` - MP3 test sample
 - `docs/testdata/audio/audio_noise_tone.ogg` - OGG test sample
 - `docs/testdata/audio/audio_invalid_magic.bin` - invalid audio payload used by negative tests
+- `docs/testdata/video/README.md` - VideoKit sample overview
+- `docs/testdata/video/sample.mp4` - default video sample for `Sandbox video` (not checked in; drop a short MP4 here)
