@@ -10,37 +10,29 @@
 
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/memory/Memory.hpp>
-#include <toolkit/types/String.hpp>
 
 #include <arpa/inet.h>
-#include <errno.h>
+#include <cerrno>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 namespace toolkit
 {
     static constexpr i32 kInvalidSocket = -1;
-    static constexpr i32 kSockGroupItemSize = sizeof(pollfd);
-    static const in6_addr v4MappedPrefix = {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00}};
+    static constexpr u32 kSockGroupItemSize = 16;
 
-    static_assert(sizeof(NetSocket::data) >= sizeof(i32), "NetSocket::data is not big enough to contain a native socket.");
-    static_assert(sizeof(NetEndPoint::data) >= sizeof(sockaddr_in6), "NetEndPoint::data is not big enough to contain sockaddr_in6.");
+    static_assert(sizeof(NetSocket::data) >= sizeof(i32), "NetSocket::data is not big enough to contain a Unix socket fd");
+    static_assert(sizeof(NetEndPoint::data) >= sizeof(sockaddr_in6), "NetEndPoint::data is not big enough to contain sockaddr_in6");
+    static_assert(kSockGroupItemSize >= sizeof(pollfd), "kSockGroupItemSize is not big enough to contain pollfd");
 
-    static i32 &nativeSocket(NetSocket *socket)
+    static i32 &socketFd(NetSocket *socket)
     {
         return *reinterpret_cast<i32 *>(socket->data);
-    }
-
-    static i32 nativeSocket(const NetSocket *socket)
-    {
-        return *reinterpret_cast<const i32 *>(socket->data);
     }
 
     static i32 getAddrSize(const sockaddr &addr)
@@ -48,36 +40,32 @@ namespace toolkit
         return addr.sa_family == AF_INET6 ? sizeof(sockaddr_in6) : sizeof(sockaddr_in);
     }
 
-    static i32 getAddrSizeFromEP(const NetEndPoint &endPoint)
+    static i32 getAddrSizeFromEP(NetEndPoint &endPoint)
     {
         return endPoint.ipVer == NetIPVersion::kIPv6 ? sizeof(sockaddr_in6) : sizeof(sockaddr_in);
     }
 
-    static bool isWouldBlock()
+    static bool isWouldBlock(i32 error)
     {
-        return errno == EWOULDBLOCK || errno == EAGAIN || errno == EINPROGRESS;
-    }
-
-    static bool setNonBlocking(i32 sock)
-    {
-        const i32 flags = fcntl(sock, F_GETFL, 0);
-        return flags >= 0 && fcntl(sock, F_SETFL, flags | O_NONBLOCK) == 0;
+        return error == EAGAIN || error == EWOULDBLOCK || error == EINPROGRESS;
     }
 
     static bool createEndPointFromAddr(sockaddr *addr, NetEndPoint &endPoint)
     {
         if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6)
         {
-            LogError("[UnixNet] Unable to create endpoint, sockaddr must be INET or INET6. Family: %i", addr->sa_family);
+            LogError("[UnixNet] Unable to create endpoint, sockaddr family=%i", addr->sa_family);
             return false;
         }
 
+        const i32 size = getAddrSize(*addr);
         endPoint.ipVer = addr->sa_family == AF_INET6 ? NetIPVersion::kIPv6 : NetIPVersion::kIPv4;
-        TkMemory::memoryCopy(endPoint.data, addr, getAddrSize(*addr));
+        TkMemory::memoryClear(endPoint.data, sizeof(endPoint.data));
+        TkMemory::memoryCopy(endPoint.data, addr, size);
         return true;
     }
 
-    static bool convertSockOptToNative(NetSocketOption option, i32 *level, i32 *name)
+    static void convertSockOptToNative(NetSocketOption option, i32 *level, i32 *name)
     {
         switch (option)
         {
@@ -85,7 +73,7 @@ namespace toolkit
     case OPTENUM:                           \
         *level = OPTLEVEL;                  \
         *name = OPTNAME;                    \
-        return true;
+        break;
             SOCKOPT(NetSocketOption::kDebug, SOL_SOCKET, SO_DEBUG)
             SOCKOPT(NetSocketOption::kReuseAddr, SOL_SOCKET, SO_REUSEADDR)
             SOCKOPT(NetSocketOption::kKeepAlive, SOL_SOCKET, SO_KEEPALIVE)
@@ -113,7 +101,7 @@ namespace toolkit
         default:
             *level = 0;
             *name = 0;
-            return false;
+            break;
         }
     }
 
@@ -123,26 +111,22 @@ namespace toolkit
         socket->protocol = proto;
         socket->ipVer = ipv;
 
-        const i32 family = ipv == NetIPVersion::kIPv6 ? AF_INET6 : AF_INET;
+        const i32 domain = ipv == NetIPVersion::kIPv6 ? AF_INET6 : AF_INET;
         const i32 type = proto == NetProtocol::kTcp ? SOCK_STREAM : SOCK_DGRAM;
         const i32 protocol = proto == NetProtocol::kTcp ? IPPROTO_TCP : IPPROTO_UDP;
-        const i32 sock = ::socket(family, type, protocol);
-        if (sock < 0)
+        i32 fd = ::socket(domain, type, protocol);
+        if (fd == kInvalidSocket)
         {
-            LogError("[UnixNet] Can't create native socket. Error: %s", strerror(errno));
+            LogError("[UnixNet] Can't create native socket. errno=%i", errno);
             TkMemory::deletePtr(socket);
             return nullptr;
         }
 
-        if (!setNonBlocking(sock))
-        {
-            LogError("[UnixNet] Can't set socket to non-blocking mode. Error: %s", strerror(errno));
-            close(sock);
-            TkMemory::deletePtr(socket);
-            return nullptr;
-        }
+        const i32 flags = ::fcntl(fd, F_GETFL, 0);
+        if (flags != -1)
+            ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-        nativeSocket(socket) = sock;
+        TkMemory::memoryCopy(socket->data, &fd, sizeof(fd));
         return socket;
     }
 
@@ -150,22 +134,20 @@ namespace toolkit
     {
         if (!socket)
             return false;
-        const i32 sock = nativeSocket(socket);
-        if (sock != kInvalidSocket)
-            close(sock);
+        const i32 fd = socketFd(socket);
+        if (fd != kInvalidSocket)
+            ::close(fd);
         TkMemory::deletePtr(socket);
         return true;
     }
 
     bool TkNetwork::setOption(NetSocket *socket, NetSocketOption option, i32 value)
     {
-        i32 level = 0;
-        i32 name = 0;
-        if (!convertSockOptToNative(option, &level, &name))
-            return false;
-        if (setsockopt(nativeSocket(socket), level, name, reinterpret_cast<char *>(&value), sizeof(value)) != 0)
+        i32 level = 0, name = 0;
+        convertSockOptToNative(option, &level, &name);
+        if (::setsockopt(socketFd(socket), level, name, reinterpret_cast<char *>(&value), sizeof(value)) == -1)
         {
-            LogWarn("[UnixNet] Unable to set socket option. Socket: %i Error: %s", nativeSocket(socket), strerror(errno));
+            LogWarn("[UnixNet] Unable to set socket option. fd=%i errno=%i", socketFd(socket), errno);
             return false;
         }
         return true;
@@ -173,14 +155,12 @@ namespace toolkit
 
     bool TkNetwork::getOption(NetSocket *socket, NetSocketOption option, i32 &value)
     {
-        i32 level = 0;
-        i32 name = 0;
-        if (!convertSockOptToNative(option, &level, &name))
-            return false;
+        i32 level = 0, name = 0;
+        convertSockOptToNative(option, &level, &name);
         socklen_t size = sizeof(value);
-        if (getsockopt(nativeSocket(socket), level, name, reinterpret_cast<char *>(&value), &size) != 0)
+        if (::getsockopt(socketFd(socket), level, name, reinterpret_cast<char *>(&value), &size) == -1)
         {
-            LogWarn("[UnixNet] Unable to get socket option. Socket: %i Error: %s", nativeSocket(socket), strerror(errno));
+            LogWarn("[UnixNet] Unable to get socket option. fd=%i errno=%i", socketFd(socket), errno);
             return false;
         }
         return true;
@@ -188,11 +168,11 @@ namespace toolkit
 
     bool TkNetwork::connect(NetSocket *socket, NetEndPoint &endPoint)
     {
-        if (::connect(nativeSocket(socket), reinterpret_cast<const sockaddr *>(endPoint.data), getAddrSizeFromEP(endPoint)) != 0)
+        if (::connect(socketFd(socket), reinterpret_cast<const sockaddr *>(endPoint.data), getAddrSizeFromEP(endPoint)) == -1)
         {
-            if (isWouldBlock())
+            if (isWouldBlock(errno))
                 return true;
-            LogError("[UnixNet] Unable to connect socket. Socket: %i Error: %s", nativeSocket(socket), strerror(errno));
+            LogError("[UnixNet] Unable to connect socket. fd=%i errno=%i", socketFd(socket), errno);
             return false;
         }
         return true;
@@ -202,12 +182,12 @@ namespace toolkit
     {
         if (socket->ipVer != endPoint.ipVer)
         {
-            LogError("[UnixNet] Can't bind socket to endpoint, socket ip version differs. Socket: %i", nativeSocket(socket));
+            LogError("[UnixNet] Socket ip version does not match endpoint");
             return false;
         }
-        if (::bind(nativeSocket(socket), reinterpret_cast<const sockaddr *>(endPoint.data), getAddrSizeFromEP(endPoint)) != 0)
+        if (::bind(socketFd(socket), reinterpret_cast<const sockaddr *>(endPoint.data), getAddrSizeFromEP(endPoint)) == -1)
         {
-            LogError("[UnixNet] Unable to bind socket. Socket: %i Error: %s", nativeSocket(socket), strerror(errno));
+            LogError("[UnixNet] Unable to bind socket. fd=%i errno=%i", socketFd(socket), errno);
             return false;
         }
         return true;
@@ -215,9 +195,9 @@ namespace toolkit
 
     bool TkNetwork::listen(NetSocket *socket, u16 queueSize)
     {
-        if (::listen(nativeSocket(socket), static_cast<i32>(queueSize)) != 0)
+        if (::listen(socketFd(socket), static_cast<i32>(queueSize)) == -1)
         {
-            LogError("[UnixNet] Unable to listen. Socket: %i Error: %s", nativeSocket(socket), strerror(errno));
+            LogError("[UnixNet] Unable to listen. fd=%i errno=%i", socketFd(socket), errno);
             return false;
         }
         return true;
@@ -226,29 +206,20 @@ namespace toolkit
     bool TkNetwork::accept(NetSocket *serverSocket, NetSocket *newSocket, NetEndPoint &newEndPoint)
     {
         if (serverSocket->protocol != NetProtocol::kTcp)
-        {
-            LogWarn("[UnixNet] Can't accept connection on UDP socket. Socket: %i", nativeSocket(serverSocket));
             return false;
-        }
 
-        sockaddr_in6 addr {};
+        sockaddr_in6 addr{};
         socklen_t size = sizeof(addr);
-        const i32 sock = ::accept(nativeSocket(serverSocket), reinterpret_cast<sockaddr *>(&addr), &size);
-        if (sock < 0)
+        const i32 fd = ::accept(socketFd(serverSocket), reinterpret_cast<sockaddr *>(&addr), &size);
+        if (fd == kInvalidSocket)
         {
-            if (isWouldBlock())
+            if (isWouldBlock(errno))
                 return true;
-            LogWarn("[UnixNet] Unable to accept incoming connection. Socket: %i Error: %s", nativeSocket(serverSocket), strerror(errno));
+            LogWarn("[UnixNet] Unable to accept incoming connection. errno=%i", errno);
             return false;
         }
 
-        if (!setNonBlocking(sock))
-        {
-            close(sock);
-            return false;
-        }
-
-        nativeSocket(newSocket) = sock;
+        TkMemory::memoryCopy(newSocket->data, &fd, sizeof(fd));
         newSocket->protocol = serverSocket->protocol;
         newSocket->ipVer = serverSocket->ipVer;
         return createEndPointFromAddr(reinterpret_cast<sockaddr *>(&addr), newEndPoint);
@@ -256,33 +227,25 @@ namespace toolkit
 
     bool TkNetwork::isReadable(NetSocket *socket)
     {
-        pollfd entry {};
-        entry.fd = nativeSocket(socket);
-        entry.events = POLLIN;
-        if (::poll(&entry, 1, 0) < 0)
-            return false;
-        return (entry.revents & POLLIN) != 0;
+        pollfd entry{socketFd(socket), POLLIN, 0};
+        return ::poll(&entry, 1, 0) > 0 && (entry.revents & POLLIN) != 0;
     }
 
     bool TkNetwork::isWritable(NetSocket *socket)
     {
-        pollfd entry {};
-        entry.fd = nativeSocket(socket);
-        entry.events = POLLOUT;
-        if (::poll(&entry, 1, 0) < 0)
-            return false;
-        return (entry.revents & POLLOUT) != 0;
+        pollfd entry{socketFd(socket), POLLOUT, 0};
+        return ::poll(&entry, 1, 0) > 0 && (entry.revents & POLLOUT) != 0;
     }
 
     bool TkNetwork::newSocketGroup(u32 capacity, NetSocketGroup *group)
     {
-        group->data = static_cast<byte *>(TkMemory::allocate(TkMemory::getDefault(), capacity * kSockGroupItemSize, alignof(pollfd)));
+        group->data = static_cast<byte *>(TkMemory::allocate(TkMemory::getDefault(), capacity * kSockGroupItemSize, 16));
         if (!group->data)
             return false;
-        group->count = 0;
         group->capacity = capacity;
-        for (u32 i = 0; i < group->capacity; ++i)
-            reinterpret_cast<pollfd *>(group->data + i * kSockGroupItemSize)->fd = kInvalidSocket;
+        group->count = 0;
+        for (u32 i = 0; i < capacity; ++i)
+            reinterpret_cast<pollfd *>(&group->data[i * kSockGroupItemSize])->fd = kInvalidSocket;
         return true;
     }
 
@@ -306,7 +269,7 @@ namespace toolkit
     {
         if (index >= group->capacity)
             return false;
-        pollfd *entry = reinterpret_cast<pollfd *>(group->data + index * kSockGroupItemSize);
+        pollfd *entry = reinterpret_cast<pollfd *>(&group->data[index * kSockGroupItemSize]);
         state = NetSocketState::kNone;
         if (entry->revents & POLLERR)
             state |= NetSocketState::kError;
@@ -327,10 +290,10 @@ namespace toolkit
             return -1;
         for (u32 i = 0; i < group->capacity; ++i)
         {
-            pollfd *entry = reinterpret_cast<pollfd *>(group->data + i * kSockGroupItemSize);
+            pollfd *entry = reinterpret_cast<pollfd *>(&group->data[i * kSockGroupItemSize]);
             if (entry->fd == kInvalidSocket)
             {
-                entry->fd = nativeSocket(socket);
+                entry->fd = socketFd(socket);
                 entry->events = POLLIN | POLLOUT;
                 entry->revents = 0;
                 ++group->count;
@@ -344,39 +307,36 @@ namespace toolkit
     {
         if (index >= group->capacity)
             return false;
-        pollfd *entry = reinterpret_cast<pollfd *>(group->data + index * kSockGroupItemSize);
+        pollfd *entry = reinterpret_cast<pollfd *>(&group->data[index * kSockGroupItemSize]);
         if (entry->fd == kInvalidSocket)
             return false;
-        nativeSocket(socket) = entry->fd;
-        i32 type = 0;
-        if (!getOption(socket, NetSocketOption::kType, type))
+        TkMemory::memoryCopy(socket->data, &entry->fd, sizeof(entry->fd));
+        i32 value = 0;
+        if (!getOption(socket, NetSocketOption::kType, value))
             return false;
-        socket->protocol = type == SOCK_DGRAM ? NetProtocol::kUdp : type == SOCK_STREAM ? NetProtocol::kTcp : NetProtocol::kUndefined;
+        socket->protocol = value == SOCK_DGRAM ? NetProtocol::kUdp : value == SOCK_STREAM ? NetProtocol::kTcp : NetProtocol::kUndefined;
         return true;
     }
 
     void TkNetwork::removeSocket(NetSocketGroup *group, u32 index)
     {
-        if (index >= group->capacity)
-            return;
-        pollfd *entry = reinterpret_cast<pollfd *>(group->data + index * kSockGroupItemSize);
+        pollfd *entry = reinterpret_cast<pollfd *>(&group->data[index * kSockGroupItemSize]);
         if (entry->fd != kInvalidSocket)
         {
             entry->fd = kInvalidSocket;
-            entry->revents = 0;
             --group->count;
         }
     }
 
     bool TkNetwork::removeSocket(NetSocketGroup *group, NetSocket *socket)
     {
-        const i32 sock = nativeSocket(socket);
         for (u32 i = 0; i < group->capacity; ++i)
         {
-            pollfd *entry = reinterpret_cast<pollfd *>(group->data + i * kSockGroupItemSize);
-            if (entry->fd == sock)
+            pollfd *entry = reinterpret_cast<pollfd *>(&group->data[i * kSockGroupItemSize]);
+            if (entry->fd == socketFd(socket))
             {
-                removeSocket(group, i);
+                entry->fd = kInvalidSocket;
+                --group->count;
                 return true;
             }
         }
@@ -386,66 +346,69 @@ namespace toolkit
     void TkNetwork::clearGroup(NetSocketGroup *group)
     {
         for (u32 i = 0; i < group->capacity; ++i)
-        {
-            pollfd *entry = reinterpret_cast<pollfd *>(group->data + i * kSockGroupItemSize);
-            entry->fd = kInvalidSocket;
-            entry->revents = 0;
-        }
+            reinterpret_cast<pollfd *>(&group->data[i * kSockGroupItemSize])->fd = kInvalidSocket;
         group->count = 0;
     }
 
     i32 TkNetwork::writeSocket(NetSocket *socket, byte *data, u32 length, NetEndPoint *endPoint)
     {
-        if (endPoint && socket->ipVer != endPoint->ipVer)
+        ssize_t size = -1;
+        if (!endPoint && socket->protocol == NetProtocol::kTcp)
+            size = ::send(socketFd(socket), reinterpret_cast<const char *>(data), length, 0);
+        else if (endPoint && socket->protocol == NetProtocol::kUdp)
+            size = ::sendto(socketFd(socket), reinterpret_cast<const char *>(data), length, 0, reinterpret_cast<const sockaddr *>(endPoint->data), getAddrSizeFromEP(*endPoint));
+        if (size < 0)
+        {
+            if (isWouldBlock(errno))
+                return 0;
+            LogError("[UnixNet] Unable to send data. fd=%i errno=%i", socketFd(socket), errno);
             return -1;
-        ssize_t result = 0;
-        if (endPoint && socket->protocol == NetProtocol::kUdp)
-            result = sendto(nativeSocket(socket), data, length, 0, reinterpret_cast<const sockaddr *>(endPoint->data), getAddrSizeFromEP(*endPoint));
-        else
-            result = send(nativeSocket(socket), data, length, 0);
-        if (result < 0)
-            return isWouldBlock() ? 0 : -1;
-        return static_cast<i32>(result);
+        }
+        return static_cast<i32>(size);
     }
 
     i32 TkNetwork::readSocket(NetSocket *socket, byte *buffer, u32 bufferSize, NetEndPoint *endPoint)
     {
-        ssize_t result = 0;
-        if (endPoint)
-        {
-            sockaddr_in6 addr {};
-            socklen_t addrSize = sizeof(addr);
-            result = recvfrom(nativeSocket(socket), buffer, bufferSize, 0, reinterpret_cast<sockaddr *>(&addr), &addrSize);
-            if (result >= 0 && !createEndPointFromAddr(reinterpret_cast<sockaddr *>(&addr), *endPoint))
-                return -1;
-        }
+        ssize_t size = -1;
+        if (!endPoint)
+            size = ::recv(socketFd(socket), reinterpret_cast<char *>(buffer), bufferSize, 0);
         else
         {
-            result = recv(nativeSocket(socket), buffer, bufferSize, 0);
+            sockaddr_in6 addr{};
+            socklen_t addrSize = sizeof(addr);
+            size = ::recvfrom(socketFd(socket), reinterpret_cast<char *>(buffer), bufferSize, 0, reinterpret_cast<sockaddr *>(&addr), &addrSize);
+            if (size >= 0 && !createEndPointFromAddr(reinterpret_cast<sockaddr *>(&addr), *endPoint))
+                return -1;
         }
-        if (result < 0)
-            return isWouldBlock() ? 0 : -1;
-        return static_cast<i32>(result);
+        if (size < 0)
+        {
+            if (isWouldBlock(errno))
+                return 0;
+            LogError("[UnixNet] Unable to read data. fd=%i errno=%i", socketFd(socket), errno);
+            return -1;
+        }
+        return static_cast<i32>(size);
     }
 
     bool TkNetwork::createEndPoint(const TkString &address, const TkString &port, NetIPVersion ipv, NetEndPoint &endPoint, bool bindable)
     {
-        addrinfo hints {};
+        addrinfo hints{};
         hints.ai_family = ipv == NetIPVersion::kIPv6 ? AF_INET6 : ipv == NetIPVersion::kIPv4 ? AF_INET : AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_ADDRCONFIG | AI_V4MAPPED;
         if (bindable)
             hints.ai_flags |= AI_PASSIVE;
 
         addrinfo *info = nullptr;
-        const i32 status = getaddrinfo(address.isEmpty() ? nullptr : address.getText(), port.isEmpty() ? nullptr : port.getText(), &hints, &info);
+        const i32 status = ::getaddrinfo(address.isEmpty() ? nullptr : address.get(), port.isEmpty() ? nullptr : port.get(), &hints, &info);
         if (status != 0 || !info)
         {
-            LogError("[UnixNet] Unable to resolve address: %s::%s Error: %s", address.getText(), port.getText(), gai_strerror(status));
+            LogError("[UnixNet] Unable to resolve address %s:%s error=%s", address.get(), port.get(), gai_strerror(status));
             return false;
         }
 
         const bool result = createEndPointFromAddr(info->ai_addr, endPoint);
-        freeaddrinfo(info);
+        ::freeaddrinfo(info);
         return result;
     }
 
@@ -454,16 +417,16 @@ namespace toolkit
         if (endPoint.ipVer == NetIPVersion::kIPv6)
             return endPoint;
 
-        NetEndPoint ipv6;
+        NetEndPoint result{};
         auto *addr4 = reinterpret_cast<sockaddr_in *>(endPoint.data);
-        auto *addr6 = reinterpret_cast<sockaddr_in6 *>(ipv6.data);
-        TkMemory::memorySet(addr6, sizeof(sockaddr_in6), 0);
+        auto *addr6 = reinterpret_cast<sockaddr_in6 *>(result.data);
         addr6->sin6_family = AF_INET6;
-        addr6->sin6_addr = v4MappedPrefix;
         addr6->sin6_port = addr4->sin_port;
+        addr6->sin6_addr.s6_addr[10] = 0xff;
+        addr6->sin6_addr.s6_addr[11] = 0xff;
         TkMemory::memoryCopy(&addr6->sin6_addr.s6_addr[12], &addr4->sin_addr, 4);
-        ipv6.ipVer = NetIPVersion::kIPv6;
-        return ipv6;
+        result.ipVer = NetIPVersion::kIPv6;
+        return result;
     }
 }
 
