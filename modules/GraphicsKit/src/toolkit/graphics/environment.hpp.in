@@ -17,6 +17,10 @@
 #define GFX_API_OPENGLES TK_GRAPHICS_BACKEND_OPENGLES
 #define GFX_API_METAL TK_GRAPHICS_BACKEND_METAL
 
+#define WITH_DIRECTXTEX @TK_GRAPHICS_WITH_DIRECTXTEX@
+#define WITH_STB @TK_GRAPHICS_WITH_STB@
+#define WITH_ASTC @TK_GRAPHICS_WITH_ASTC@
+
 // Maximum allowed amount of shader program permutations
 #define SHADER_PERMUTATIONS_MAX_COUNT 16
 // Maximum allowed amount of parameters for permutation

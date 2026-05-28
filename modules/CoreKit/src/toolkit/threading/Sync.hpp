@@ -32,7 +32,7 @@ namespace toolkit {
         bool tryLock();
         void unlock();
         TK_FORCE_INLINE void unlock() const {
-            unlock();
+            const_cast<TkMutex *>(this)->unlock();
         }
     private:
 #if TK_POSIX
@@ -54,7 +54,7 @@ namespace toolkit {
 
         void lockRead();
         TK_FORCE_INLINE void lockRead() const {
-            lockRead();
+            const_cast<TkRwMutex *>(this)->lockRead();
         }
         void lockWrite();
         void unlockRead();
@@ -121,9 +121,15 @@ namespace toolkit {
         TkBarrier& operator=(const TkBarrier&) = delete; // Non-copyable
 
         void wait();
-    private:
-#if TK_POSIX
+private:
+#if TK_POSIX && !TK_APPLE
         pthread_barrier_t m_handle;
+#elif TK_POSIX
+        pthread_mutex_t m_mtx;
+        pthread_cond_t m_cvar;
+        u32 m_threshold;
+        u32 m_count;
+        u32 m_generation;
 #else
         CONDITION_VARIABLE m_cvar;
         CRITICAL_SECTION m_mtx;

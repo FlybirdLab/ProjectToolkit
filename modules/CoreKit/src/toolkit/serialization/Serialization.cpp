@@ -8,7 +8,7 @@
 
 namespace toolkit
 {
-    void ISerializable::deserializeIfExists(DeserializeStream stream, TkStringView memberName, ISerializeModifier *modifier)
+    void ISerializable::deserializeIfExists(DeserializeStream& stream, TkStringView memberName, ISerializeModifier *modifier)
     {
         JsonValue member = stream.findMember(memberName);
         if (member)

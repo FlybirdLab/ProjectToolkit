@@ -41,7 +41,10 @@ namespace toolkit
             if (!document.parse(text))
                 return false;
             if (object != nullptr)
-                object->deserialize(document.getRoot(), modifier);
+            {
+                JsonValue root = document.getRoot();
+                object->deserialize(root, modifier);
+            }
             return true;
         }
 

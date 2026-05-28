@@ -11,6 +11,7 @@
 #if TK_POSIX
 
 #include <toolkit/threading/Thread.hpp>
+#include <pthread.h>
 
 namespace toolkit
 {

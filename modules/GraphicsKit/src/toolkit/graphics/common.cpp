@@ -29,6 +29,19 @@ namespace toolkit {
         return s_GfxBackendType[(int)s];
     }
 
+    static const char* s_textureFormatType[] =
+    {
+        "Unknown",
+        "ColorRGB",
+        "ColorRGBA",
+        "NormalMap",
+        "GrayScale",
+        "HdrRGBA",
+        "HdrRGB",
+    };
+    const char* toString(TextureFormatType s) {
+        return s_textureFormatType[(int)s];
+    }
     
     // Graphics feature levels.
     static const char* s_GfxFeatureLevel[] =

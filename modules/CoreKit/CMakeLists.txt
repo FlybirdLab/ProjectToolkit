@@ -42,11 +42,16 @@ AddRapidJson(INCS LNKS)
 # project configurations
 #################################################################
 file(GLOB_RECURSE src
-        "src/*.m"
         "src/*.cpp"
-        "src/*.mm"
         "src/*.c"
 )
+if(APPLE)
+    file(GLOB_RECURSE objc_src
+            "src/*.m"
+            "src/*.mm"
+    )
+    list(APPEND src ${objc_src})
+endif()
 add_library(TkCore STATIC
         ${src}
 )

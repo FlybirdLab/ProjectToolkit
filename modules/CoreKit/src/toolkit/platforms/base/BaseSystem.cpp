@@ -53,16 +53,18 @@ namespace toolkit
         LogInfo("CPU package count: %i, Core count: %i, Logical processors: %i", cpuInfo.packageCount, cpuInfo.coreCount, cpuInfo.logicalCoreCount);
         LogInfo("CPU Page size: %i, cache line size: %i bytes", cpuInfo.pageSize, cpuInfo.cacheLineSize);
         LogInfo("L1 cache: %i, L2 cache: %i, L3 cache: %i", cpuInfo.l1Cache, cpuInfo.l2Cache, cpuInfo.l3Cache);
-        LogInfo("Clock speed: %s", TkConvertor::hertzToText(cpuInfo.speed));
+        LogInfo("Clock speed: %s", TkConvertor::hertzToText(cpuInfo.speed).getText());
 
         const auto memStats = System::getMemoryStats();
-        LogInfo("Physical Memory: %i total, %i used (%f%)", memStats.physicalMemSize, memStats.usedPhysicalSize, TkConvertor::roundTo2DecimalPlaces((float)memStats.usedPhysicalSize * 100.0f / (float)memStats.physicalMemSize));
-        LogInfo("Virtual Memory: %i total, %i used (%f%)", memStats.virtualMemSize, memStats.usedVirtualSize, TkConvertor::roundTo2DecimalPlaces((float)memStats.usedVirtualSize * 100.0f / (float)memStats.virtualMemSize));
-        LogInfo("Program Size: %i", memStats.programSizeMem);
+        const f32 physicalUsedPercent = memStats.physicalMemSize > 0 ? TkConvertor::roundTo2DecimalPlaces((float)memStats.usedPhysicalSize * 100.0f / (float)memStats.physicalMemSize) : 0.0f;
+        const f32 virtualUsedPercent = memStats.virtualMemSize > 0 ? TkConvertor::roundTo2DecimalPlaces((float)memStats.usedVirtualSize * 100.0f / (float)memStats.virtualMemSize) : 0.0f;
+        LogInfo("Physical Memory: %llu total, %llu used (%f%%)", static_cast<unsigned long long>(memStats.physicalMemSize), static_cast<unsigned long long>(memStats.usedPhysicalSize), physicalUsedPercent);
+        LogInfo("Virtual Memory: %llu total, %llu used (%f%%)", static_cast<unsigned long long>(memStats.virtualMemSize), static_cast<unsigned long long>(memStats.usedVirtualSize), virtualUsedPercent);
+        LogInfo("Program Size: %llu", static_cast<unsigned long long>(memStats.programSizeMem));
 #if TK_DEBUG
-        LogInfo("Extra Development Memory: %i", memStats.extraDevelopmentMem);
+        LogInfo("Extra Development Memory: %llu", static_cast<unsigned long long>(memStats.extraDevelopmentMem));
 #endif
 
-        LogInfo("Main thread id: 0x{0:x}, Process id: %i", TkThread::getMainThreadId(), System::getCurrentProcessId());
+        LogInfo("Main thread id: 0x%llx, Process id: %llu", static_cast<unsigned long long>(TkThread::getMainThreadId()), static_cast<unsigned long long>(System::getCurrentProcessId()));
     }
 }

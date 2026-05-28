@@ -34,16 +34,29 @@ if(WIN32)
     list(APPEND LNKS
             Xinput.lib
     )
+elseif(LINUX)
+    find_package(X11 REQUIRED)
+    list(APPEND INCS
+            ${X11_INCLUDE_DIR}
+    )
+    list(APPEND LNKS
+            ${X11_LIBRARIES}
+    )
 endif()
 #################################################################
 # project configurations
 #################################################################
 file(GLOB_RECURSE src
-        "src/*.m"
         "src/*.cpp"
-        "src/*.mm"
         "src/*.c"
 )
+if(APPLE)
+    file(GLOB_RECURSE objc_src
+            "src/*.m"
+            "src/*.mm"
+    )
+    list(APPEND src ${objc_src})
+endif()
 add_library(TkWindow STATIC
         ${src}
 )

@@ -9,11 +9,21 @@
 #include "PixelFormat.hpp"
 #include "toolkit/collection/DataCollection.hpp"
 #include "toolkit/collection/StaticArray.hpp"
+#include "toolkit/math/geometry/Rect.hpp"
+#include "toolkit/types/String.hpp"
 #include "toolkit/utils/Color32.hpp"
 #include <toolkit/graphics/common.hpp>
 
 namespace toolkit
 {
+    // Contains information about single atlas slot with sprite texture.
+    struct Sprite
+    {
+        // The normalized area of the sprite in the atlas (in range [0;1]).
+        Rectangle area;
+        // The sprite name.
+        TkString name;
+    };
 
     // Single texture mip map entry data.
     class TK_API TextureMipData

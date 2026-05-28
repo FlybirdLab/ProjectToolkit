@@ -10,11 +10,24 @@
 
 #include <sched.h>
 #include <pthread.h>
+#include <signal.h>
 #include <mach/thread_policy.h>
 #include <mach/thread_act.h>
 #include <unistd.h>
 
 namespace toolkit {
+
+    static const u64 g_mainThreadId = TkThread::getCurrentThreadID();
+
+    bool TkThread::isInMainThread()
+    {
+        return getCurrentThreadID() == getMainThreadId();
+    }
+
+    u64 TkThread::getMainThreadId()
+    {
+        return g_mainThreadId;
+    }
     
     void TkThread::setThreadPriority(ThreadPriority priority) {
         struct sched_param sched;

@@ -21,6 +21,26 @@ namespace toolkit
     // Default latency (in frames) between CPU and GPU used for async gpu jobs
     static constexpr u32 kGfxAsyncLatency = 2;
 
+    // Describes texture compression format type
+    enum class TextureFormatType : byte
+    {
+        // Invalid value.
+        kUnknown = 0,
+        // The color with RGB channels.
+        kColorRGB,
+        // The color with RGBA channels.
+        kColorRGBA,
+        // Normal map data (packed and compressed).
+        kNormalMap,
+        // The gray scale (R channel).
+        kGrayScale,
+        // The HDR color (RGBA channels).
+        kHdrRGBA,
+        // The HDR color (RGB channels).
+        kHdrRGB,
+    };
+    const char* toString(TextureFormatType);
+
     // Graphics resource types.
     enum class GfxResType
     {

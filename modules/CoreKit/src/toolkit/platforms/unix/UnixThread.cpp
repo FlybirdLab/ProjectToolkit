@@ -38,7 +38,7 @@ namespace toolkit {
             pthread_attr_setstacksize(&attr, stackSize);
         const i32 result = start(attr);
         if (result != 0) {
-            LogWarn("Failed to spawn a thread. Result code: {0}", result);
+            LogWarn("Failed to spawn a thread. Result code: %i", result);
             TkMemory::deletePtr(m_alloc, this);
             return nullptr;
         }
@@ -52,10 +52,10 @@ namespace toolkit {
     void* ThreadImpl::threadProc(void* pThis)
     {
         auto thread = (ThreadImpl*)pThis;
-#if PLATFORM_APPLE_FAMILY
+#if TK_APPLE
         // Apple doesn't support creating named thread so assign name here
         {
-            pthread_setname_np(TkString{ thread->m_name }.get());
+            pthread_setname_np(thread->m_name.getText());
         }
 #endif
         const i32 exitCode = thread->run();
@@ -74,19 +74,15 @@ namespace toolkit {
         rpmalloc_thread_initialize();
 #endif
 
-#if TRACY_ENABLE
-        char threadName[100];
-        const i32 threadNameLength = math::min<i32>(ARRAY_COUNT(threadName) - 1, m_name.length());
-        string::convertUTF162ANSI(*m_name, threadName, threadNameLength);
-        threadName[threadNameLength] = 0;
-        tracy::setThreadName(threadName);
+#if TK_TRACY_ENABLE
+        tracy::setThreadName(m_name.getText());
 #endif
         ThreadRegistry::add(this);
         TkThread::ThreadStarting(this);
         i32 exitCode = 1;
         m_isRunning = true;
 
-        LogInfo("Thread \'{0}\' ID=0x{1:x} started with priority {2}", m_name, m_id, toString(getPriority())); //TODO ::toolkit::
+        LogDebug("Thread '%s' ID=0x%llx started with priority %s", m_name.getText(), static_cast<unsigned long long>(m_id), toString(getPriority()));
 
         if (m_runnable->onInit())
         {
@@ -96,7 +92,7 @@ namespace toolkit {
                 m_runnable->onExit();
         }
 
-        LogInfo("Thread \'{0}\' ID=0x{1:x} exits with code {2}", m_name, m_id, exitCode);
+        LogDebug("Thread '%s' ID=0x%llx exits with code %i", m_name.getText(), static_cast<unsigned long long>(m_id), exitCode);
 
         // End
         if (m_callAfterWork)
@@ -175,7 +171,7 @@ namespace toolkit {
             m_impl->m_runnable->onStop();
         }
 
-        LogInfo("Killing thread \'{0}\' ID=0x{1:x}", m_impl->m_name, m_impl->m_id);
+        LogDebug("Killing thread '%s' ID=0x%llx", m_impl->m_name.getText(), static_cast<unsigned long long>(m_impl->m_id));
 
         // Kill platform thread
         m_impl->killInternal(waitForJoin);
@@ -205,9 +201,7 @@ namespace toolkit {
 
     ThreadHandle TkThread::newThread(IRunnable* r, const TkString& name, IAllocator& alloc, ThreadPriority priority, u32 stackSize) {
         auto* thread = TkMemory::newObject<ThreadImpl>(alloc, r, name, priority);
-        thread->setUpThread(stackSize);
-
-        return thread;
+        return thread->setUpThread(stackSize);
     }
 
     void TkThread::destroy(ThreadHandle t) {

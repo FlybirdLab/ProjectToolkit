@@ -179,7 +179,7 @@ namespace toolkit
             (void)otherObj;
         }
 
-        void deserialize(DeserializeStream stream, ISerializeModifier* modifier = nullptr) override
+        void deserialize(DeserializeStream& stream, ISerializeModifier* modifier = nullptr) override
         {
             (void)stream;
             (void)modifier;

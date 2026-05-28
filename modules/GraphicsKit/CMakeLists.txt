@@ -27,6 +27,48 @@ set(HEAD
 #################################################################
 ConfigureGraphicsBackends(INCS LNKS)
 #################################################################
+# texture tool dependencies
+#################################################################
+set(WITH_DIRECTXTEX_DEFAULT OFF)
+if(WIN32 AND COMMAND AddDxTex)
+        set(WITH_DIRECTXTEX_DEFAULT ON)
+        message("Texture loader found -- DirectX Texture")
+endif()
+set(WITH_ASTC_DEFAULT OFF)
+if(COMMAND AddASTC)
+        set(WITH_ASTC_DEFAULT ON)
+        message("Texture loader found -- ASTC")
+endif()
+
+option(WITH_DIRECTXTEX "Enable DirectXTex texture import/export support." ${WITH_DIRECTXTEX_DEFAULT})
+option(WITH_STB "Enable stb texture import/export support." ON)
+option(WITH_ASTC "Enable ASTC texture compression support." ${WITH_ASTC_DEFAULT})
+
+set(TK_GRAPHICS_WITH_DIRECTXTEX 0)
+set(TK_GRAPHICS_WITH_STB 0)
+set(TK_GRAPHICS_WITH_ASTC 0)
+
+if(WITH_DIRECTXTEX)
+        if(NOT COMMAND AddDxTex)
+                message(FATAL_ERROR "WITH_DIRECTXTEX requires AddDxTex to be defined by the dependency index.")
+        endif()
+        AddDxTex(INCS LNKS)
+        set(TK_GRAPHICS_WITH_DIRECTXTEX 1)
+endif()
+
+if(WITH_STB)
+        AddStb(INCS LNKS)
+        set(TK_GRAPHICS_WITH_STB 1)
+endif()
+
+if(WITH_ASTC)
+        if(NOT COMMAND AddASTC)
+                message(FATAL_ERROR "WITH_ASTC requires AddASTC to be defined by the dependency index.")
+        endif()
+        AddASTC(INCS LNKS)
+        set(TK_GRAPHICS_WITH_ASTC 1)
+endif()
+#################################################################
 # generate environment header
 #################################################################
 configure_file(

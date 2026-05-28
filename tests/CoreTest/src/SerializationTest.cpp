@@ -55,7 +55,7 @@ namespace toolkit
             serialization::serializeMemberIfChanged(stream, "Reference", reference, other ? &other->reference : nullptr);
         }
 
-        void deserialize(DeserializeStream stream, ISerializeModifier *modifier) override
+        void deserialize(DeserializeStream& stream, ISerializeModifier *modifier) override
         {
             serialization::deserializeMember(stream, "Id", id, modifier);
             serialization::deserializeMember(stream, "Name", name, modifier);
@@ -324,11 +324,12 @@ TEST(SerializationTest, SerializableObjectRoundTripAndDefaultMemberLoading)
     JsonDocument document;
     ASSERT_TRUE(document.parse("{\"Patch\":{\"Name\":\"partial\"}}"));
     output.id = 99;
-    output.deserializeIfExists(document.getRoot(), "Patch");
+    JsonValue root = document.getRoot();
+    output.deserializeIfExists(root, "Patch");
     EXPECT_EQ(output.id, 99);
     EXPECT_STREQ(output.name.getText(), "partial");
 
-    serialization::deserializeMember(document.getRoot(), "Missing", output.id, 7);
+    serialization::deserializeMember(root, "Missing", output.id, 7);
     EXPECT_EQ(output.id, 7);
 }
 
