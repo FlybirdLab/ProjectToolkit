@@ -6,67 +6,23 @@
 
 #include <toolkit/platforms/FileSystem.hpp>
 
-#if TK_POSIX
+#if TK_POSIX && !TK_ANDROID
 
-#include <toolkit/collection/Array.hpp>
 #include <toolkit/debug/Logger.hpp>
-#include <toolkit/memory/Memory.hpp>
-#include <toolkit/threading/Sync.hpp>
 #include <toolkit/types/DateTime.hpp>
-#include <toolkit/types/Path.hpp>
 #include <toolkit/types/TimeSpan.hpp>
 
 #include <cerrno>
-#include <cstdlib>
-#include <dirent.h>
 #include <fcntl.h>
-#include <fnmatch.h>
-#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#if TK_LINUX
-#include <sys/inotify.h>
-#include <sys/select.h>
-#endif
 
 namespace toolkit
 {
     static TkDateTime dateTimeFromUnixTime(time_t value)
     {
         return TkDateTime(1970, 1, 1) + TkTimeSpan(0, 0, 0, static_cast<i32>(value));
-    }
-
-    static bool statPath(const TkStringView path, struct stat &info)
-    {
-        return ::stat(path.get(), &info) == 0;
-    }
-
-    static bool isDotDir(const char *name)
-    {
-        return TkStringUtils::compareStrings(name, ".") == 0 || TkStringUtils::compareStrings(name, "..") == 0;
-    }
-
-    static bool makeDirRecursive(const TkStringView path)
-    {
-        if (path.isEmpty())
-            return false;
-        if (TkFileSystem::isDirExist(path))
-            return true;
-
-        TkString current;
-        const char *text = path.get();
-        for (i32 i = 0; i < path.length(); ++i)
-        {
-            current += text[i];
-            if ((text[i] == '/' || text[i] == '\\') && current.length() > 1 && !TkFileSystem::isDirExist(current))
-            {
-                if (::mkdir(current.get(), 0755) != 0 && errno != EEXIST)
-                    return false;
-            }
-        }
-        return ::mkdir(path.get(), 0755) == 0 || errno == EEXIST;
     }
 
     FileHandle TkFileSystem::openFile(OpenFileParams &params)

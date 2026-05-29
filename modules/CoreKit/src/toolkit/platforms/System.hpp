@@ -209,10 +209,10 @@ namespace toolkit
         static TkString getUserName();
 
         // TODO Move to WindowKit
-        //  Returns true if app has user focus.
+        //  Return true if app has user focus.
         //  static bool getHasFocus();
         //
-        //  Returns true if app is paused, only basic service is updated until app end or resume.
+        //  Return true if app is paused, only basic service is updated until app end or resume.
         //  static bool getIsPaused();
 
         // Create the unique identifier.

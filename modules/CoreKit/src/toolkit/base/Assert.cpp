@@ -9,6 +9,7 @@
 #include <toolkit/common.hpp>
 
 #include <cstdio>
+#include <signal.h>
 
 #if TK_WINDOWS
 #include <toolkit/platforms/win32/IncludeWindows.hpp>
@@ -17,6 +18,13 @@
 #if TK_DEBUG
 
 #include "toolkit/debug/Debug.hpp"
+
+#if TK_LINUX
+namespace toolkit
+{
+        bool runningFromATerminal();
+}
+#endif
 
 #if TK_WINDOWS
 #define TK_DEBUG_BREAK() __debugbreak()

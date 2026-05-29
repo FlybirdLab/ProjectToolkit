@@ -13,306 +13,401 @@
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/debug/Profiler.hpp>
 #include <toolkit/memory/Memory.hpp>
+#include <toolkit/platforms/System.hpp>
 #include <toolkit/windowing/WindowSystem.hpp>
 
 namespace toolkit
 {
-    static constexpr i32 DefaultDPI = 96;
+    constexpr i32 DefaultDPI = 96;
+    constexpr long NetWmStateRemove = 0L;
+    constexpr long NetWmStateAdd = 1L;
+    constexpr long WmNormalState = 1L;
+    constexpr long WmIconicState = 3L;
 
-    static X11::Display *display()
+    struct MotifWmHints
     {
-        return LinuxWindowSys::getDisplay();
+        unsigned long flags;
+        unsigned long functions;
+        unsigned long decorations;
+        long inputMode;
+        unsigned long status;
+    };
+
+    i32 toInt(float value)
+    {
+        return TkMath::truncToInt(value);
     }
 
-    static X11::Window rootWindow()
+    X11::Cursor createHiddenCursor(X11::Display *display, X11::Window window)
     {
-        X11::Display *d = display();
-        return d ? X11::XDefaultRootWindow(d) : 0;
+        static char emptyBits[1] = {0};
+        X11::Pixmap pixmap = X11::XCreateBitmapFromData(display, window, emptyBits, 1, 1);
+        X11::XColor color{};
+        X11::Cursor cursor = X11::XCreatePixmapCursor(display, pixmap, pixmap, &color, &color, 0, 0);
+        X11::XFreePixmap(display, pixmap);
+        return cursor;
     }
 
-    static Rect desktopBounds()
+    X11::Cursor createCursorForType(X11::Display *display, X11::Window window, CursorType type)
     {
-        X11::Display *d = display();
-        if (!d)
-            return Rect(0, 0, 0, 0);
-        const i32 screen = X11::XDefaultScreen(d);
-        return Rect(0, 0, static_cast<float>(X11::XDisplayWidth(d, screen)), static_cast<float>(X11::XDisplayHeight(d, screen)));
+        if (type == CursorType::kHidden)
+            return createHiddenCursor(display, window);
+
+        unsigned int cursorShape = XC_left_ptr;
+        switch (type)
+        {
+        case CursorType::kCross:
+            cursorShape = XC_crosshair;
+            break;
+        case CursorType::kHand:
+            cursorShape = XC_hand2;
+            break;
+        case CursorType::kHelp:
+            cursorShape = XC_question_arrow;
+            break;
+        case CursorType::kIBeam:
+            cursorShape = XC_xterm;
+            break;
+        case CursorType::kNo:
+            cursorShape = XC_X_cursor;
+            break;
+        case CursorType::kWait:
+            cursorShape = XC_watch;
+            break;
+        case CursorType::kSizeAll:
+            cursorShape = XC_fleur;
+            break;
+        case CursorType::kSizeNESW:
+            cursorShape = XC_bottom_left_corner;
+            break;
+        case CursorType::kSizeNS:
+            cursorShape = XC_sb_v_double_arrow;
+            break;
+        case CursorType::kSizeNWSE:
+            cursorShape = XC_bottom_right_corner;
+            break;
+        case CursorType::kSizeWE:
+            cursorShape = XC_sb_h_double_arrow;
+            break;
+        default:
+            break;
+        }
+        return X11::XCreateFontCursor(display, cursorShape);
     }
 
-    static void setWindowType(X11::Window window, bool showInTaskbar)
+    void clearEvent(X11::XEvent &event)
     {
-        X11::Display *d = display();
-        if (!d)
-            return;
-        const X11::Atom typeAtom = X11::XInternAtom(d, "_NET_WM_WINDOW_TYPE", 0);
-        const X11::Atom valueAtom = X11::XInternAtom(d, showInTaskbar ? "_NET_WM_WINDOW_TYPE_NORMAL" : "_NET_WM_WINDOW_TYPE_UTILITY", 0);
-        X11::XChangeProperty(d, window, typeAtom, XA_ATOM, 32, PropModeReplace, reinterpret_cast<const unsigned char *>(&valueAtom), 1);
+        TkMemory::memoryClear(&event, sizeof(event));
     }
 
     NativeWindow::NativeWindow(const WindowParams &p, TkWindow *window)
         : m_window(window)
     {
-        X11::Display *d = display();
-        if (!d)
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        const i32 screen = X11::XDefaultScreen(display);
+        const X11::Window root = X11::XRootWindow(display, screen);
+        const i32 x = toInt(p.pos.x);
+        const i32 y = toInt(p.pos.y);
+        const i32 width = TkMath::max(toInt(p.size.x), 1);
+        const i32 height = TkMath::max(toInt(p.size.y), 1);
+        window->m_clientSize = Pos(static_cast<float>(width), static_cast<float>(height));
+
+        X11::XSetWindowAttributes attributes{};
+        attributes.background_pixel = X11::XBlackPixel(display, screen);
+        attributes.border_pixel = X11::XBlackPixel(display, screen);
+        attributes.event_mask =
+            ExposureMask |
+            FocusChangeMask |
+            KeyPressMask |
+            KeyReleaseMask |
+            ButtonPressMask |
+            ButtonReleaseMask |
+            EnterWindowMask |
+            LeaveWindowMask |
+            PointerMotionMask |
+            ButtonMotionMask |
+            StructureNotifyMask |
+            PropertyChangeMask |
+            VisibilityChangeMask;
+        if (!p.isRegularWindow)
         {
-            LogError("[LinuxWindow] XOpenDisplay failed.");
+            attributes.override_redirect = 1;
+            attributes.save_under = 1;
+        }
+
+        unsigned long valueMask = CWBackPixel | CWBorderPixel | CWEventMask;
+        if (!p.isRegularWindow)
+            valueMask |= CWOverrideRedirect | CWSaveUnder;
+
+        m_handle = X11::XCreateWindow(
+            display,
+            root,
+            x,
+            y,
+            static_cast<unsigned int>(width),
+            static_cast<unsigned int>(height),
+            0,
+            X11::XDefaultDepth(display, screen),
+            InputOutput,
+            X11::XDefaultVisual(display, screen),
+            valueMask,
+            &attributes);
+        if (m_handle == 0)
+        {
+            LogError("Cannot create X11 window.");
             return;
         }
 
-        const i32 screen = X11::XDefaultScreen(d);
-        const i32 x = static_cast<i32>(p.pos.x);
-        const i32 y = static_cast<i32>(p.pos.y);
-        const u32 width = static_cast<u32>(p.size.x > 1.0f ? p.size.x : 1.0f);
-        const u32 height = static_cast<u32>(p.size.y > 1.0f ? p.size.y : 1.0f);
-        X11::XSetWindowAttributes attrs {};
-        attrs.event_mask = ExposureMask | StructureNotifyMask | FocusChangeMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | EnterWindowMask | LeaveWindowMask;
-        attrs.override_redirect = p.isRegularWindow ? 0 : 1;
-        attrs.background_pixel = X11::XBlackPixel(d, screen);
+        setTitle(p.title);
 
-        m_handle = X11::XCreateWindow(d, X11::XRootWindow(d, screen), x, y, width, height, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask | CWBackPixel | CWOverrideRedirect, &attrs);
-        if (!m_handle)
+        if (LinuxWindowSys::s_NetWmPid != 0)
         {
-            LogError("[LinuxWindow] XCreateWindow failed.");
-            return;
+            const unsigned long pid = static_cast<unsigned long>(System::getCurrentProcessId());
+            X11::XChangeProperty(display, m_handle, LinuxWindowSys::s_NetWmPid, XA_CARDINAL, 32, PropModeReplace, reinterpret_cast<const unsigned char *>(&pid), 1);
         }
 
-        X11::XStoreName(d, m_handle, p.title.getText());
-        X11::Atom deleteAtom = LinuxWindowSys::getDeleteWindowAtom();
-        X11::XSetWMProtocols(d, m_handle, &deleteAtom, 1);
-        setWindowType(m_handle, p.showInTaskbar);
-        updateMinMaxHints();
+        X11::XSizeHints hints{};
+        hints.flags = PPosition | PSize | PMinSize | PMaxSize;
+        hints.x = x;
+        hints.y = y;
+        hints.width = width;
+        hints.height = height;
+        hints.min_width = TkMath::max(toInt(p.minSize.x), 1);
+        hints.min_height = TkMath::max(toInt(p.minSize.y), 1);
+        hints.max_width = p.maxSize.x > 0.0f ? toInt(p.maxSize.x) : 32767;
+        hints.max_height = p.maxSize.y > 0.0f ? toInt(p.maxSize.y) : 32767;
+        if (!p.hasSizingFrame)
+        {
+            hints.min_width = width;
+            hints.max_width = width;
+            hints.min_height = height;
+            hints.max_height = height;
+        }
+        X11::XSetNormalHints(display, m_handle, &hints);
 
-        m_window->m_dpi = DefaultDPI;
-        m_window->m_dpiScale = 1.0f;
-        m_window->m_clientSize = Pos(static_cast<float>(width), static_cast<float>(height));
+        if (p.parent != nullptr && p.parent->getNativeWindow() != nullptr)
+            X11::XSetTransientForHint(display, m_handle, p.parent->getNativeWindow()->getXWindow());
 
-        if (p.fullscreen)
-            setFullscreenState(true);
-        X11::XFlush(d);
+        if (LinuxWindowSys::s_DeleteWindow != 0)
+            X11::XSetWMProtocols(display, m_handle, &LinuxWindowSys::s_DeleteWindow, 1);
+
+        if (!p.hasBorder)
+            setMotifDecorations(false);
+
+        if (!p.isRegularWindow && LinuxWindowSys::s_NetWmWindowType != 0 && LinuxWindowSys::s_NetWmWindowTypeDock != 0)
+        {
+            X11::Atom type = LinuxWindowSys::s_NetWmWindowTypeDock;
+            X11::XChangeProperty(display, m_handle, LinuxWindowSys::s_NetWmWindowType, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char *>(&type), 1);
+        }
+
+        X11::Atom states[4]{};
+        i32 statesCount = 0;
+        if (p.isTopmost && LinuxWindowSys::s_NetWmStateAbove != 0)
+            states[statesCount++] = LinuxWindowSys::s_NetWmStateAbove;
+        if (!p.showInTaskbar)
+        {
+            if (LinuxWindowSys::s_NetWmStateSkipTaskbar != 0)
+                states[statesCount++] = LinuxWindowSys::s_NetWmStateSkipTaskbar;
+            if (LinuxWindowSys::s_NetWmStateSkipPager != 0)
+                states[statesCount++] = LinuxWindowSys::s_NetWmStateSkipPager;
+        }
+        if (p.fullscreen && LinuxWindowSys::s_NetWmStateFullscreen != 0)
+            states[statesCount++] = LinuxWindowSys::s_NetWmStateFullscreen;
+        if (statesCount > 0 && LinuxWindowSys::s_NetWmState != 0)
+            X11::XChangeProperty(display, m_handle, LinuxWindowSys::s_NetWmState, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char *>(states), statesCount);
+
+        if (p.allowDragAndDrop && LinuxWindowSys::s_XdndAware != 0)
+        {
+            const long xdndVersion = 5;
+            X11::XChangeProperty(display, m_handle, LinuxWindowSys::s_XdndAware, XA_ATOM, 32, PropModeReplace, reinterpret_cast<const unsigned char *>(&xdndVersion), 1);
+        }
+
+        m_window->m_dpi = System::getDpi();
+        m_window->m_dpiScale = static_cast<float>(m_window->m_dpi) / static_cast<float>(DefaultDPI);
+
+        updateCursor();
+        X11::XFlush(display);
     }
 
     NativeWindow::~NativeWindow()
     {
-        X11::Display *d = display();
-        if (!d || !m_handle)
-            return;
-        if (m_window)
+        X11::Display *display = LinuxWindowSys::display();
+        if (m_window != nullptr)
         {
             if (m_window->m_track.isClippingCursor)
                 m_window->endClippingCursor();
             if (m_window->m_track.isTrackingMouse)
                 m_window->endTrackingMouse();
         }
-        const X11::Window handle = m_handle;
-        m_destroying = true;
-        m_handle = 0;
-        WindowSystem::unregisterWindowHandle(reinterpret_cast<void *>(handle));
-        X11::XDestroyWindow(d, handle);
-        X11::XFlush(d);
-    }
 
-    void NativeWindow::updateMinMaxHints()
-    {
-        if (!m_handle)
-            return;
-        X11::XSizeHints hints {};
-        hints.flags = PMinSize;
-        hints.min_width = static_cast<i32>(m_window->m_params.minSize.x);
-        hints.min_height = static_cast<i32>(m_window->m_params.minSize.y);
-        if (m_window->m_params.maxSize.sumValues() > 0)
+        if (display != nullptr && m_cursor != 0)
         {
-            hints.flags |= PMaxSize;
-            hints.max_width = static_cast<i32>(m_window->m_params.maxSize.x);
-            hints.max_height = static_cast<i32>(m_window->m_params.maxSize.y);
+            X11::XFreeCursor(display, m_cursor);
+            m_cursor = 0;
         }
-        X11::XSetWMNormalHints(display(), m_handle, &hints);
-    }
 
-    void NativeWindow::setFullscreenState(bool fullscreen)
-    {
-        X11::Display *d = display();
-        if (!d || !m_handle)
-            return;
-        X11::XEvent event {};
-        event.type = ClientMessage;
-        event.xclient.window = m_handle;
-        event.xclient.message_type = LinuxWindowSys::getWmStateAtom();
-        event.xclient.format = 32;
-        event.xclient.data.l[0] = fullscreen ? 1 : 0;
-        event.xclient.data.l[1] = LinuxWindowSys::getWmStateFullscreenAtom();
-        event.xclient.data.l[2] = 0;
-        event.xclient.data.l[3] = 1;
-        X11::XSendEvent(d, rootWindow(), 0, SubstructureNotifyMask | SubstructureRedirectMask, &event);
-    }
-
-    void NativeWindow::getScreenInfo(i32 &x, i32 &y, i32 &width, i32 &height) const
-    {
-        X11::Display *d = display();
-        if (!d)
+        if (display != nullptr && hasHandle())
         {
-            x = y = width = height = 0;
-            return;
-        }
-        const i32 screen = X11::XDefaultScreen(d);
-        x = 0;
-        y = 0;
-        width = X11::XDisplayWidth(d, screen);
-        height = X11::XDisplayHeight(d, screen);
-    }
-
-    void NativeWindow::checkForWindowResize()
-    {
-        if (!m_handle)
-            return;
-        X11::XWindowAttributes attrs {};
-        if (!X11::XGetWindowAttributes(display(), m_handle, &attrs))
-            return;
-        const Pos newSize(static_cast<float>(attrs.width), static_cast<float>(attrs.height));
-        if (!Pos::nearEqual(m_window->m_clientSize, newSize))
-        {
-            m_window->m_clientSize = newSize;
-            m_window->onResizeTrigger(attrs.width, attrs.height);
-        }
-    }
-
-    void NativeWindow::handleEvent(X11::XEvent &event)
-    {
-        switch (event.type)
-        {
-        case ClientMessage:
-            if (static_cast<X11::Atom>(event.xclient.data.l[0]) == LinuxWindowSys::getDeleteWindowAtom())
-                m_window->close(ClosingReason::kUser);
-            break;
-        case ConfigureNotify:
-            checkForWindowResize();
-            break;
-        case FocusIn:
-            m_window->onGotFocusTrigger();
-            break;
-        case FocusOut:
-            m_window->onLostFocusTrigger();
-            break;
-        case MapNotify:
-            if (!m_window->m_state.visible)
-            {
-                m_window->m_state.visible = true;
-                m_window->onShown();
-            }
-            break;
-        case UnmapNotify:
-            if (m_window->m_state.visible)
-            {
+            X11::Window handle = m_handle;
+            X11::XDestroyWindow(display, handle);
+            X11::XFlush(display);
+            WindowSystem::unregisterWindowHandle(LinuxWindowSys::toHandle(handle));
+            m_handle = 0;
+            if (m_window != nullptr)
                 m_window->m_state.visible = false;
-                m_window->onHidden();
-            }
-            break;
-        case DestroyNotify:
-            if (!m_destroying)
-                m_window->onClosedTrigger();
-            break;
-        default:
-            break;
         }
-
-        if (m_window->m_params.allowInput)
-            LinuxInput::handleEvent(m_window, event);
     }
 
     void *TkWindow::getWindowPtr() const
     {
-        return m_native ? reinterpret_cast<void *>(m_native->m_handle) : nullptr;
+        return m_native ? LinuxWindowSys::toHandle(m_native->m_handle) : nullptr;
     }
 
     void TkWindow::show()
     {
-        if (!m_native || !m_native->hasXWindow() || m_state.closed)
+        if (m_native == nullptr || !m_native->hasHandle() || m_state.closed)
             return;
-        X11::XMapRaised(display(), m_native->m_handle);
-        X11::XFlush(display());
+        if (!m_state.visible)
+        {
+            X11::Display *display = LinuxWindowSys::display();
+            if (display == nullptr)
+                return;
+
+            m_state.suppressFocusEvents = true;
+            X11::XMapWindow(display, m_native->m_handle);
+            X11::XFlush(display);
+            m_state.suppressFocusEvents = false;
+
+            if (m_state.visible)
+                return;
+            m_state.visible = true;
+            onShown();
+        }
     }
 
     void TkWindow::hide()
     {
-        if (!m_native || !m_native->hasXWindow() || m_state.closed)
+        if (m_native == nullptr || !m_native->hasHandle() || m_state.closed)
             return;
-        endClippingCursor();
-        endTrackingMouse();
-        X11::XUnmapWindow(display(), m_native->m_handle);
-        X11::XFlush(display());
+        if (m_state.visible)
+        {
+            X11::Display *display = LinuxWindowSys::display();
+            if (display == nullptr)
+                return;
+
+            m_state.suppressFocusEvents = true;
+            X11::XUnmapWindow(display, m_native->m_handle);
+            X11::XFlush(display);
+            m_state.suppressFocusEvents = false;
+
+            if (!m_state.visible)
+                return;
+            endClippingCursor();
+            endTrackingMouse();
+            m_state.visible = false;
+            m_state.showAfterFirstPaint = m_params.showAfterFirstPaint;
+            onHidden();
+        }
     }
 
     void TkWindow::minimize()
     {
-        if (!m_params.allowMinimize || !m_native || !m_native->hasXWindow() || isFullscreen())
+        if (!m_params.allowMinimize || m_native == nullptr || !m_native->hasHandle() || isFullscreen())
             return;
-        X11::XIconifyWindow(display(), m_native->m_handle, X11::XDefaultScreen(display()));
-        m_state.minimized = true;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr || LinuxWindowSys::s_WmChangeState == 0)
+            return;
+
+        X11::XEvent event;
+        clearEvent(event);
+        event.type = ClientMessage;
+        event.xclient.window = m_native->m_handle;
+        event.xclient.message_type = LinuxWindowSys::s_WmChangeState;
+        event.xclient.format = 32;
+        event.xclient.data.l[0] = WmIconicState;
+        X11::XSendEvent(display, LinuxWindowSys::rootWindow(), 0, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+        X11::XFlush(display);
     }
 
     void TkWindow::maximize()
     {
-        if (!m_params.allowMaximize || !m_native || !m_native->hasXWindow() || isFullscreen())
+        if (!m_params.allowMaximize || m_native == nullptr || !m_native->hasHandle() || isFullscreen())
             return;
-        X11::Atom maxHorz = X11::XInternAtom(display(), "_NET_WM_STATE_MAXIMIZED_HORZ", 0);
-        X11::Atom maxVert = X11::XInternAtom(display(), "_NET_WM_STATE_MAXIMIZED_VERT", 0);
-        X11::XEvent event {};
-        event.type = ClientMessage;
-        event.xclient.window = m_native->m_handle;
-        event.xclient.message_type = LinuxWindowSys::getWmStateAtom();
-        event.xclient.format = 32;
-        event.xclient.data.l[0] = 1;
-        event.xclient.data.l[1] = maxHorz;
-        event.xclient.data.l[2] = maxVert;
-        event.xclient.data.l[3] = 1;
-        X11::XSendEvent(display(), rootWindow(), 0, SubstructureNotifyMask | SubstructureRedirectMask, &event);
+
+        m_native->sendNetWmState(LinuxWindowSys::s_NetWmStateMaximizedHorz, true, LinuxWindowSys::s_NetWmStateMaximizedVert);
         m_state.maximized = true;
         m_state.minimized = false;
     }
 
-    void TkWindow::setBorderless(bool isBorderless, bool maximized)
-    {
-        if (!m_native || !m_native->hasXWindow())
-            return;
-        m_params.hasBorder = !isBorderless;
-        X11::Atom hintsAtom = X11::XInternAtom(display(), "_MOTIF_WM_HINTS", 0);
-        struct MotifHints
-        {
-            unsigned long flags;
-            unsigned long functions;
-            unsigned long decorations;
-            long inputMode;
-            unsigned long status;
-        } hints {2, 0, isBorderless ? 0ul : 1ul, 0, 0};
-        X11::XChangeProperty(display(), m_native->m_handle, hintsAtom, hintsAtom, 32, PropModeReplace, reinterpret_cast<unsigned char *>(&hints), 5);
-        if (maximized)
-            maximize();
-        X11::XFlush(display());
-    }
-
     void TkWindow::restore()
     {
-        if (!m_native || !m_native->hasXWindow())
+        if (m_native == nullptr || !m_native->hasHandle() || isFullscreen())
+            return;
+
+        if (m_state.maximized)
+        {
+            m_native->sendNetWmState(LinuxWindowSys::s_NetWmStateMaximizedHorz, false, LinuxWindowSys::s_NetWmStateMaximizedVert);
+            m_state.maximized = false;
+        }
+
+        if (m_state.minimized)
+        {
+            X11::Display *display = LinuxWindowSys::display();
+            if (display != nullptr && LinuxWindowSys::s_WmChangeState != 0)
+            {
+                X11::XEvent event;
+                clearEvent(event);
+                event.type = ClientMessage;
+                event.xclient.window = m_native->m_handle;
+                event.xclient.message_type = LinuxWindowSys::s_WmChangeState;
+                event.xclient.format = 32;
+                event.xclient.data.l[0] = WmNormalState;
+                X11::XSendEvent(display, LinuxWindowSys::rootWindow(), 0, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+                X11::XMapRaised(display, m_native->m_handle);
+                X11::XFlush(display);
+            }
+            m_state.minimized = false;
+        }
+    }
+
+    void TkWindow::setBorderless(bool isBorderless, bool maximized)
+    {
+        if (m_native == nullptr || !m_native->hasHandle())
             return;
         if (isFullscreen())
             setFullscreen(false);
-        X11::XMapRaised(display(), m_native->m_handle);
-        m_state.minimized = false;
-        m_state.maximized = false;
+        if (isMaximized())
+            restore();
+
+        m_params.hasBorder = !isBorderless;
+        m_native->setMotifDecorations(!isBorderless);
+        if (maximized)
+            maximize();
+        m_native->checkForWindowResize();
     }
 
     bool TkWindow::isClosed() const
     {
-        return m_state.closed || m_native == nullptr || !m_native->hasXWindow();
+        return m_state.closed || m_native == nullptr || !m_native->hasHandle();
     }
 
     bool TkWindow::isForegroundWindow() const
     {
-        if (!m_native || !m_native->hasXWindow())
+        if (m_native == nullptr || !m_native->hasHandle())
             return false;
-        X11::Window focused = 0;
-        i32 revert = 0;
-        X11::XGetInputFocus(display(), &focused, &revert);
-        return focused == m_native->m_handle;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return false;
+
+        X11::Window focus = 0;
+        int revert = 0;
+        X11::XGetInputFocus(display, &focus, &revert);
+        return focus == m_native->m_handle;
     }
 
     void TkWindow::close(ClosingReason reason)
@@ -320,6 +415,7 @@ namespace toolkit
         if (m_state.isClosing || m_state.closed)
             return;
         m_state.isClosing = true;
+
         bool cancel = false;
         m_events.onClosing(reason, cancel);
         if (cancel)
@@ -327,28 +423,76 @@ namespace toolkit
             m_state.isClosing = false;
             return;
         }
-        hide();
+
+        if (m_state.visible)
+            hide();
+        if (m_native != nullptr && m_native->hasHandle())
+        {
+            X11::Display *display = LinuxWindowSys::display();
+            X11::Window handle = m_native->m_handle;
+            m_native->m_handle = 0;
+            if (display != nullptr)
+            {
+                X11::XDestroyWindow(display, handle);
+                X11::XFlush(display);
+            }
+            WindowSystem::unregisterWindowHandle(LinuxWindowSys::toHandle(handle));
+        }
         onClosedTrigger();
     }
 
-    void TkWindow::bringToFront(bool)
+    void TkWindow::bringToFront(bool force)
     {
-        if (m_native && m_native->hasXWindow())
-            X11::XRaiseWindow(display(), m_native->m_handle);
+        if (m_native == nullptr || !m_native->hasHandle())
+            return;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        X11::XRaiseWindow(display, m_native->m_handle);
+        if (force || m_params.isRegularWindow)
+        {
+            X11::XEvent event;
+            clearEvent(event);
+            event.type = ClientMessage;
+            event.xclient.window = m_native->m_handle;
+            event.xclient.message_type = LinuxWindowSys::s_NetActiveWindow;
+            event.xclient.format = 32;
+            event.xclient.data.l[0] = 1;
+            event.xclient.data.l[1] = CurrentTime;
+            X11::XSendEvent(display, LinuxWindowSys::rootWindow(), 0, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+        }
+        X11::XFlush(display);
     }
 
     void TkWindow::setClientBounds(const Rect &clientArea)
     {
-        if (!m_native || !m_native->hasXWindow())
+        if (m_native == nullptr || !m_native->hasHandle())
             return;
-        X11::XMoveResizeWindow(display(), m_native->m_handle, static_cast<i32>(clientArea.x), static_cast<i32>(clientArea.y), static_cast<u32>(clientArea.w > 1.0f ? clientArea.w : 1.0f), static_cast<u32>(clientArea.h > 1.0f ? clientArea.h : 1.0f));
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        const i32 x = toInt(clientArea.x);
+        const i32 y = toInt(clientArea.y);
+        const i32 width = TkMath::max(toInt(clientArea.w), 1);
+        const i32 height = TkMath::max(toInt(clientArea.h), 1);
+        X11::XMoveResizeWindow(display, m_native->m_handle, x, y, static_cast<unsigned int>(width), static_cast<unsigned int>(height));
+        X11::XFlush(display);
         m_native->checkForWindowResize();
     }
 
     void TkWindow::setPos(const Pos &position)
     {
-        if (m_native && m_native->hasXWindow())
-            X11::XMoveWindow(display(), m_native->m_handle, static_cast<i32>(position.x), static_cast<i32>(position.y));
+        if (m_native == nullptr || !m_native->hasHandle())
+            return;
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+        X11::XMoveWindow(display, m_native->m_handle, toInt(position.x), toInt(position.y));
+        X11::XFlush(display);
     }
 
     void TkWindow::setClientPos(const Pos &position)
@@ -368,31 +512,50 @@ namespace toolkit
 
     void TkWindow::setFullscreen(bool isFullscreen)
     {
-        if (!m_native || !m_native->hasXWindow() || m_state.fullscreen == isFullscreen)
+        if (m_native == nullptr || !m_native->hasHandle() || m_state.fullscreen == isFullscreen)
             return;
-        if (isFullscreen && !m_native->m_hasFullscreenRestore)
+
+        LogInfo("Changing window fullscreen mode to %v", isFullscreen);
+        if (isFullscreen)
         {
-            m_native->m_restoreRect = Rect(getPos(), getSize());
+            m_native->m_restoreBounds = getClientBounds();
             m_native->m_hasFullscreenRestore = true;
         }
-        m_native->setFullscreenState(isFullscreen);
-        m_state.fullscreen = isFullscreen;
-        if (!isFullscreen && m_native->m_hasFullscreenRestore)
+
+        m_native->sendNetWmState(LinuxWindowSys::s_NetWmStateFullscreen, isFullscreen);
+        if (isFullscreen)
         {
-            setClientBounds(m_native->m_restoreRect);
+            const Rect monitor = System::getMonitorBounds(getClientPos());
+            setClientBounds(monitor);
+        }
+        else if (m_native->m_hasFullscreenRestore)
+        {
+            setClientBounds(m_native->m_restoreBounds);
             m_native->m_hasFullscreenRestore = false;
+        }
+        m_state.fullscreen = isFullscreen;
+        m_native->checkForWindowResize();
+    }
+
+    bool TkWindow::isVisible() const
+    {
+        return m_state.visible;
+    }
+
+    void TkWindow::setVisible(bool isVisible)
+    {
+        if (this->isVisible() != isVisible)
+        {
+            if (isVisible)
+                show();
+            else
+                hide();
         }
     }
 
     Pos TkWindow::getPos() const
     {
-        if (!m_native || !m_native->hasXWindow())
-            return Pos::Minimum;
-        X11::Window child = 0;
-        i32 x = 0;
-        i32 y = 0;
-        X11::XTranslateCoordinates(display(), m_native->m_handle, rootWindow(), 0, 0, &x, &y, &child);
-        return Pos(static_cast<float>(x), static_cast<float>(y));
+        return getClientPos();
     }
 
     Pos TkWindow::getSize() const
@@ -407,101 +570,374 @@ namespace toolkit
 
     Pos TkWindow::screenToClient(const Pos &screenPos) const
     {
-        if (!m_native || !m_native->hasXWindow())
-            return Pos::Minimum;
+        if (m_native == nullptr || !m_native->hasHandle())
+            return Pos{0, 0};
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return Pos{0, 0};
+
+        int x = 0;
+        int y = 0;
         X11::Window child = 0;
-        i32 x = 0;
-        i32 y = 0;
-        X11::XTranslateCoordinates(display(), rootWindow(), m_native->m_handle, static_cast<i32>(screenPos.x), static_cast<i32>(screenPos.y), &x, &y, &child);
+        X11::XTranslateCoordinates(display, LinuxWindowSys::rootWindow(), m_native->m_handle, toInt(screenPos.x), toInt(screenPos.y), &x, &y, &child);
         return Pos(static_cast<float>(x), static_cast<float>(y));
     }
 
     Pos TkWindow::clientToScreen(const Pos &clientPos) const
     {
-        if (!m_native || !m_native->hasXWindow())
-            return Pos::Minimum;
+        if (m_native == nullptr || !m_native->hasHandle())
+            return Pos{0, 0};
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return Pos{0, 0};
+
+        int x = 0;
+        int y = 0;
         X11::Window child = 0;
-        i32 x = 0;
-        i32 y = 0;
-        X11::XTranslateCoordinates(display(), m_native->m_handle, rootWindow(), static_cast<i32>(clientPos.x), static_cast<i32>(clientPos.y), &x, &y, &child);
+        X11::XTranslateCoordinates(display, m_native->m_handle, LinuxWindowSys::rootWindow(), toInt(clientPos.x), toInt(clientPos.y), &x, &y, &child);
         return Pos(static_cast<float>(x), static_cast<float>(y));
-    }
-
-    TkString TkWindow::getTitle() const
-    {
-        if (!m_native || !m_native->hasXWindow())
-            return TkString::Empty;
-        char *name = nullptr;
-        if (!X11::XFetchName(display(), m_native->m_handle, &name) || !name)
-            return TkString::Empty;
-        TkString result(name);
-        X11::XFree(name);
-        return result;
-    }
-
-    void TkWindow::setTitle(const TkStringView &title)
-    {
-        m_params.title = title;
-        if (m_native && m_native->hasXWindow())
-            X11::XStoreName(display(), m_native->m_handle, TkString(title).getText());
-    }
-
-    f32 TkWindow::getOpacity() const
-    {
-        return 1.0f;
-    }
-
-    void TkWindow::setOpacity(f32)
-    {
-    }
-
-    void TkWindow::focus()
-    {
-        if (m_native && m_native->hasXWindow())
-            X11::XSetInputFocus(display(), m_native->m_handle, RevertToParent, CurrentTime);
     }
 
     void TkWindow::flashWindow()
     {
+        if (m_native == nullptr || !m_native->hasHandle() || isFocused())
+            return;
+        m_native->sendNetWmState(LinuxWindowSys::s_NetWmStateDemandsAttention, true);
     }
 
-    DragDropEffect TkWindow::doDragDrop(const TkStringView &)
+    void NativeWindow::getScreenInfo(i32 &x, i32 &y, i32 &width, i32 &height) const
     {
-        return DragDropEffect::kNone;
+        const Rect bounds = System::getMonitorBounds(m_window != nullptr ? m_window->getClientPos() : Pos{0, 0});
+        x = toInt(bounds.x);
+        y = toInt(bounds.y);
+        width = toInt(bounds.w);
+        height = toInt(bounds.h);
+    }
+
+    float TkWindow::getOpacity() const
+    {
+        return m_native != nullptr ? m_native->m_opacity : 1.0f;
+    }
+
+    void TkWindow::setOpacity(f32 opacity)
+    {
+        if (m_native == nullptr || !m_native->hasHandle())
+            return;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        opacity = TkMath::saturate(opacity);
+        if (TkMath::nearEqual(opacity, 1.0f))
+        {
+            X11::XDeleteProperty(display, m_native->m_handle, LinuxWindowSys::s_WmWindowOpacity);
+        }
+        else
+        {
+            const unsigned long alpha = static_cast<unsigned long>(opacity * static_cast<float>(0xFFFFFFFFu));
+            X11::XChangeProperty(display, m_native->m_handle, LinuxWindowSys::s_WmWindowOpacity, XA_CARDINAL, 32, PropModeReplace, reinterpret_cast<const unsigned char *>(&alpha), 1);
+        }
+        m_native->m_opacity = opacity;
+        X11::XFlush(display);
+    }
+
+    void TkWindow::focus()
+    {
+        if (m_native == nullptr || !m_native->hasHandle() || !m_native->isWindowMapped())
+            return;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        X11::XSetInputFocus(display, m_native->m_handle, RevertToPointerRoot, CurrentTime);
+        X11::XFlush(display);
+    }
+
+    TkString TkWindow::getTitle() const
+    {
+        return m_params.title;
+    }
+
+    void TkWindow::setTitle(const TkStringView &title)
+    {
+        if (m_native == nullptr || !m_native->hasHandle())
+            return;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        const char *text = title.getText();
+        X11::XStoreName(display, m_native->m_handle, text);
+        X11::XSetIconName(display, m_native->m_handle, text);
+        if (LinuxWindowSys::s_NetWmName != 0 && LinuxWindowSys::s_Utf8String != 0)
+            X11::XChangeProperty(display, m_native->m_handle, LinuxWindowSys::s_NetWmName, LinuxWindowSys::s_Utf8String, 8, PropModeReplace, reinterpret_cast<const unsigned char *>(text), title.length());
+        m_params.title = title;
     }
 
     void TkWindow::startTrackingMouse(bool useMouseScreenOffset)
     {
-        m_track.isTrackingMouse = true;
-        m_track.isUsingMouseOffset = useMouseScreenOffset;
-        m_track.mouseOffsetScreenSize = desktopBounds();
+        if (m_native == nullptr || !m_native->hasHandle())
+            return;
+        if (!m_track.isTrackingMouse)
+        {
+            m_track.isTrackingMouse = true;
+            m_track.mouseOffset = {0, 0};
+            m_track.isUsingMouseOffset = useMouseScreenOffset;
+            m_track.isHorizontalFlippingMouse = false;
+            m_track.isVerticalFlippingMouse = false;
+
+            i32 x = 0;
+            i32 y = 0;
+            i32 width = 0;
+            i32 height = 0;
+            m_native->getScreenInfo(x, y, width, height);
+            m_track.mouseOffsetScreenSize = Rect(static_cast<float>(x), static_cast<float>(y), static_cast<float>(width), static_cast<float>(height));
+
+            X11::Display *display = LinuxWindowSys::display();
+            if (display != nullptr)
+                X11::XGrabPointer(display, m_native->m_handle, 1, PointerMotionMask | ButtonPressMask | ButtonReleaseMask, GrabModeAsync, GrabModeAsync, 0, 0, CurrentTime);
+        }
     }
 
     void TkWindow::endTrackingMouse()
     {
-        m_track.isTrackingMouse = false;
-        m_track.isUsingMouseOffset = false;
-        m_track.isHorizontalFlippingMouse = false;
-        m_track.isVerticalFlippingMouse = false;
+        if (m_track.isTrackingMouse)
+        {
+            m_track.isTrackingMouse = false;
+            m_track.isHorizontalFlippingMouse = false;
+            m_track.isVerticalFlippingMouse = false;
+
+            X11::Display *display = LinuxWindowSys::display();
+            if (display != nullptr)
+                X11::XUngrabPointer(display, CurrentTime);
+        }
     }
 
-    void TkWindow::startClippingCursor(const Rect &)
+    void TkWindow::startClippingCursor(const Rect &bounds)
     {
+        (void)bounds;
+        if (m_native == nullptr || !m_native->hasHandle())
+            return;
         m_track.isClippingCursor = true;
+        if (isFocused())
+        {
+            X11::Display *display = LinuxWindowSys::display();
+            if (display != nullptr)
+            {
+                X11::XGrabPointer(display, m_native->m_handle, 1, PointerMotionMask | ButtonPressMask | ButtonReleaseMask, GrabModeAsync, GrabModeAsync, m_native->m_handle, 0, CurrentTime);
+                m_native->m_clipCursorSet = true;
+            }
+        }
     }
 
     void TkWindow::endClippingCursor()
     {
-        m_track.isClippingCursor = false;
+        if (m_track.isClippingCursor)
+        {
+            m_track.isClippingCursor = false;
+            if (m_native != nullptr)
+                m_native->m_clipCursorSet = false;
+            X11::Display *display = LinuxWindowSys::display();
+            if (display != nullptr)
+                X11::XUngrabPointer(display, CurrentTime);
+        }
     }
 
     void TkWindow::setCursor(CursorType type)
     {
+        if (static_cast<i32>(type) < 0 || type >= CursorType::MAX)
+            type = CursorType::kDefault;
         m_cursor = type;
+        if (m_native != nullptr && m_native->hasHandle())
+            m_native->updateCursor();
     }
 
-    void TkWindow::setIcon(const TkStringView)
+    void TkWindow::setIcon(const TkStringView icon)
     {
+        (void)icon;
+    }
+
+    DragDropEffect TkWindow::doDragDrop(const TkStringView &data)
+    {
+        (void)data;
+        return DragDropEffect::kNone;
+    }
+
+    void NativeWindow::checkForWindowResize()
+    {
+        if (m_window == nullptr || m_window->m_state.minimized || !hasHandle())
+            return;
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        X11::XWindowAttributes attributes{};
+        if (X11::XGetWindowAttributes(display, m_handle, &attributes) == 0)
+            return;
+
+        const i32 width = TkMath::max(attributes.width, 0);
+        const i32 height = TkMath::max(attributes.height, 0);
+        const Pos newSize(static_cast<float>(width), static_cast<float>(height));
+        if (!Pos::nearEqual(m_window->m_clientSize, newSize) && width > 0 && height > 0)
+        {
+            m_window->m_clientSize = newSize;
+            m_window->onResizeTrigger(width, height);
+        }
+    }
+
+    void NativeWindow::sendNetWmState(X11::Atom state, bool enable, X11::Atom state2)
+    {
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr || !hasHandle() || LinuxWindowSys::s_NetWmState == 0 || state == 0)
+            return;
+
+        X11::XEvent event;
+        clearEvent(event);
+        event.type = ClientMessage;
+        event.xclient.window = m_handle;
+        event.xclient.message_type = LinuxWindowSys::s_NetWmState;
+        event.xclient.format = 32;
+        event.xclient.data.l[0] = enable ? NetWmStateAdd : NetWmStateRemove;
+        event.xclient.data.l[1] = state;
+        event.xclient.data.l[2] = state2;
+        event.xclient.data.l[3] = 1;
+        X11::XSendEvent(display, LinuxWindowSys::rootWindow(), 0, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+        X11::XFlush(display);
+    }
+
+    void NativeWindow::setMotifDecorations(bool enabled)
+    {
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr || !hasHandle() || LinuxWindowSys::s_MotifWmHints == 0)
+            return;
+
+        MotifWmHints hints{};
+        hints.flags = 2;
+        hints.decorations = enabled ? 1UL : 0UL;
+        X11::XChangeProperty(display, m_handle, LinuxWindowSys::s_MotifWmHints, LinuxWindowSys::s_MotifWmHints, 32, PropModeReplace, reinterpret_cast<unsigned char *>(&hints), 5);
+        X11::XFlush(display);
+    }
+
+    void NativeWindow::updateCursor()
+    {
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr || !hasHandle())
+            return;
+
+        if (m_cursor != 0)
+            X11::XFreeCursor(display, m_cursor);
+        m_cursor = createCursorForType(display, m_handle, m_window != nullptr ? m_window->m_cursor : CursorType::kDefault);
+        if (m_cursor != 0)
+            X11::XDefineCursor(display, m_handle, m_cursor);
+        X11::XFlush(display);
+    }
+
+    bool NativeWindow::isWindowMapped() const
+    {
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr || !hasHandle())
+            return false;
+
+        X11::XWindowAttributes attributes{};
+        if (X11::XGetWindowAttributes(display, m_handle, &attributes) == 0)
+            return false;
+        return attributes.map_state != IsUnmapped;
+    }
+
+    bool NativeWindow::processEvent(X11::XEvent &event)
+    {
+        if (m_window == nullptr)
+            return false;
+
+        switch (event.type)
+        {
+        case ClientMessage:
+            if (static_cast<X11::Atom>(event.xclient.data.l[0]) == LinuxWindowSys::s_DeleteWindow)
+            {
+                m_window->close(ClosingReason::kUser);
+                return true;
+            }
+            break;
+        case ConfigureNotify:
+            checkForWindowResize();
+            break;
+        case MapNotify:
+            if (!m_window->m_state.visible)
+            {
+                m_window->m_state.visible = true;
+                m_window->onShown();
+            }
+            if (m_window->m_params.allowInput && m_window->m_params.activateWhenFirstShown)
+                m_window->focus();
+            break;
+        case UnmapNotify:
+            if (m_window->m_state.visible)
+            {
+                m_window->endClippingCursor();
+                m_window->endTrackingMouse();
+                m_window->m_state.visible = false;
+                m_window->m_state.showAfterFirstPaint = m_window->m_params.showAfterFirstPaint;
+                m_window->onHidden();
+            }
+            break;
+        case FocusIn:
+            m_window->onGotFocusTrigger();
+            updateCursor();
+            if (m_window->m_track.isClippingCursor && !m_clipCursorSet)
+                m_window->startClippingCursor(m_window->getClientBounds());
+            break;
+        case FocusOut:
+            if (m_clipCursorSet)
+                m_window->endClippingCursor();
+            m_window->onLostFocusTrigger();
+            updateCursor();
+            break;
+        case MotionNotify:
+            if (m_window->m_track.isTrackingMouse && m_window->m_track.isUsingMouseOffset)
+            {
+                Pos desktopLocation = m_window->m_track.mouseOffsetScreenSize.location;
+                Pos desktopSize = m_window->m_track.mouseOffsetScreenSize.getBottomRight();
+                Pos mousePosition(static_cast<float>(event.xmotion.x_root), static_cast<float>(event.xmotion.y_root));
+                Pos newMousePosition = mousePosition;
+                if ((m_window->m_track.isHorizontalFlippingMouse = mousePosition.x <= desktopLocation.x + 2))
+                    newMousePosition.x = desktopSize.x - 3;
+                else if ((m_window->m_track.isHorizontalFlippingMouse = mousePosition.x >= desktopSize.x - 1))
+                    newMousePosition.x = desktopLocation.x + 3;
+                if ((m_window->m_track.isVerticalFlippingMouse = mousePosition.y <= desktopLocation.y + 2))
+                    newMousePosition.y = desktopSize.y - 3;
+                else if ((m_window->m_track.isVerticalFlippingMouse = mousePosition.y >= desktopSize.y - 1))
+                    newMousePosition.y = desktopLocation.y + 3;
+                if (!Pos::nearEqual(mousePosition, newMousePosition))
+                {
+                    m_window->m_track.mouseOffset -= newMousePosition - mousePosition;
+                    m_window->setMousePos(m_window->screenToClient(newMousePosition));
+                }
+            }
+            break;
+        case LeaveNotify:
+            break;
+        case DestroyNotify:
+        {
+            X11::Window destroyedHandle = m_handle;
+            m_handle = 0;
+            WindowSystem::unregisterWindowHandle(LinuxWindowSys::toHandle(destroyedHandle));
+            m_window->m_state.visible = false;
+            m_window->onClosedTrigger();
+            return true;
+        }
+        default:
+            break;
+        }
+
+        if (!m_window->m_params.allowInput)
+            return false;
+        return LinuxInput::processEvent(m_window, event);
     }
 
     void TkWindow::onShowTrigger()
@@ -520,11 +956,13 @@ namespace toolkit
     {
         if (m_state.closed)
             return;
+
         m_state.isClosing = true;
         m_state.closed = true;
         m_state.visible = false;
         endClippingCursor();
         endTrackingMouse();
+
         onClosed();
     }
 
@@ -533,8 +971,10 @@ namespace toolkit
         if (m_state.focused)
             return;
         m_state.focused = true;
-        if (!m_state.suppressFocusEvents)
-            onGotFocus();
+        if (m_state.suppressFocusEvents)
+            return;
+
+        onGotFocus();
     }
 
     void TkWindow::onLostFocusTrigger()
@@ -542,8 +982,10 @@ namespace toolkit
         if (!m_state.focused)
             return;
         m_state.focused = false;
-        if (!m_state.suppressFocusEvents)
-            onLostFocus();
+        if (m_state.suppressFocusEvents)
+            return;
+
+        onLostFocus();
     }
 }
 

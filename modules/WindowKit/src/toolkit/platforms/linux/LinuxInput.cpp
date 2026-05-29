@@ -10,123 +10,119 @@
 
 #include "LinuxWindow.hpp"
 #include "LinuxWindowSys.hpp"
+#include <toolkit/debug/Logger.hpp>
+#include <toolkit/debug/Profiler.hpp>
 #include <toolkit/input/Gamepad.hpp>
 #include <toolkit/input/Keyboard.hpp>
 #include <toolkit/input/Mouse.hpp>
+#include <toolkit/memory/Memory.hpp>
 #include <toolkit/platforms/System.hpp>
-
-#include <errno.h>
+#include <toolkit/utils/Convertor.hpp>
+#include <linux/input.h>
+#include <linux/input-event-codes.h>
+#include <cerrno>
 #include <fcntl.h>
-#include <linux/joystick.h>
-#include <string.h>
-#include <stdio.h>
-#include <sys/ioctl.h>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <unistd.h>
 
 namespace toolkit
 {
-    class LinuxKeyboard final : public Keyboard
+
+    constexpr i32 LinuxInputMaxGamepads = MAX_GAMEPADS;
+    constexpr i32 LinuxInputMaxGamepadEventsPerFrame = 256;
+    constexpr i32 TriggerThreshold = 25000;
+    constexpr X11::Time MouseDoubleClickTime = 500;
+    constexpr float MaxDoubleClickDistanceSquared = 10.0f;
+
+    struct LinuxInputDevice
     {
-    public:
-        bool handleEvent(TkWindow *window, X11::XEvent &event);
+        u32 uid[4]{};
+        std::string name;
+        std::string handler;
+        bool isGamepad = false;
     };
 
-    class LinuxMouse final : public Mouse
+    LinuxInputDevice s_inputDevices[LinuxInputMaxGamepads]{};
+    i32 s_foundGamepads = 0;
+    float s_lastUpdateTime = -1000.0f;
+    X11::Time s_mouseLastButtonPressTime = 0;
+    Pos s_oldMouseClickPosition{};
+
+    float normalizeInputAxis(const int axisVal)
     {
-    public:
-        void setMousePosition(const Pos &newPosition) override
-        {
-            X11::Display *display = LinuxWindowSys::getDisplay();
-            if (!display)
-                return;
-            X11::XWarpPointer(display, 0, X11::XDefaultRootWindow(display), 0, 0, 0, 0, static_cast<i32>(newPosition.x), static_cast<i32>(newPosition.y));
-            X11::XFlush(display);
-            onMouseMoved(newPosition);
-        }
+        const float norm = axisVal <= 0 ? 32768.0f : 32767.0f;
+        return static_cast<float>(axisVal) / norm;
+    }
 
-        bool handleEvent(TkWindow *window, X11::XEvent &event);
-    };
-
-    class LinuxGamepad final : public Gamepad
+    float normalizeInputTrigger(const int axisVal)
     {
-    public:
-        LinuxGamepad(i32 index, i32 fd, const TkString &name)
-            : Gamepad(TkUuid(0x4c696e75, 0x784a7300u | static_cast<u32>(index), 0, static_cast<u32>(index)), name),
-              m_index(index),
-              m_fd(fd)
-        {
-        }
+        return TkMath::saturate(static_cast<float>(axisVal) / 255.0f);
+    }
 
-        ~LinuxGamepad()
-        {
-            if (m_fd >= 0)
-                close(m_fd);
-        }
-
-        i32 getIndex() const
-        {
-            return m_index;
-        }
-
-    protected:
-        bool updateState() override;
-
-    private:
-        void setButton(u8 index, bool pressed);
-        void setAxis(u8 index, i16 value);
-
-    private:
-        i32 m_index = -1;
-        i32 m_fd = -1;
-    };
-
-    static float s_lastGamepadScanTime = -1.0f;
-
-    static KeyboardKeys mapKeySym(X11::KeySym key)
+    KeyboardKeys mapKeySym(X11::KeySym keySym)
     {
-        if (key >= XK_A && key <= XK_Z)
-            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kA) + static_cast<i32>(key - XK_A));
-        if (key >= XK_a && key <= XK_z)
-            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kA) + static_cast<i32>(key - XK_a));
-        if (key >= XK_0 && key <= XK_9)
-            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kAlpha0) + static_cast<i32>(key - XK_0));
-        if (key >= XK_KP_0 && key <= XK_KP_9)
-            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kNumpad0) + static_cast<i32>(key - XK_KP_0));
-        if (key >= XK_F1 && key <= XK_F24)
-            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kF1) + static_cast<i32>(key - XK_F1));
+        if (keySym >= XK_a && keySym <= XK_z)
+            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kA) + static_cast<i32>(keySym - XK_a));
+        if (keySym >= XK_A && keySym <= XK_Z)
+            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kA) + static_cast<i32>(keySym - XK_A));
+        if (keySym >= XK_0 && keySym <= XK_9)
+            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kAlpha0) + static_cast<i32>(keySym - XK_0));
+        if (keySym >= XK_KP_0 && keySym <= XK_KP_9)
+            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kNumpad0) + static_cast<i32>(keySym - XK_KP_0));
+        if (keySym >= XK_F1 && keySym <= XK_F24)
+            return static_cast<KeyboardKeys>(static_cast<i32>(KeyboardKeys::kF1) + static_cast<i32>(keySym - XK_F1));
 
-        switch (key)
+        switch (keySym)
         {
         case XK_BackSpace:
             return KeyboardKeys::kBackspace;
         case XK_Tab:
+        case XK_ISO_Left_Tab:
             return KeyboardKeys::kTab;
         case XK_Return:
         case XK_KP_Enter:
             return KeyboardKeys::kReturn;
+        case XK_Pause:
+            return KeyboardKeys::kPause;
+        case XK_Caps_Lock:
+            return KeyboardKeys::kCapital;
         case XK_Escape:
             return KeyboardKeys::kEscape;
         case XK_space:
             return KeyboardKeys::kSpacebar;
         case XK_Page_Up:
+        case XK_KP_Page_Up:
             return KeyboardKeys::kPageUp;
         case XK_Page_Down:
+        case XK_KP_Page_Down:
             return KeyboardKeys::kPageDown;
         case XK_End:
+        case XK_KP_End:
             return KeyboardKeys::kEnd;
         case XK_Home:
+        case XK_KP_Home:
             return KeyboardKeys::kHome;
         case XK_Left:
+        case XK_KP_Left:
             return KeyboardKeys::kArrowLeft;
         case XK_Up:
+        case XK_KP_Up:
             return KeyboardKeys::kArrowUp;
         case XK_Right:
+        case XK_KP_Right:
             return KeyboardKeys::kArrowRight;
         case XK_Down:
+        case XK_KP_Down:
             return KeyboardKeys::kArrowDown;
+        case XK_Print:
+            return KeyboardKeys::kPrintScreen;
         case XK_Insert:
+        case XK_KP_Insert:
             return KeyboardKeys::kInsert;
         case XK_Delete:
+        case XK_KP_Delete:
             return KeyboardKeys::kDelete;
         case XK_Shift_L:
         case XK_Shift_R:
@@ -136,17 +132,25 @@ namespace toolkit
             return KeyboardKeys::kControl;
         case XK_Alt_L:
         case XK_Alt_R:
+        case XK_Meta_L:
+        case XK_Meta_R:
             return KeyboardKeys::kAlt;
+        case XK_Super_L:
+            return KeyboardKeys::kLeftWindows;
+        case XK_Super_R:
+            return KeyboardKeys::kRightWindows;
+        case XK_Menu:
+            return KeyboardKeys::kApplications;
         case XK_Num_Lock:
             return KeyboardKeys::kNumlock;
         case XK_Scroll_Lock:
             return KeyboardKeys::kScroll;
-        case XK_Caps_Lock:
-            return KeyboardKeys::kCapital;
         case XK_KP_Multiply:
             return KeyboardKeys::kNumpadMultiply;
         case XK_KP_Add:
             return KeyboardKeys::kNumpadAdd;
+        case XK_KP_Separator:
+            return KeyboardKeys::kNumpadSeparator;
         case XK_KP_Subtract:
             return KeyboardKeys::kNumpadSubtract;
         case XK_KP_Decimal:
@@ -154,304 +158,463 @@ namespace toolkit
         case XK_KP_Divide:
             return KeyboardKeys::kNumpadDivide;
         case XK_semicolon:
+        case XK_colon:
             return KeyboardKeys::kColon;
         case XK_equal:
+        case XK_plus:
             return KeyboardKeys::kPlus;
         case XK_comma:
+        case XK_less:
             return KeyboardKeys::kComma;
         case XK_minus:
+        case XK_underscore:
             return KeyboardKeys::kMinus;
         case XK_period:
+        case XK_greater:
             return KeyboardKeys::kPeriod;
         case XK_slash:
+        case XK_question:
             return KeyboardKeys::kSlash;
         case XK_grave:
+        case XK_asciitilde:
             return KeyboardKeys::kBackQuote;
         case XK_bracketleft:
+        case XK_braceleft:
             return KeyboardKeys::kLeftBracket;
         case XK_backslash:
+        case XK_bar:
             return KeyboardKeys::kBackslash;
         case XK_bracketright:
+        case XK_braceright:
             return KeyboardKeys::kRightBracket;
         case XK_apostrophe:
+        case XK_quotedbl:
             return KeyboardKeys::kQuote;
         default:
             return KeyboardKeys::kNone;
         }
     }
 
-    static Pos getScreenMousePos(X11::Display *display, X11::Window window)
+    MouseButton mapMouseButton(unsigned int button)
     {
-        X11::Window root = 0;
-        X11::Window child = 0;
-        i32 rootX = 0;
-        i32 rootY = 0;
-        i32 winX = 0;
-        i32 winY = 0;
-        u32 mask = 0;
-        if (!display || !X11::XQueryPointer(display, window, &root, &child, &rootX, &rootY, &winX, &winY, &mask))
-            return Pos::Minimum;
-        return Pos(static_cast<float>(rootX), static_cast<float>(rootY));
-    }
-
-    static f32 normalizeAxis(i16 value)
-    {
-        const f32 norm = value < 0 ? 32768.0f : 32767.0f;
-        return static_cast<f32>(value) / norm;
-    }
-
-    static bool hasGamepadIndex(i32 index)
-    {
-        for (Gamepad *gamepad : InputSystem::Gamepads)
+        switch (button)
         {
-            auto *linuxGamepad = static_cast<LinuxGamepad *>(gamepad);
-            if (linuxGamepad && linuxGamepad->getIndex() == index)
-                return true;
+        case Button1:
+            return MouseButton::kLeft;
+        case Button2:
+            return MouseButton::kMiddle;
+        case Button3:
+            return MouseButton::kRight;
+        case 8:
+            return MouseButton::kExtended2;
+        case 9:
+            return MouseButton::kExtended1;
+        default:
+            return MouseButton::kNone;
         }
-        return false;
     }
 
-    static void detectGamepads()
+    void detectGamepads()
     {
-        const float now = static_cast<float>(System::getTimeSeconds());
-        if (s_lastGamepadScanTime >= 0.0f && now - s_lastGamepadScanTime < 1.0f)
+        std::string line;
+        std::ifstream devs("/proc/bus/input/devices");
+
+        s_foundGamepads = 0;
+        LinuxInputDevice current{};
+        if (!devs.is_open())
             return;
-        s_lastGamepadScanTime = now;
 
-        for (i32 i = 0; i < MAX_GAMEPADS; ++i)
+        while (std::getline(devs, line))
         {
-            if (hasGamepadIndex(i))
-                continue;
-
-            const TkString path = TkString::format("/dev/input/js%i", i);
-            const i32 fd = open(path.getText(), O_RDONLY | O_NONBLOCK);
-            if (fd < 0)
-                continue;
-
-            char name[128] {};
-            if (ioctl(fd, JSIOCGNAME(sizeof(name)), name) < 0 || name[0] == '\0')
-                snprintf(name, sizeof(name), "Linux Gamepad %i", i);
-
-            auto *gamepad = TkMemory::newObject<LinuxGamepad>(TkMemory::getDefault(), i, fd, TkString(name));
-            if (gamepad)
+            if (line.empty())
             {
-                InputSystem::Gamepads.add(gamepad);
-                InputSystem::onGamepadsChanged();
+                if (current.isGamepad && !current.handler.empty() && s_foundGamepads < LinuxInputMaxGamepads)
+                    s_inputDevices[s_foundGamepads++] = current;
+                current = LinuxInputDevice{};
+                continue;
             }
-            else
-                close(fd);
+
+            if (line[0] == 'N')
+            {
+                const auto quoteIndex = line.find('"');
+                const auto secondQuoteIndex = quoteIndex != std::string::npos ? line.find('"', quoteIndex + 1) : std::string::npos;
+                if (quoteIndex != std::string::npos && secondQuoteIndex != std::string::npos && secondQuoteIndex > quoteIndex)
+                    current.name = line.substr(quoteIndex + 1, secondQuoteIndex - quoteIndex - 1);
+            }
+            else if (line[0] == 'I')
+            {
+                size_t startIndex = 0;
+                for (i32 i = 0; i < 4; i++)
+                {
+                    const auto equalsIndex = line.find('=', startIndex);
+                    if (equalsIndex == std::string::npos)
+                        break;
+                    std::istringstream part(line.substr(equalsIndex + 1, 4));
+                    part >> std::hex >> current.uid[i];
+                    startIndex = equalsIndex + 1;
+                }
+            }
+            else if (line[0] == 'H')
+            {
+                const auto eventIndex = line.find("event");
+                if (eventIndex != std::string::npos)
+                {
+                    auto end = line.find(' ', eventIndex);
+                    if (end == std::string::npos)
+                        end = line.length();
+                    current.handler = "/dev/input/" + line.substr(eventIndex, end - eventIndex);
+                }
+            }
+            else if (line[0] == 'B')
+            {
+                const auto keyIndex = line.find("KEY=");
+                if (keyIndex != std::string::npos)
+                {
+                    std::istringstream group(line.substr(keyIndex + 4));
+                    unsigned long n64 = 0;
+                    unsigned long msb = 0;
+                    i32 foundGroups = 0;
+                    for (i32 i = 0; i < 5; i++)
+                    {
+                        group >> std::hex >> n64;
+                        if (i == 0)
+                            msb = n64;
+                        foundGroups++;
+                        if (group.eof())
+                            break;
+                    }
+                    if (foundGroups < 5)
+                        msb = 0;
+                    current.isGamepad = (msb & (1lu << 48)) != 0;
+                }
+            }
         }
+
+        if (current.isGamepad && !current.handler.empty() && s_foundGamepads < LinuxInputMaxGamepads)
+            s_inputDevices[s_foundGamepads++] = current;
     }
+
+    class LinuxKeyboard : public Keyboard
+    {
+    public:
+        bool processEvent(TkWindow *window, X11::XEvent &event)
+        {
+            if (event.type != KeyPress && event.type != KeyRelease)
+                return false;
+
+            X11::Display *display = LinuxWindowSys::display();
+            if (display == nullptr)
+                return false;
+
+            X11::KeySym keySym = X11::XLookupKeysym(&event.xkey, 0);
+            const KeyboardKeys key = mapKeySym(keySym);
+            if (key != KeyboardKeys::kNone)
+            {
+                if (event.type == KeyPress)
+                    onKeyDown(key, window);
+                else
+                    onKeyUp(key, window);
+            }
+
+            if (event.type == KeyPress)
+            {
+                char buffer[32];
+                X11::KeySym lookupKeySym = 0;
+                const int length = X11::XLookupString(&event.xkey, buffer, sizeof(buffer) - 1, &lookupKeySym, nullptr);
+                if (length > 0)
+                {
+                    buffer[length] = 0;
+                    wchar chars[8];
+                    i32 outLength = 0;
+                    TkConvertor::utf8ToUtf16(buffer, chars, length, outLength);
+                    if (outLength > 0)
+                        onCharInput(chars[0], window);
+                }
+            }
+
+            return key != KeyboardKeys::kNone;
+        }
+    };
+
+    class LinuxMouse : public Mouse
+    {
+    public:
+        bool processEvent(TkWindow *window, X11::XEvent &event)
+        {
+            if (window == nullptr || window->getNativeWindow() == nullptr || !window->getNativeWindow()->hasHandle())
+                return false;
+
+            switch (event.type)
+            {
+            case MotionNotify:
+                onMouseMove(Pos(static_cast<float>(event.xmotion.x_root), static_cast<float>(event.xmotion.y_root)), window);
+                return true;
+            case LeaveNotify:
+                onMouseLeave(window);
+                return true;
+            case ButtonPress:
+            {
+                const Pos mousePos(static_cast<float>(event.xbutton.x_root), static_cast<float>(event.xbutton.y_root));
+                const MouseButton mouseButton = mapMouseButton(event.xbutton.button);
+                if (mouseButton == MouseButton::kNone)
+                    return false;
+
+                const Pos localPos(static_cast<float>(event.xbutton.x), static_cast<float>(event.xbutton.y));
+                const Pos clickDelta = localPos - s_oldMouseClickPosition;
+                if (event.xbutton.button == Button1 &&
+                    event.xbutton.time < s_mouseLastButtonPressTime + MouseDoubleClickTime &&
+                    clickDelta.x * clickDelta.x + clickDelta.y * clickDelta.y < MaxDoubleClickDistanceSquared)
+                {
+                    onMouseDoubleClick(mousePos, mouseButton, window);
+                    s_mouseLastButtonPressTime = 0;
+                    s_oldMouseClickPosition = localPos;
+                    return true;
+                }
+
+                if (event.xbutton.button == Button1)
+                {
+                    s_mouseLastButtonPressTime = event.xbutton.time;
+                    s_oldMouseClickPosition = localPos;
+                }
+
+                onMouseDown(mousePos, mouseButton, window);
+                return true;
+            }
+            case ButtonRelease:
+            {
+                const Pos mousePos(static_cast<float>(event.xbutton.x_root), static_cast<float>(event.xbutton.y_root));
+                if (event.xbutton.button == Button4)
+                {
+                    onMouseWheel(mousePos, 1.0f, window);
+                    return true;
+                }
+                if (event.xbutton.button == Button5)
+                {
+                    onMouseWheel(mousePos, -1.0f, window);
+                    return true;
+                }
+
+                const MouseButton mouseButton = mapMouseButton(event.xbutton.button);
+                if (mouseButton == MouseButton::kNone)
+                    return false;
+                onMouseUp(mousePos, mouseButton, window);
+                return true;
+            }
+            default:
+                return false;
+            }
+        }
+
+        void setMousePosition(const Pos &newPosition) final override
+        {
+            System::setMousePos(newPosition);
+            onMouseMoved(newPosition);
+        }
+    };
+
+    class LinuxGamepad : public Gamepad
+    {
+    public:
+        TkString m_dev;
+        int m_fd = -1;
+
+        LinuxGamepad(u32 uid[4], const TkString &name)
+            : Gamepad(TkUuid(uid[0], uid[1], uid[2], uid[3]), name)
+        {
+        }
+
+        ~LinuxGamepad()
+        {
+            if (m_fd >= 0)
+                close(m_fd);
+        }
+
+    protected:
+        bool updateState() override
+        {
+            if (m_fd < 0)
+                m_fd = open(m_dev.getText(), O_RDONLY | O_NONBLOCK);
+            if (m_fd < 0)
+                return true;
+
+            input_event event{};
+            for (i32 i = 0; i < LinuxInputMaxGamepadEventsPerFrame; i++)
+            {
+                const ssize_t r = read(m_fd, &event, sizeof(event));
+                if (r < 0)
+                {
+                    if (errno != EAGAIN)
+                    {
+                        LogWarn("Lost connection to gamepad '%s', errno=%d", getName().getText(), errno);
+                        close(m_fd);
+                        m_fd = -1;
+                        return true;
+                    }
+                    break;
+                }
+                if (r == 0)
+                    break;
+                if (r != sizeof(event))
+                {
+                    LogWarn("Gamepad '%s' got a shortened package from the kernel %d", getName().getText(), static_cast<i32>(r));
+                    break;
+                }
+                if (event.type > EV_MAX)
+                {
+                    LogWarn("Gamepad '%s' got an invalid event type from the kernel %d", getName().getText(), event.type);
+                    break;
+                }
+
+                if (event.type == EV_KEY)
+                {
+                    switch (event.code)
+                    {
+                    case BTN_A:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kA)] = event.value != 0;
+                        break;
+                    case BTN_B:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kB)] = event.value != 0;
+                        break;
+                    case BTN_X:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kX)] = event.value != 0;
+                        break;
+                    case BTN_Y:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kY)] = event.value != 0;
+                        break;
+                    case BTN_TL:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftShoulder)] = event.value != 0;
+                        break;
+                    case BTN_TR:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightShoulder)] = event.value != 0;
+                        break;
+                    case BTN_BACK:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kBack)] = event.value != 0;
+                        break;
+                    case BTN_START:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kStart)] = event.value != 0;
+                        break;
+                    case BTN_THUMBL:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftThumb)] = event.value != 0;
+                        break;
+                    case BTN_THUMBR:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightThumb)] = event.value != 0;
+                        break;
+                    case BTN_DPAD_UP:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kDPadUp)] = event.value != 0;
+                        break;
+                    case BTN_DPAD_DOWN:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kDPadDown)] = event.value != 0;
+                        break;
+                    case BTN_DPAD_LEFT:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kDPadLeft)] = event.value != 0;
+                        break;
+                    case BTN_DPAD_RIGHT:
+                        m_state.buttons[static_cast<i32>(GamepadButton::kDPadRight)] = event.value != 0;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                else if (event.type == EV_ABS)
+                {
+                    switch (event.code)
+                    {
+                    case ABS_X:
+                        m_state.axis[static_cast<i32>(GamepadAxis::kLeftStickX)] = normalizeInputAxis(event.value);
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickLeft)] = event.value < -TriggerThreshold;
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickRight)] = event.value > TriggerThreshold;
+                        break;
+                    case ABS_Y:
+                        m_state.axis[static_cast<i32>(GamepadAxis::kLeftStickY)] = normalizeInputAxis(event.value);
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickUp)] = event.value < -TriggerThreshold;
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickDown)] = event.value > TriggerThreshold;
+                        break;
+                    case ABS_Z:
+                        m_state.axis[static_cast<i32>(GamepadAxis::kLeftTrigger)] = normalizeInputTrigger(event.value);
+                        m_state.buttons[static_cast<i32>(GamepadButton::kLeftTrigger)] = event.value > 2;
+                        break;
+                    case ABS_RX:
+                        m_state.axis[static_cast<i32>(GamepadAxis::kRightStickX)] = normalizeInputAxis(event.value);
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightStickLeft)] = event.value < -TriggerThreshold;
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightStickRight)] = event.value > TriggerThreshold;
+                        break;
+                    case ABS_RY:
+                        m_state.axis[static_cast<i32>(GamepadAxis::kRightStickY)] = normalizeInputAxis(event.value);
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightStickUp)] = event.value < -TriggerThreshold;
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightStickDown)] = event.value > TriggerThreshold;
+                        break;
+                    case ABS_RZ:
+                        m_state.axis[static_cast<i32>(GamepadAxis::kRightTrigger)] = normalizeInputTrigger(event.value);
+                        m_state.buttons[static_cast<i32>(GamepadButton::kRightTrigger)] = event.value > 2;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+
+            return false;
+        }
+    };
 
     void LinuxInput::init()
     {
-        if (!InputSystem::Mouse)
+        if (InputSystem::Mouse == nullptr)
             InputSystem::Mouse = TkMemory::newObject<LinuxMouse>();
-        if (!InputSystem::Keyboard)
+        if (InputSystem::Keyboard == nullptr)
             InputSystem::Keyboard = TkMemory::newObject<LinuxKeyboard>();
+        s_foundGamepads = 0;
+        s_lastUpdateTime = -1000.0f;
     }
 
     void LinuxInput::update()
     {
+        const float time = static_cast<float>(System::getTimeSeconds());
+        if (time - s_lastUpdateTime < 1.0f)
+            return;
+
+        PROFILE_NAMED("Input.ScanGamepads");
         detectGamepads();
-    }
+        s_lastUpdateTime = time;
 
-    bool LinuxInput::handleEvent(TkWindow *window, X11::XEvent &event)
-    {
-        bool handled = false;
-        auto *mouse = static_cast<LinuxMouse *>(InputSystem::Mouse);
-        if (mouse)
-            handled = mouse->handleEvent(window, event) || handled;
-        auto *keyboard = static_cast<LinuxKeyboard *>(InputSystem::Keyboard);
-        if (keyboard)
-            handled = keyboard->handleEvent(window, event) || handled;
-        return handled;
-    }
-
-    bool LinuxKeyboard::handleEvent(TkWindow *window, X11::XEvent &event)
-    {
-        if (event.type != KeyPress && event.type != KeyRelease)
-            return false;
-
-        X11::KeySym keySym = 0;
-        char text[8] = {};
-        const i32 textLength = X11::XLookupString(&event.xkey, text, sizeof(text), &keySym, nullptr);
-        const KeyboardKeys key = mapKeySym(keySym);
-
-        if (event.type == KeyPress)
+        for (i32 i = 0; i < s_foundGamepads; i++)
         {
-            if (isValidKey(key))
-                onKeyDown(key, window);
-            if (textLength == 1 && static_cast<unsigned char>(text[0]) >= 32)
-                onCharInput(static_cast<wchar>(text[0]), window);
-        }
-        else
-        {
-            if (isValidKey(key))
-                onKeyUp(key, window);
-        }
-        return true;
-    }
+            auto &inputDevice = s_inputDevices[i];
 
-    bool LinuxMouse::handleEvent(TkWindow *window, X11::XEvent &event)
-    {
-        if (!window || !window->getNativeWindow())
-            return false;
-
-        X11::Display *display = LinuxWindowSys::getDisplay();
-        const X11::Window handle = window->getNativeWindow()->getXWindow();
-        const Pos pos = event.type == MotionNotify
-                            ? Pos(static_cast<float>(event.xmotion.x_root), static_cast<float>(event.xmotion.y_root))
-                            : getScreenMousePos(display, handle);
-
-        switch (event.type)
-        {
-        case MotionNotify:
-            onMouseMove(pos, window);
-            return true;
-        case LeaveNotify:
-            onMouseLeave(window);
-            return true;
-        case ButtonPress:
-            if (event.xbutton.button == Button4 || event.xbutton.button == Button5)
+            bool duplicate = false;
+            for (Gamepad *gamepad : InputSystem::Gamepads)
             {
-                onMouseWheel(pos, event.xbutton.button == Button4 ? 1.0f : -1.0f, window);
-                return true;
+                auto *linuxGamepad = static_cast<LinuxGamepad *>(gamepad);
+                if (linuxGamepad != nullptr && linuxGamepad->m_dev == inputDevice.handler.c_str())
+                {
+                    duplicate = true;
+                    break;
+                }
             }
-            if (event.xbutton.button == Button1)
-                onMouseDown(pos, MouseButton::kLeft, window);
-            else if (event.xbutton.button == Button2)
-                onMouseDown(pos, MouseButton::kMiddle, window);
-            else if (event.xbutton.button == Button3)
-                onMouseDown(pos, MouseButton::kRight, window);
-            else if (event.xbutton.button == 8)
-                onMouseDown(pos, MouseButton::kExtended1, window);
-            else if (event.xbutton.button == 9)
-                onMouseDown(pos, MouseButton::kExtended2, window);
-            return true;
-        case ButtonRelease:
-            if (event.xbutton.button == Button4 || event.xbutton.button == Button5)
-                return true;
-            if (event.xbutton.button == Button1)
-                onMouseUp(pos, MouseButton::kLeft, window);
-            else if (event.xbutton.button == Button2)
-                onMouseUp(pos, MouseButton::kMiddle, window);
-            else if (event.xbutton.button == Button3)
-                onMouseUp(pos, MouseButton::kRight, window);
-            else if (event.xbutton.button == 8)
-                onMouseUp(pos, MouseButton::kExtended1, window);
-            else if (event.xbutton.button == 9)
-                onMouseUp(pos, MouseButton::kExtended2, window);
-            return true;
-        default:
-            return false;
+            if (duplicate)
+                continue;
+
+            auto *linuxGamepad = TkMemory::newObject<LinuxGamepad>(inputDevice.uid, TkString(inputDevice.name.c_str()));
+            if (linuxGamepad == nullptr)
+                continue;
+            linuxGamepad->m_dev = inputDevice.handler.c_str();
+            InputSystem::Gamepads.add(linuxGamepad);
+            InputSystem::onGamepadsChanged();
+            LogInfo("Added gamepad '%s'", linuxGamepad->getName().getText());
         }
     }
 
-    void LinuxGamepad::setButton(u8 index, bool pressed)
+    bool LinuxInput::processEvent(TkWindow *window, X11::XEvent &event)
     {
-        switch (index)
-        {
-        case 0:
-            m_state.buttons[static_cast<i32>(GamepadButton::kA)] = pressed;
-            break;
-        case 1:
-            m_state.buttons[static_cast<i32>(GamepadButton::kB)] = pressed;
-            break;
-        case 2:
-            m_state.buttons[static_cast<i32>(GamepadButton::kX)] = pressed;
-            break;
-        case 3:
-            m_state.buttons[static_cast<i32>(GamepadButton::kY)] = pressed;
-            break;
-        case 4:
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftShoulder)] = pressed;
-            break;
-        case 5:
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightShoulder)] = pressed;
-            break;
-        case 6:
-            m_state.buttons[static_cast<i32>(GamepadButton::kBack)] = pressed;
-            break;
-        case 7:
-            m_state.buttons[static_cast<i32>(GamepadButton::kStart)] = pressed;
-            break;
-        case 8:
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftThumb)] = pressed;
-            break;
-        case 9:
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightThumb)] = pressed;
-            break;
-        default:
-            break;
-        }
-    }
-
-    void LinuxGamepad::setAxis(u8 index, i16 value)
-    {
-        const f32 normalized = normalizeAxis(value);
-        switch (index)
-        {
-        case 0:
-            m_state.axis[static_cast<i32>(GamepadAxis::kLeftStickX)] = normalized;
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickLeft)] = normalized < -0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickRight)] = normalized > 0.5f;
-            break;
-        case 1:
-            m_state.axis[static_cast<i32>(GamepadAxis::kLeftStickY)] = -normalized;
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickUp)] = normalized < -0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftStickDown)] = normalized > 0.5f;
-            break;
-        case 2:
-            m_state.axis[static_cast<i32>(GamepadAxis::kLeftTrigger)] = (normalized + 1.0f) * 0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kLeftTrigger)] = m_state.axis[static_cast<i32>(GamepadAxis::kLeftTrigger)] > 0.5f;
-            break;
-        case 3:
-            m_state.axis[static_cast<i32>(GamepadAxis::kRightStickX)] = normalized;
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightStickLeft)] = normalized < -0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightStickRight)] = normalized > 0.5f;
-            break;
-        case 4:
-            m_state.axis[static_cast<i32>(GamepadAxis::kRightStickY)] = -normalized;
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightStickUp)] = normalized < -0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightStickDown)] = normalized > 0.5f;
-            break;
-        case 5:
-            m_state.axis[static_cast<i32>(GamepadAxis::kRightTrigger)] = (normalized + 1.0f) * 0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kRightTrigger)] = m_state.axis[static_cast<i32>(GamepadAxis::kRightTrigger)] > 0.5f;
-            break;
-        case 6:
-            m_state.buttons[static_cast<i32>(GamepadButton::kDPadLeft)] = normalized < -0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kDPadRight)] = normalized > 0.5f;
-            break;
-        case 7:
-            m_state.buttons[static_cast<i32>(GamepadButton::kDPadUp)] = normalized < -0.5f;
-            m_state.buttons[static_cast<i32>(GamepadButton::kDPadDown)] = normalized > 0.5f;
-            break;
-        default:
-            break;
-        }
-    }
-
-    bool LinuxGamepad::updateState()
-    {
-        if (m_fd < 0)
+        auto *mouse = static_cast<LinuxMouse *>(InputSystem::Mouse);
+        if (mouse != nullptr && mouse->processEvent(window, event))
             return true;
 
-        js_event event {};
-        ssize_t bytesRead = 0;
-        while ((bytesRead = read(m_fd, &event, sizeof(event))) == sizeof(event))
-        {
-            const u8 type = event.type & ~JS_EVENT_INIT;
-            if (type == JS_EVENT_BUTTON)
-                setButton(event.number, event.value != 0);
-            else if (type == JS_EVENT_AXIS)
-                setAxis(event.number, event.value);
-        }
+        auto *keyboard = static_cast<LinuxKeyboard *>(InputSystem::Keyboard);
+        if (keyboard != nullptr && keyboard->processEvent(window, event))
+            return true;
 
-        if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
-            return false;
-        return true;
+        return false;
     }
 }
 

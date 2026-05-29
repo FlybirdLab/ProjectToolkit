@@ -22,6 +22,14 @@ function(SetPlatformDeps incVar lnkVar)
                 "-ObjC"
         )
     ELSEIF(LINUX)
+        find_package(X11 REQUIRED)
+        list(APPEND ${incVar}
+                ${X11_INCLUDE_DIR}
+        )
+        list(APPEND ${lnkVar}
+                ${X11_LIBRARIES}
+                dl
+        )
     ENDIF()
 
     set(${incVar} ${${incVar}} PARENT_SCOPE)

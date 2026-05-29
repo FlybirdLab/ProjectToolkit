@@ -10,7 +10,7 @@
 
 #if TK_LINUX
 
-#include <toolkit/platforms/linux/LinuxX11.hpp>
+#include <toolkit/platforms/unix/linux/IncludeX11.hpp>
 #include <toolkit/windowing/Window.hpp>
 
 namespace toolkit
@@ -20,7 +20,7 @@ namespace toolkit
         friend class TkWindow;
 
     public:
-        NativeWindow(const WindowParams &p, TkWindow *window);
+        NativeWindow(const WindowParams& p, TkWindow* window);
         ~NativeWindow();
 
     public:
@@ -29,26 +29,29 @@ namespace toolkit
             return m_handle;
         }
 
-        TK_FORCE_INLINE bool hasXWindow() const
+        TK_FORCE_INLINE bool hasHandle() const
         {
             return m_handle != 0;
         }
 
-        void handleEvent(X11::XEvent &event);
-        void getScreenInfo(i32 &x, i32 &y, i32 &width, i32 &height) const;
+        void getScreenInfo(i32& x, i32& y, i32& width, i32& height) const;
+        bool processEvent(X11::XEvent& event);
 
     private:
         void checkForWindowResize();
-        void setFullscreenState(bool fullscreen);
-        void updateMinMaxHints();
+        void sendNetWmState(X11::Atom state, bool enable, X11::Atom state2 = 0);
+        void setMotifDecorations(bool enabled);
+        void updateCursor();
+        bool isWindowMapped() const;
 
     private:
-        TkWindow *m_window = nullptr;
+        TkWindow* m_window = nullptr;
         X11::Window m_handle = 0;
-        bool m_destroying = false;
-        bool m_visible = false;
+        X11::Cursor m_cursor = 0;
+        bool m_clipCursorSet = false;
         bool m_hasFullscreenRestore = false;
-        Rect m_restoreRect = {};
+        Rect m_restoreBounds{};
+        f32 m_opacity = 1.0f;
     };
 }
 

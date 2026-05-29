@@ -13,220 +13,181 @@
 #include <toolkit/collection/HashMap.hpp>
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/memory/Memory.hpp>
-#include <toolkit/platforms/ProcessInitArgs.hpp>
 #include <toolkit/platforms/System.hpp>
 #include <toolkit/windowing/Dialog.hpp>
 #include <toolkit/windowing/Window.hpp>
+#include <toolkit/windowing/WindowSystem.hpp>
 
 namespace toolkit
 {
-    namespace
+    X11::Display *LinuxWindowSys::s_Display = nullptr;
+    X11::Atom LinuxWindowSys::s_DeleteWindow = 0;
+    X11::Atom LinuxWindowSys::s_NetWmState = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateAbove = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateFullscreen = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateMaximizedHorz = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateMaximizedVert = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateSkipTaskbar = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateSkipPager = 0;
+    X11::Atom LinuxWindowSys::s_NetWmStateDemandsAttention = 0;
+    X11::Atom LinuxWindowSys::s_NetActiveWindow = 0;
+    X11::Atom LinuxWindowSys::s_WmChangeState = 0;
+    X11::Atom LinuxWindowSys::s_NetWmPid = 0;
+    X11::Atom LinuxWindowSys::s_NetWmName = 0;
+    X11::Atom LinuxWindowSys::s_Utf8String = 0;
+    X11::Atom LinuxWindowSys::s_WmWindowOpacity = 0;
+    X11::Atom LinuxWindowSys::s_MotifWmHints = 0;
+    X11::Atom LinuxWindowSys::s_NetWmWindowType = 0;
+    X11::Atom LinuxWindowSys::s_NetWmWindowTypeDock = 0;
+    X11::Atom LinuxWindowSys::s_XdndAware = 0;
+
+    constexpr i32 DefaultDPI = 96;
+    bool s_initialized = false;
+    TkHashMap<void *, TkWindow *> s_handleMap;
+
+    IAllocator &getWindowAllocator(const WindowParams &params)
     {
-        X11::Display *s_display = nullptr;
-        X11::Atom s_deleteWindow = 0;
-        X11::Atom s_wmState = 0;
-        X11::Atom s_wmStateFullscreen = 0;
-        TkHashMap<void *, TkWindow *> s_handleMap;
-        bool s_initialized = false;
-
-        IAllocator &getWindowAllocator(const WindowParams &params)
-        {
-            return params.alloc != nullptr ? *params.alloc : TkMemory::getDefault();
-        }
-
-        bool containsWindowUnlocked(TkWindow *win)
-        {
-            for (TkWindow *window : WindowSystem::Windows)
-            {
-                if (window == win)
-                    return true;
-            }
-            return false;
-        }
-
-        void syncHandleMapUnlocked(TkWindow *win)
-        {
-            if (win && win->getWindowPtr())
-                s_handleMap[win->getWindowPtr()] = win;
-        }
-
-        void removeHandleMapEntriesForWindowUnlocked(TkWindow *win)
-        {
-            TkArray<void *> keysToRemove;
-            for (auto iterator = s_handleMap.Begin(); iterator.isNotEnd(); ++iterator)
-            {
-                if (iterator->value == win)
-                    keysToRemove.add(iterator->key);
-            }
-            for (void *key : keysToRemove)
-                s_handleMap.remove(key);
-        }
-
-        TkString shellQuote(const TkStringView value)
-        {
-            TkString result("'");
-            const TkString text(value);
-            for (i32 i = 0; i < text.length(); ++i)
-            {
-                if (text[i] == '\'')
-                    result += "'\\''";
-                else
-                    result += text[i];
-            }
-            result += "'";
-            return result;
-        }
-
-        bool runDialogCommand(const TkString &args, TkString *output = nullptr)
-        {
-            ProcessInitArgs process;
-            process.file = "sh";
-            process.args = "-c " + shellQuote(args);
-            process.waitForQuit = true;
-            process.logOutput = false;
-            process.saveOutput = output != nullptr;
-            const i32 code = System::newProcess(process);
-            if (output)
-            {
-                output->clear();
-                if (process.output.count() > 0)
-                {
-                    output->set(process.output.get(), process.output.count());
-                    while (output->length() > 0 && ((*output)[output->length() - 1] == '\n' || (*output)[output->length() - 1] == '\r'))
-                        output->resize(output->length() - 1);
-                }
-            }
-            return code == 0;
-        }
-
-        WindowParams resolveWindowParams(const WindowParams &p)
-        {
-            WindowParams resolvedParams = p;
-            if (resolvedParams.startPos == WindowStartPos::kCenterParent || resolvedParams.startPos == WindowStartPos::kCenterScreen)
-            {
-                Rect parentBounds = Rect(Pos{0, 0}, Pos(800, 600));
-                if (s_display)
-                {
-                    const i32 screen = X11::XDefaultScreen(s_display);
-                    parentBounds = Rect(0, 0, static_cast<float>(X11::XDisplayWidth(s_display, screen)), static_cast<float>(X11::XDisplayHeight(s_display, screen)));
-                }
-                if (resolvedParams.parent != nullptr && resolvedParams.startPos == WindowStartPos::kCenterParent)
-                    parentBounds = resolvedParams.parent->getClientBounds();
-                resolvedParams.pos = Pos(parentBounds.location) + (Pos(parentBounds.size) - resolvedParams.size) * 0.5f;
-            }
-            return resolvedParams;
-        }
-
-        void appendDialogOutputFiles(const TkString &output, TkArray<TkString> &filenames)
-        {
-            const char *start = output.getText();
-            const char *cursor = start;
-            while (*cursor)
-            {
-                if (*cursor == '\n')
-                {
-                    if (cursor > start)
-                        filenames.add(TkString(start, static_cast<i32>(cursor - start)));
-                    start = cursor + 1;
-                }
-                ++cursor;
-            }
-            if (cursor > start)
-                filenames.add(TkString(start, static_cast<i32>(cursor - start)));
-        }
+        return params.alloc != nullptr ? *params.alloc : TkMemory::getDefault();
     }
 
-    X11::Display *LinuxWindowSys::getDisplay()
+    bool containsWindowUnlocked(TkWindow *win)
     {
-        return s_display;
+        for (TkWindow *window : WindowSystem::Windows)
+        {
+            if (window == win)
+                return true;
+        }
+        return false;
     }
 
-    X11::Atom LinuxWindowSys::getDeleteWindowAtom()
+    void syncHandleMapUnlocked(TkWindow *win)
     {
-        return s_deleteWindow;
+        if (win == nullptr)
+            return;
+
+        void *handle = win->getWindowPtr();
+        if (handle != nullptr)
+            s_handleMap[handle] = win;
     }
 
-    X11::Atom LinuxWindowSys::getWmStateAtom()
+    void removeHandleMapEntriesForWindowUnlocked(TkWindow *win)
     {
-        return s_wmState;
+        if (win == nullptr)
+            return;
+
+        TkArray<void *> keysToRemove;
+        for (auto iterator = s_handleMap.Begin(); iterator.isNotEnd(); ++iterator)
+        {
+            if (iterator->value == win)
+                keysToRemove.add(iterator->key);
+        }
+        for (void *key : keysToRemove)
+            s_handleMap.remove(key);
     }
 
-    X11::Atom LinuxWindowSys::getWmStateFullscreenAtom()
+    X11::Atom internAtom(const char *name)
     {
-        return s_wmStateFullscreen;
+        if (LinuxWindowSys::s_Display == nullptr)
+            return 0;
+        return X11::XInternAtom(LinuxWindowSys::s_Display, name, 0);
     }
 
-    TkMutex WindowSystem::WindowSysMtx {};
-    TkArray<TkWindow *> WindowSystem::Windows {};
-
-    void WindowSystem::init(void *)
+    WindowParams resolveWindowParams(const WindowParams &p)
     {
+        WindowParams resolvedParams = p;
+        if (resolvedParams.startPos == WindowStartPos::kCenterParent || resolvedParams.startPos == WindowStartPos::kCenterScreen)
+        {
+            Rect parentBounds = Rect(Pos{0, 0}, System::getDesktopSize());
+            if (resolvedParams.parent != nullptr && resolvedParams.startPos == WindowStartPos::kCenterParent)
+                parentBounds = resolvedParams.parent->getClientBounds();
+
+            resolvedParams.pos = Pos(parentBounds.location) + (Pos(parentBounds.size) - resolvedParams.size) * 0.5f;
+        }
+        return resolvedParams;
+    }
+
+    X11::Display *LinuxWindowSys::display()
+    {
+        return s_Display;
+    }
+
+    X11::Window LinuxWindowSys::rootWindow()
+    {
+        return s_Display ? X11::XDefaultRootWindow(s_Display) : 0;
+    }
+
+    void *LinuxWindowSys::toHandle(X11::Window window)
+    {
+        return reinterpret_cast<void *>(static_cast<uintptr>(window));
+    }
+
+    void WindowSystem::init(void *instance)
+    {
+        (void)instance;
         if (s_initialized)
             return;
-        s_display = X11::XOpenDisplay(nullptr);
-        if (!s_display)
+
+        X11::XInitThreads();
+        LinuxWindowSys::s_Display = X11::XOpenDisplay(nullptr);
+        if (LinuxWindowSys::s_Display == nullptr)
         {
-            LogError("[LinuxWindowSys] XOpenDisplay failed.");
+            LogError("Cannot open X11 display.");
             return;
         }
-        s_deleteWindow = X11::XInternAtom(s_display, "WM_DELETE_WINDOW", 0);
-        s_wmState = X11::XInternAtom(s_display, "_NET_WM_STATE", 0);
-        s_wmStateFullscreen = X11::XInternAtom(s_display, "_NET_WM_STATE_FULLSCREEN", 0);
+
+        LinuxWindowSys::s_DeleteWindow = internAtom("WM_DELETE_WINDOW");
+        LinuxWindowSys::s_NetWmState = internAtom("_NET_WM_STATE");
+        LinuxWindowSys::s_NetWmStateAbove = internAtom("_NET_WM_STATE_ABOVE");
+        LinuxWindowSys::s_NetWmStateFullscreen = internAtom("_NET_WM_STATE_FULLSCREEN");
+        LinuxWindowSys::s_NetWmStateMaximizedHorz = internAtom("_NET_WM_STATE_MAXIMIZED_HORZ");
+        LinuxWindowSys::s_NetWmStateMaximizedVert = internAtom("_NET_WM_STATE_MAXIMIZED_VERT");
+        LinuxWindowSys::s_NetWmStateSkipTaskbar = internAtom("_NET_WM_STATE_SKIP_TASKBAR");
+        LinuxWindowSys::s_NetWmStateSkipPager = internAtom("_NET_WM_STATE_SKIP_PAGER");
+        LinuxWindowSys::s_NetWmStateDemandsAttention = internAtom("_NET_WM_STATE_DEMANDS_ATTENTION");
+        LinuxWindowSys::s_NetActiveWindow = internAtom("_NET_ACTIVE_WINDOW");
+        LinuxWindowSys::s_WmChangeState = internAtom("WM_CHANGE_STATE");
+        LinuxWindowSys::s_NetWmPid = internAtom("_NET_WM_PID");
+        LinuxWindowSys::s_NetWmName = internAtom("_NET_WM_NAME");
+        LinuxWindowSys::s_Utf8String = internAtom("UTF8_STRING");
+        LinuxWindowSys::s_WmWindowOpacity = internAtom("_NET_WM_WINDOW_OPACITY");
+        LinuxWindowSys::s_MotifWmHints = internAtom("_MOTIF_WM_HINTS");
+        LinuxWindowSys::s_NetWmWindowType = internAtom("_NET_WM_WINDOW_TYPE");
+        LinuxWindowSys::s_NetWmWindowTypeDock = internAtom("_NET_WM_WINDOW_TYPE_DOCK");
+        LinuxWindowSys::s_XdndAware = internAtom("XdndAware");
+
         LinuxInput::init();
         s_initialized = true;
     }
 
     void WindowSystem::update()
     {
-        if (!s_display)
-            return;
         LinuxInput::update();
-        while (X11::XPending(s_display) > 0)
+
+        X11::Display *display = LinuxWindowSys::display();
+        if (display == nullptr)
+            return;
+
+        while (X11::XPending(display) > 0)
         {
-            X11::XEvent event {};
-            X11::XNextEvent(s_display, &event);
-            TkWindow *window = WindowSystem::getByWindowPtr(reinterpret_cast<void *>(event.xany.window));
-            if (window && window->getNativeWindow())
-                window->getNativeWindow()->handleEvent(event);
+            X11::XEvent event;
+            X11::XNextEvent(display, &event);
+
+            TkWindow *window = nullptr;
+            if (event.xany.window != 0)
+                window = WindowSystem::getByWindowPtr(LinuxWindowSys::toHandle(event.xany.window));
+            if (window != nullptr && window->getNativeWindow() != nullptr)
+                window->getNativeWindow()->processEvent(event);
         }
     }
 
-    void WindowSystem::dispose()
-    {
-        TkArray<TkWindow *> windows = getWindowsSnapshot();
-        for (TkWindow *window : windows)
-        {
-            if (window)
-                destroyWindow(window);
-        }
-
-        WindowSysMtx.lock();
-        Windows.clear();
-        s_handleMap.clear();
-        WindowSysMtx.unlock();
-
-        if (s_display)
-        {
-            X11::XCloseDisplay(s_display);
-            s_display = nullptr;
-        }
-        s_initialized = false;
-    }
-
-    bool WindowSystem::getHasFocus()
-    {
-        if (!s_display)
-            return false;
-        X11::Window focused = 0;
-        i32 revert = 0;
-        X11::XGetInputFocus(s_display, &focused, &revert);
-        return getByWindowPtr(reinterpret_cast<void *>(focused)) != nullptr;
-    }
+    TkMutex WindowSystem::WindowSysMtx{};
+    TkArray<TkWindow *> WindowSystem::Windows{};
 
     TkWindow *WindowSystem::getByWindowPtr(void *handle)
     {
-        if (!handle)
+        if (handle == nullptr)
             return nullptr;
+
         WindowSysMtx.lock();
         const auto iterator = s_handleMap.find(handle);
         TkWindow *result = iterator.isEnd() ? nullptr : iterator->value;
@@ -245,6 +206,9 @@ namespace toolkit
 
     bool WindowSystem::isLiveWindow(TkWindow *win)
     {
+        if (win == nullptr)
+            return false;
+
         WindowSysMtx.lock();
         const bool result = containsWindowUnlocked(win);
         WindowSysMtx.unlock();
@@ -253,6 +217,9 @@ namespace toolkit
 
     void WindowSystem::unregisterWindowHandle(void *handle)
     {
+        if (handle == nullptr)
+            return;
+
         WindowSysMtx.lock();
         s_handleMap.remove(handle);
         WindowSysMtx.unlock();
@@ -260,8 +227,9 @@ namespace toolkit
 
     void WindowSystem::registerWnd(TkWindow *win)
     {
-        if (!win)
+        if (win == nullptr)
             return;
+
         WindowSysMtx.lock();
         if (!containsWindowUnlocked(win))
             Windows.add(win);
@@ -271,8 +239,9 @@ namespace toolkit
 
     void WindowSystem::unregisterWnd(TkWindow *win)
     {
-        if (!win)
+        if (win == nullptr)
             return;
+
         WindowSysMtx.lock();
         Windows.remove(win);
         removeHandleMapEntriesForWindowUnlocked(win);
@@ -285,7 +254,7 @@ namespace toolkit
         TkWindow *result = nullptr;
         for (TkWindow *window : Windows)
         {
-            if (window && !window->isClosed())
+            if (window != nullptr && !window->isClosed())
             {
                 result = window;
                 break;
@@ -295,13 +264,49 @@ namespace toolkit
         return result;
     }
 
+    void WindowSystem::dispose()
+    {
+        if (!s_initialized && Windows.isEmpty())
+            return;
+
+        TkArray<TkWindow *> windows = getWindowsSnapshot();
+        for (TkWindow *window : windows)
+        {
+            if (window != nullptr)
+                destroyWindow(window);
+        }
+
+        WindowSysMtx.lock();
+        Windows.clear();
+        s_handleMap.clear();
+        WindowSysMtx.unlock();
+
+        if (LinuxWindowSys::s_Display != nullptr)
+        {
+            X11::XCloseDisplay(LinuxWindowSys::s_Display);
+            LinuxWindowSys::s_Display = nullptr;
+        }
+        s_initialized = false;
+    }
+
+    bool WindowSystem::getHasFocus()
+    {
+        for (TkWindow *window : getWindowsSnapshot())
+        {
+            if (window != nullptr && window->isFocused())
+                return true;
+        }
+        return false;
+    }
+
     TkWindow *WindowSystem::createWindow(const WindowParams &p)
     {
         WindowParams resolvedParams = resolveWindowParams(p);
         IAllocator &alloc = getWindowAllocator(resolvedParams);
         auto *ptr = TkMemory::newObject<TkWindow>(alloc, resolvedParams);
-        if (!ptr)
+        if (ptr == nullptr)
             return nullptr;
+
         if (!WindowSystem::createWindow(ptr))
         {
             TkMemory::deletePtr(alloc, ptr);
@@ -312,58 +317,71 @@ namespace toolkit
 
     bool WindowSystem::createWindow(TkWindow *window)
     {
-        if (!window)
+        if (window == nullptr)
             return false;
+
         if (!s_initialized)
             WindowSystem::init(nullptr);
-        if (!s_display)
+        if (!s_initialized)
             return false;
 
         WindowParams resolvedParams = resolveWindowParams(window->m_params);
         window->m_params = resolvedParams;
         window->m_clientSize = resolvedParams.size;
+
         IAllocator &alloc = getWindowAllocator(resolvedParams);
         auto *nativeWnd = TkMemory::newObject<NativeWindow>(alloc, resolvedParams, window);
-        if (!nativeWnd)
+        if (nativeWnd == nullptr)
             return false;
-        if (!nativeWnd->hasXWindow())
+
+        window->m_native = nativeWnd;
+        if (!nativeWnd->hasHandle())
         {
+            window->m_native = nullptr;
             TkMemory::deletePtr(alloc, nativeWnd);
             return false;
         }
-        window->m_native = nativeWnd;
+
         WindowSystem::registerWnd(window);
         return true;
     }
 
-    void WindowSystem::destroyWindow(TkWindow *w)
+    void WindowSystem::destroyWindow(TkWindow *window)
     {
-        if (!w)
+        if (window == nullptr)
             return;
-        IAllocator &alloc = getWindowAllocator(w->getParams());
-        w->onBeforeDestroy();
-        if (w->getNativeWindow())
+
+        IAllocator &alloc = getWindowAllocator(window->getParams());
+        window->onBeforeDestroy();
+        if (window->getNativeWindow() != nullptr)
         {
-            TkMemory::deletePtr(alloc, w->getNativeWindow());
-            w->m_native = nullptr;
+            TkMemory::deletePtr(alloc, window->getNativeWindow());
+            window->m_native = nullptr;
         }
-        WindowSystem::unregisterWnd(w);
-        TkMemory::deletePtr(alloc, w);
+        WindowSystem::unregisterWnd(window);
+        TkMemory::deletePtr(alloc, window);
     }
 
     TkWindow::TkWindow(const WindowParams &p)
-        : m_events {},
-          m_native {nullptr},
-          m_state {},
-          m_track {},
-          m_params {p},
-          m_dpi {96},
-          m_dpiScale {1.0f},
-          m_cursor {CursorType::kDefault},
-          m_clientSize {p.size}
+        : m_events{},
+          m_native{nullptr},
+          m_state{},
+          m_track{},
+          m_params{p},
+          m_dpi{DefaultDPI},
+          m_dpiScale{1.0f},
+          m_cursor{CursorType::kDefault},
+          m_clientSize{p.size}
     {
-        m_state.showAfterFirstPaint = p.showAfterFirstPaint;
+        m_state.visible = false;
+        m_state.minimized = false;
+        m_state.maximized = false;
         m_state.fullscreen = p.fullscreen;
+        m_state.isClosing = false;
+        m_state.closed = false;
+        m_state.showAfterFirstPaint = p.showAfterFirstPaint;
+        m_state.focused = false;
+        m_state.suppressFocusEvents = false;
         m_track.mouseOffset = {0, 0};
     }
 
@@ -375,66 +393,57 @@ namespace toolkit
     {
     }
 
-    DialogResult Dialog::fromPlatformDialogResult(int result)
+    DialogResult Dialog::fromPlatformDialogResult(const int result)
     {
-        return result == 0 ? DialogResult::kOK : DialogResult::kCancel;
+        return result == 0 ? DialogResult::kCancel : DialogResult::kOK;
     }
 
-    DialogResult Dialog::msgBox(TkWindow *, const TkStringView &text, const TkStringView &caption, MsgBoxButtons, MsgBoxIcon)
+    DialogResult Dialog::msgBox(TkWindow *parent, const TkStringView &text, const TkStringView &caption, MsgBoxButtons buttons, MsgBoxIcon icon)
     {
-        const TkString command = "zenity --info --title=" + shellQuote(caption) + " --text=" + shellQuote(text) + " 2>/dev/null || xmessage " + shellQuote(text);
-        return runDialogCommand(command) ? DialogResult::kOK : DialogResult::kCancel;
+        (void)parent;
+        (void)text;
+        (void)caption;
+        (void)buttons;
+        (void)icon;
+        return DialogResult::kOK;
     }
 
-    bool Dialog::showOpenFileDialog(TkWindow *, const TkStringView &initialDirectory, const TkStringView &, bool multiSelect, const TkStringView &title, TkArray<TkString> &filenames)
+    bool Dialog::showOpenFileDialog(TkWindow *parentWindow, const TkStringView &initialDirectory, const TkStringView &filter, bool multiSelect, const TkStringView &title, TkArray<TkString> &filenames)
     {
-        TkString command = "zenity --file-selection";
-        if (title.hasChars())
-            command += " --title=" + shellQuote(title);
-        if (initialDirectory.hasChars())
-            command += " --filename=" + shellQuote(initialDirectory);
-        if (multiSelect)
-            command += " --multiple --separator='\\n'";
-
-        TkString output;
-        if (!runDialogCommand(command, &output) || output.isEmpty())
-            return false;
-        appendDialogOutputFiles(output, filenames);
-        return !filenames.isEmpty();
+        (void)parentWindow;
+        (void)initialDirectory;
+        (void)filter;
+        (void)multiSelect;
+        (void)title;
+        (void)filenames;
+        return false;
     }
 
-    bool Dialog::showSaveFileDialog(TkWindow *, const TkStringView &initialDirectory, const TkStringView &, bool, const TkStringView &title, TkArray<TkString> &filenames)
+    bool Dialog::showSaveFileDialog(TkWindow *parentWindow, const TkStringView &initialDirectory, const TkStringView &filter, bool multiSelect, const TkStringView &title, TkArray<TkString> &filenames)
     {
-        TkString command = "zenity --file-selection --save --confirm-overwrite";
-        if (title.hasChars())
-            command += " --title=" + shellQuote(title);
-        if (initialDirectory.hasChars())
-            command += " --filename=" + shellQuote(initialDirectory);
-
-        TkString output;
-        if (!runDialogCommand(command, &output) || output.isEmpty())
-            return false;
-        filenames.add(output);
-        return true;
+        (void)parentWindow;
+        (void)initialDirectory;
+        (void)filter;
+        (void)multiSelect;
+        (void)title;
+        (void)filenames;
+        return false;
     }
 
-    bool Dialog::showBrowseFolderDialog(TkWindow *, const TkStringView &initialDirectory, const TkStringView &title, TkString &path)
+    bool Dialog::showBrowseFolderDialog(TkWindow *parentWindow, const TkStringView &initialDirectory, const TkStringView &title, TkString &path)
     {
-        TkString command = "zenity --file-selection --directory";
-        if (title.hasChars())
-            command += " --title=" + shellQuote(title);
-        if (initialDirectory.hasChars())
-            command += " --filename=" + shellQuote(initialDirectory);
-
-        return runDialogCommand(command, &path) && path.hasChars();
+        (void)parentWindow;
+        (void)initialDirectory;
+        (void)title;
+        (void)path;
+        return false;
     }
 
     bool Dialog::showFileExplorer(const TkStringView &path)
     {
         if (!path.hasChars())
             return false;
-        const TkString command = "xdg-open " + shellQuote(path);
-        return runDialogCommand(command);
+        return System::openUrl(path);
     }
 }
 

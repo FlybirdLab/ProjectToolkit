@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #include "UnixThread.hpp"
@@ -18,8 +18,12 @@
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/threading/Runnable.hpp>
 
-namespace toolkit {
+#include <cerrno>
+#include <ctime>
+#include <sched.h>
+#include <unistd.h>
 
+namespace toolkit {
     TkAction<TkThread*> TkThread::ThreadStarting{};
     TkAction<TkThread*, i32> TkThread::ThreadExiting{};
 
@@ -37,13 +41,16 @@ namespace toolkit {
         if (stackSize != 0)
             pthread_attr_setstacksize(&attr, stackSize);
         const i32 result = start(attr);
+        pthread_attr_destroy(&attr);
         if (result != 0) {
             LogWarn("Failed to spawn a thread. Result code: %i", result);
             TkMemory::deletePtr(m_alloc, this);
             return nullptr;
         }
 
-        setPriority(getPriority());
+        const ThreadPriority priority = m_priority;
+        m_priority = ThreadPriority::kNormal;
+        setPriority(priority);
 
         return this;
     }
@@ -133,12 +140,28 @@ namespace toolkit {
             return;
         m_impl->m_priority = priority;
 
-        struct sched_param sched;
-        ZERO_MEMORY(&sched, sizeof(struct sched_param));
+        struct sched_param sched {};
         i32 policy = SCHED_RR;
         pthread_getschedparam(m_impl->m_thread, &policy, &sched);
-        sched.sched_priority = m_impl->convertType(priority);
+        sched.sched_priority = policy == SCHED_OTHER ? 0 : m_impl->convertType(priority);
         pthread_setschedparam(m_impl->m_thread, policy, &sched);
+    }
+
+
+    void TkThread::sleep(i32 milliseconds)
+    {
+        if (milliseconds <= 0)
+        {
+            sched_yield();
+            return;
+        }
+
+        timespec request {};
+        request.tv_sec = milliseconds / 1000;
+        request.tv_nsec = static_cast<long>(milliseconds % 1000) * 1000000L;
+        while (nanosleep(&request, &request) != 0 && errno == EINTR)
+        {
+        }
     }
 
 

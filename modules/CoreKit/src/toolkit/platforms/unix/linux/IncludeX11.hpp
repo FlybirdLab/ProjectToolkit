@@ -10,6 +10,7 @@
 
 #if TK_LINUX
 
+// Hide warning from old headers
 #define register
 
 namespace X11
@@ -18,9 +19,10 @@ namespace X11
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
-#include <X11/XKBlib.h>
+#include <X11/cursorfont.h>
 }
 
+#undef register
 #undef None
 #undef Always
 #undef Bool

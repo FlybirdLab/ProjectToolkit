@@ -11,7 +11,7 @@
 #if TK_LINUX
 
 #include <toolkit/input/InputSystem.hpp>
-#include <toolkit/platforms/linux/LinuxX11.hpp>
+#include <toolkit/platforms/unix/linux/IncludeX11.hpp>
 
 namespace toolkit
 {
@@ -20,7 +20,7 @@ namespace toolkit
     public:
         static void init();
         static void update();
-        static bool handleEvent(TkWindow *window, X11::XEvent &event);
+        static bool processEvent(TkWindow* window, X11::XEvent& event);
     };
 }
 
