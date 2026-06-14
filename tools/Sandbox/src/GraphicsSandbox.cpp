@@ -22,6 +22,7 @@
 #include <toolkit/platforms/ProcessInitArgs.hpp>
 #include <toolkit/platforms/System.hpp>
 #include <toolkit/threading/Thread.hpp>
+#include <toolkit/types/Path.hpp>
 #include <toolkit/utils/CommandLine.hpp>
 #include <toolkit/windowing/Window.hpp>
 #include <toolkit/windowing/WindowSystem.hpp>
@@ -93,12 +94,24 @@ namespace toolkit
                 LogInfo("  %s - %s", kBackends[i].cliName, kBackends[i].displayName);
         }
 
+        bool makeShaderOutputDir(const char *backendName, TkString &outputDir)
+        {
+            TkString rootDir = System::getWorkDir() / "shader-output";
+            TkPath::normalize(rootDir);
+            outputDir = rootDir / TkString(backendName);
+            TkPath::normalize(outputDir);
+
+            if (!TkFileSystem::isDirExist(rootDir) && !TkFileSystem::makeDir(rootDir))
+                return false;
+            return TkFileSystem::isDirExist(outputDir) || TkFileSystem::makeDir(outputDir);
+        }
+
         bool compileTriangleShader(const BackendDescriptor &backend, TkString &cachePath)
         {
             // Shader payloads are backend-specific; keep concurrent clients
             // from replacing the tksd that a different backend is loading.
-            const TkString outputDir = (System::getWorkDir() / "shader-output") / TkString(backend.cliName);
-            if (!TkFileSystem::isDirExist(outputDir) && !TkFileSystem::makeDir(outputDir))
+            TkString outputDir;
+            if (!makeShaderOutputDir(backend.cliName, outputDir))
             {
                 LogError("Failed to create shader output directory: %s", outputDir.getText());
                 return false;

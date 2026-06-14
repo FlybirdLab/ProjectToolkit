@@ -141,8 +141,9 @@ namespace toolkit {
                     m_column += 2;
                 }
                 else {
-                    LogError("[Lexer] unexpected symbol near -> %c", c);
-                    return false;
+                    pushToken(TokenType::kBitOr, "|");
+                    m_idx += 1;
+                    m_column += 1;
                 }
                 continue;
             }

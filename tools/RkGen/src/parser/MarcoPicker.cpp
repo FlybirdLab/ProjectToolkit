@@ -75,6 +75,9 @@ namespace toolkit {
                 else if (keyword == kUndef) {
                     m_marcos.remove(macroName);
                 }
+
+                while (idx < max && m_data[idx] != '\n')
+                    ++idx;
             }
             else {
                 // skip invalid statement

@@ -1,4 +1,4 @@
-#include "E:/Projects/ToolkitProject/tests/RkGenTest/src/Test.hpp"
+#include "D:/Projects/ToolkitProject/tests/RkGenTest/src/Test.hpp"
 #include <toolkit/reflect/RkModule.hpp>
 #include <toolkit/reflect/RkManager.hpp>
 #include <toolkit/reflect/RkObject.hpp>
@@ -10,6 +10,7 @@
 #include <toolkit/memory/Memory.hpp>
 #include <cstddef>
 
+namespace test {
 namespace {
     const ::toolkit::EnumItem s_enum_items_test__Color[] = {
         { "Red", static_cast<::toolkit::i64>(0) },
@@ -59,12 +60,12 @@ namespace {
             if (params.args[0].data == nullptr) return nullptr;
             if (params.args[0].type != ::toolkit::TypeHandle()) return nullptr;
             if (params.args[0].passing != toolkit::ArgPassing::kValue) return nullptr;
-            auto& initialHealth = *reinterpret_cast<toolkit::i32*>(params.args[0].data);
+            auto& _p_initialHealth = *reinterpret_cast<toolkit::i32*>(params.args[0].data);
             if (params.args[1].data == nullptr) return nullptr;
             if (params.args[1].type != ::toolkit::TypeHandle()) return nullptr;
             if (params.args[1].passing != toolkit::ArgPassing::kValue) return nullptr;
-            auto& initialEnergy = *reinterpret_cast<toolkit::f32*>(params.args[1].data);
-            auto* object = ::toolkit::TkMemory::newObject<test::Actor>(::toolkit::RkManager::getAllocator(), initialHealth, initialEnergy);
+            auto& _p_initialEnergy = *reinterpret_cast<toolkit::f32*>(params.args[1].data);
+            auto* object = ::toolkit::TkMemory::newObject<test::Actor>(::toolkit::RkManager::getAllocator(), _p_initialHealth, _p_initialEnergy);
             ::toolkit::RkObjectSpawnAccess::apply(object, params);
             return object;
         }
@@ -154,41 +155,6 @@ namespace {
         { "Sum", 0, ::toolkit::TypeHandle(), toolkit::ReturnKind::kValue, ::toolkit::TkSpan<const ::toolkit::RkParam>(s_params_test__Actor_Sum, 2), 2, toolkit::MethodFlags::kNone | toolkit::MethodFlags::kStatic, &rk_invoke_test__Actor_Sum, {} },
     };
     
-    void* rk_field_accessor_test__nested__Bounds_minX(void* instance)
-    {
-        if (instance == nullptr) return nullptr;
-        return &static_cast<test::nested::Bounds*>(instance)->minX;
-    }
-    
-    void* rk_field_accessor_test__nested__Bounds_minY(void* instance)
-    {
-        if (instance == nullptr) return nullptr;
-        return &static_cast<test::nested::Bounds*>(instance)->minY;
-    }
-    
-    void* rk_field_accessor_test__nested__Bounds_maxX(void* instance)
-    {
-        if (instance == nullptr) return nullptr;
-        return &static_cast<test::nested::Bounds*>(instance)->maxX;
-    }
-    
-    void* rk_field_accessor_test__nested__Bounds_maxY(void* instance)
-    {
-        if (instance == nullptr) return nullptr;
-        return &static_cast<test::nested::Bounds*>(instance)->maxY;
-    }
-    
-    const ::toolkit::RkField s_fields_test__nested__Bounds[] = {
-        { "minX", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, minX)), toolkit::FieldFlags::kNone, {}, nullptr },
-        { "minY", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, minY)), toolkit::FieldFlags::kNone, {}, nullptr },
-        { "maxX", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, maxX)), toolkit::FieldFlags::kNone, {}, nullptr },
-        { "maxY", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, maxY)), toolkit::FieldFlags::kNone, {}, nullptr },
-    };
-    
-    const ::toolkit::RkMethod s_methods_test__nested__Bounds[] = {
-        {},
-    };
-    
 }
 
 void rkgen_register_test__Color(::toolkit::RkModule& module)
@@ -228,6 +194,47 @@ void rkgen_register_test__Actor(::toolkit::RkModule& module)
     module.registerType(desc);
 }
 
+} // namespace test
+
+namespace test::nested {
+namespace {
+    void* rk_field_accessor_test__nested__Bounds_minX(void* instance)
+    {
+        if (instance == nullptr) return nullptr;
+        return &static_cast<test::nested::Bounds*>(instance)->minX;
+    }
+    
+    void* rk_field_accessor_test__nested__Bounds_minY(void* instance)
+    {
+        if (instance == nullptr) return nullptr;
+        return &static_cast<test::nested::Bounds*>(instance)->minY;
+    }
+    
+    void* rk_field_accessor_test__nested__Bounds_maxX(void* instance)
+    {
+        if (instance == nullptr) return nullptr;
+        return &static_cast<test::nested::Bounds*>(instance)->maxX;
+    }
+    
+    void* rk_field_accessor_test__nested__Bounds_maxY(void* instance)
+    {
+        if (instance == nullptr) return nullptr;
+        return &static_cast<test::nested::Bounds*>(instance)->maxY;
+    }
+    
+    const ::toolkit::RkField s_fields_test__nested__Bounds[] = {
+        { "minX", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, minX)), toolkit::FieldFlags::kNone, {}, nullptr },
+        { "minY", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, minY)), toolkit::FieldFlags::kNone, {}, nullptr },
+        { "maxX", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, maxX)), toolkit::FieldFlags::kNone, {}, nullptr },
+        { "maxY", ::toolkit::typeOf<float>(), static_cast<::toolkit::u32>(offsetof(test::nested::Bounds, maxY)), toolkit::FieldFlags::kNone, {}, nullptr },
+    };
+    
+    const ::toolkit::RkMethod s_methods_test__nested__Bounds[] = {
+        {},
+    };
+    
+}
+
 void rkgen_register_test__nested__Bounds(::toolkit::RkModule& module)
 {
     ::toolkit::RkStructDesc desc{};
@@ -239,10 +246,12 @@ void rkgen_register_test__nested__Bounds(::toolkit::RkModule& module)
     module.registerType(desc);
 }
 
+} // namespace test::nested
+
 void rkgen_register_file_Test(::toolkit::RkModule& module)
 {
-    rkgen_register_test__Color(module);
-    rkgen_register_test__Vec3(module);
-    rkgen_register_test__Actor(module);
-    rkgen_register_test__nested__Bounds(module);
+    test::rkgen_register_test__Color(module);
+    test::rkgen_register_test__Vec3(module);
+    test::rkgen_register_test__Actor(module);
+    test::nested::rkgen_register_test__nested__Bounds(module);
 }

@@ -18,6 +18,7 @@ namespace toolkit {
         TkString rootPath;
         TkString outputDir;
         TkArray<TkString> sourceFiles;
+        TkString outputName;
     };
 
     class ParserContext 

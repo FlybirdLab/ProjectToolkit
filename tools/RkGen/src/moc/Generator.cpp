@@ -51,14 +51,66 @@ namespace toolkit {
         return TkString(std::filesystem::path(lhs.getText()).append(rhs.getText()).string().c_str());
     }
 
+    // Returns true if `ch` appears at angle-bracket depth 0 in `s`.
+    static bool hasTopLevelChar(const TkString& s, char ch)
+    {
+        i32 depth = 0;
+        for (i32 i = 0; i < s.length(); i++)
+        {
+            const char c = s[i];
+            if (c == '<') depth++;
+            else if (c == '>') depth--;
+            else if (depth == 0 && c == ch) return true;
+        }
+        return false;
+    }
+
     static TkString normalizeType(TkString type)
     {
         type = trimCopy(type);
-        type.replace("const ", "");
-        type.replace("volatile ", "");
-        type.replace("*", "");
-        type.replace("&", "");
-        return trimCopy(type);
+        // Strip leading "const " / "volatile " that are NOT inside angle brackets
+        for (bool changed = true; changed;)
+        {
+            changed = false;
+            if (type.startsWith(TkStringView{"const "}))
+            { type = trimCopy(type.substring(6)); changed = true; }
+            else if (type.startsWith(TkStringView{"volatile "}))
+            { type = trimCopy(type.substring(9)); changed = true; }
+        }
+        // Strip trailing top-level * or & (not ones inside template args)
+        while (!type.isEmpty())
+        {
+            const char last = type[type.length() - 1];
+            if (last != '*' && last != '&') break;
+            // Count unclosed '<' before the last char; if 0 it's at top level
+            i32 depth = 0;
+            for (i32 i = 0; i < type.length() - 1; i++)
+            {
+                if (type[i] == '<') depth++;
+                else if (type[i] == '>') depth--;
+            }
+            if (depth != 0) break;
+            type = trimCopy(type.substring(0, type.length() - 1));
+        }
+        type = trimCopy(type);
+        // Strip leading ALL_CAPS identifiers (CB_FORCE_INLINE, CB_API, TK_API …)
+        while (true)
+        {
+            const i32 spacePos = type.find(' ');
+            if (spacePos < 0) break;
+            const TkString firstWord = trimCopy(type.substring(0, spacePos));
+            if (firstWord.isEmpty()) break;
+            bool allCaps = true;
+            for (i32 i = 0; i < firstWord.length(); i++)
+            {
+                const char c = firstWord[i];
+                if (!((c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9')))
+                { allCaps = false; break; }
+            }
+            if (!allCaps) break;
+            type = trimCopy(type.substring(spacePos + 1));
+        }
+        return type;
     }
 
     static bool isBuiltinType(const TkString& type)
@@ -150,11 +202,11 @@ namespace toolkit {
         const TkString trimmed = trimCopy(type);
         if (trimmed == "void" || trimmed.isEmpty())
             return "toolkit::ReturnKind::kVoid";
-        if (trimmed.find("*") >= 0)
+        if (hasTopLevelChar(trimmed, '*'))
             return "toolkit::ReturnKind::kPointer";
-        if (trimmed.find("const") >= 0 && trimmed.find("&") >= 0)
+        if (trimmed.find("const") >= 0 && hasTopLevelChar(trimmed, '&'))
             return "toolkit::ReturnKind::kConstLValueRef";
-        if (trimmed.find("&") >= 0)
+        if (hasTopLevelChar(trimmed, '&'))
             return "toolkit::ReturnKind::kLValueRef";
         return "toolkit::ReturnKind::kValue";
     }
@@ -162,13 +214,13 @@ namespace toolkit {
     static TkString passingFor(const TkString& type)
     {
         const TkString trimmed = trimCopy(type);
-        if (trimmed.find("*") >= 0)
+        if (hasTopLevelChar(trimmed, '*'))
             return "toolkit::ArgPassing::kPointer";
-        if (trimmed.find("const") >= 0 && trimmed.find("&") >= 0)
-            return "toolkit::ArgPassing::kConstLValueRef";
-        if (trimmed.find("&&") >= 0)
+        if (trimmed.find("&&") >= 0 && hasTopLevelChar(trimmed, '&'))
             return "toolkit::ArgPassing::kRValueRef";
-        if (trimmed.find("&") >= 0)
+        if (trimmed.find("const") >= 0 && hasTopLevelChar(trimmed, '&'))
+            return "toolkit::ArgPassing::kConstLValueRef";
+        if (hasTopLevelChar(trimmed, '&'))
             return "toolkit::ArgPassing::kLValueRef";
         return "toolkit::ArgPassing::kValue";
     }
@@ -185,14 +237,14 @@ namespace toolkit {
     const TkStringBuilder& CodeWriter::builder() const { return m_builder; }
     TkString CodeWriter::toString() const { return m_builder.toString(); }
 
-    bool ModelBuilder::build(const TkString& inputFile, const TkString& outputDir, ASTTransUnit* root, RkFileModel* out)
+    bool ModelBuilder::build(const TkString& inputFile, const TkString& outputDir, const TkString& outputName, ASTTransUnit* root, RkFileModel* out)
     {
         if (root == nullptr || out == nullptr)
             return false;
         out->inputFile = inputFile;
         out->includePath = inputFile;
         out->includePath.replace('\\', '/');
-        const TkString stem = fileStem(inputFile);
+        const TkString stem = outputName.isEmpty() ? fileStem(inputFile) : outputName;
         out->outputSource = joinPath(outputDir, stem + ".rkgen.cpp");
         out->types.clear();
         for (ASTNode* node : root->decls)
@@ -284,6 +336,7 @@ namespace toolkit {
         model.symbolName = sanitizeSymbol(model.qualifiedCppName);
         model.sourceFile = inputFile;
         model.baseTypes.add(type->baseClasses);
+        model.noSpawn = type->noSpawn;
         for (const TkString& base : model.baseTypes)
         {
             if (isRkObjectBase(base))
@@ -363,7 +416,7 @@ namespace toolkit {
             if (root == nullptr)
                 continue;
             RkFileModel model;
-            if (!builder.build(item.key, ctx.m_data.outputDir, root, &model))
+            if (!builder.build(item.key, ctx.m_data.outputDir, ctx.m_data.outputName, root, &model))
                 return false;
             if (!generate(model))
                 return false;
@@ -412,7 +465,7 @@ namespace toolkit {
             if (type.kind != RkTypeModel::kClass || !type.derivesFromRkObject)
                 continue;
 
-            if (!type.hasSpawnConstructor)
+            if (!type.hasSpawnConstructor && !type.noSpawn)
             {
                 LogError("[RkGen] cclass %s derives from RkObject and must declare a reflected constructor, e.g. 'cctor %s() = default;'.",
                     type.qualifiedCppName.getText(),
@@ -463,23 +516,82 @@ namespace toolkit {
         w.line("#include <toolkit/memory/Memory.hpp>");
         w.line("#include <cstddef>");
         w.line("");
-        w.line("namespace {");
-        w.indent();
+
+        // Collect unique namespace paths in order of first appearance
+        TkArray<TkString> uniqueNamespaces;
         for (const RkTypeModel& type : model.types)
-            emitType(type, w);
-        w.unindent();
-        w.line("}");
-        w.line("");
-        for (const RkTypeModel& type : model.types)
-            emitDescAndRegister(type, w);
+        {
+            if (uniqueNamespaces.find(type.namespacePath) == -1)
+                uniqueNamespaces.add(type.namespacePath);
+        }
+
+        // For each namespace: emit impl in anonymous sub-namespace, then register fns
+        for (const TkString& ns : uniqueNamespaces)
+        {
+            if (!ns.isEmpty())
+            {
+                w.line(TkString::format("namespace %s {", ns.getText()));
+            }
+            w.line("namespace {");
+            w.indent();
+            for (const RkTypeModel& type : model.types)
+            {
+                if (type.namespacePath == ns)
+                    emitType(type, w);
+            }
+            w.unindent();
+            w.line("}");
+            w.line("");
+            for (const RkTypeModel& type : model.types)
+            {
+                if (type.namespacePath == ns)
+                    emitDescAndRegister(type, w);
+            }
+            if (!ns.isEmpty())
+            {
+                w.line(TkString::format("} // namespace %s", ns.getText()));
+                w.line("");
+            }
+        }
+
+        // Global file-level registration entry point
         w.line(TkString::format("void rkgen_register_file_%s(::toolkit::RkModule& module)", fileRegisterSymbol.getText()));
         w.line("{");
         w.indent();
         for (const RkTypeModel& type : model.types)
-            w.line(TkString::format("rkgen_register_%s(module);", type.symbolName.getText()));
+        {
+            if (type.namespacePath.isEmpty())
+                w.line(TkString::format("rkgen_register_%s(module);", type.symbolName.getText()));
+            else
+                w.line(TkString::format("%s::rkgen_register_%s(module);", type.namespacePath.getText(), type.symbolName.getText()));
+        }
         w.unindent();
         w.line("}");
         return true;
+    }
+
+    TkArray<TkString> Generator::buildMethodSymbols(const RkTypeModel& type)
+    {
+        TkArray<TkString> symbols;
+        TkArray<TkString> seenNames;
+        TkArray<i32> nameCounts;
+        for (const RkMethodModel& method : type.methods)
+        {
+            const TkString base = TkString::format("%s_%s", type.symbolName.getText(), method.name.getText());
+            const i32 idx = seenNames.find(method.name);
+            if (idx < 0)
+            {
+                seenNames.add(method.name);
+                nameCounts.add(1);
+                symbols.add(base);
+            }
+            else
+            {
+                symbols.add(TkString::format("%s_%i", base.getText(), nameCounts[idx]));
+                nameCounts[idx]++;
+            }
+        }
+        return symbols;
     }
 
     void Generator::emitType(const RkTypeModel& type, CodeWriter& w)
@@ -489,11 +601,12 @@ namespace toolkit {
             emitEnumItems(type, w);
             return;
         }
+        const TkArray<TkString> methodSymbols = buildMethodSymbols(type);
         emitClassLifecycle(type, w);
         emitFieldAccessors(type, w);
-        emitMethodInvokes(type, w);
+        emitMethodInvokes(type, methodSymbols, w);
         emitFieldArray(type, w);
-        emitMethodArray(type, w);
+        emitMethodArray(type, methodSymbols, w);
     }
 
     void Generator::emitFieldAccessors(const RkTypeModel& type, CodeWriter& w)
@@ -523,7 +636,7 @@ namespace toolkit {
 
     void Generator::emitClassLifecycle(const RkTypeModel& type, CodeWriter& w)
     {
-        if (type.kind != RkTypeModel::kClass || !type.derivesFromRkObject || !type.hasSpawnConstructor)
+        if (type.kind != RkTypeModel::kClass || !type.derivesFromRkObject || !type.hasSpawnConstructor || type.noSpawn)
             return;
 
         w.line(TkString::format("::toolkit::RkObject* rk_spawn_%s(const ::toolkit::ObjectSpawnParams& params)", type.symbolName.getText()));
@@ -540,17 +653,22 @@ namespace toolkit {
             for (i32 i = 0; i < ctor.params.count(); i++)
             {
                 const RkParamModel& param = ctor.params[i];
-                const TkString baseType = qualifyTypeName(param.cppTypeText, type.namespacePath);
+                TkString baseType = normalizeType(param.cppTypeText);
+                // SpawnParams is RkObject::SpawnParams = ::toolkit::ObjectSpawnParams; it's
+                // not in the cobalt namespace, so substitute the fully-qualified name.
+                if (baseType == "SpawnParams" || baseType == "ObjectSpawnParams")
+                    baseType = "::toolkit::ObjectSpawnParams";
+                const TkString localName = TkString::format("_p_%s", param.name.getText());
                 w.line(TkString::format("if (params.args[%i].data == nullptr) return nullptr;", i));
                 w.line(TkString::format("if (params.args[%i].type != %s) return nullptr;", i, param.typeOfText.getText()));
                 w.line(TkString::format("if (params.args[%i].passing != %s) return nullptr;", i, param.passing.getText()));
                 if (param.passing == "toolkit::ArgPassing::kPointer")
-                    w.line(TkString::format("auto %s = *reinterpret_cast<%s**>(params.args[%i].data);", param.name.getText(), baseType.getText(), i));
+                    w.line(TkString::format("auto %s = *reinterpret_cast<%s**>(params.args[%i].data);", localName.getText(), baseType.getText(), i));
                 else
-                    w.line(TkString::format("auto& %s = *reinterpret_cast<%s*>(params.args[%i].data);", param.name.getText(), baseType.getText(), i));
+                    w.line(TkString::format("auto& %s = *reinterpret_cast<%s*>(params.args[%i].data);", localName.getText(), baseType.getText(), i));
                 if (i > 0)
                     args.append(", ");
-                args.append(param.name);
+                args.append(localName);
             }
             if (ctor.params.isEmpty())
                 w.line(TkString::format("auto* object = ::toolkit::TkMemory::newObject<%s>(::toolkit::RkManager::getAllocator());", type.qualifiedCppName.getText()));
@@ -575,11 +693,13 @@ namespace toolkit {
         w.line("");
     }
 
-    void Generator::emitMethodInvokes(const RkTypeModel& type, CodeWriter& w)
+    void Generator::emitMethodInvokes(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w)
     {
-        for (const RkMethodModel& method : type.methods)
+        for (i32 mi = 0; mi < type.methods.count(); mi++)
         {
-            w.line(TkString::format("bool rk_invoke_%s_%s(::toolkit::InvokeContext& ctx)", type.symbolName.getText(), method.name.getText()));
+            const RkMethodModel& method = type.methods[mi];
+            const TkString& sym = methodSymbols[mi];
+            w.line(TkString::format("bool rk_invoke_%s(::toolkit::InvokeContext& ctx)", sym.getText()));
             w.line("{");
             w.indent();
             w.line(TkString::format("if (ctx.argCount != %i) return false;", method.params.count()));
@@ -590,7 +710,7 @@ namespace toolkit {
             for (i32 i = 0; i < method.params.count(); i++)
             {
                 const auto& param = method.params[i];
-                const TkString baseType = qualifyTypeName(param.cppTypeText, type.namespacePath);
+                const TkString baseType = normalizeType(param.cppTypeText);
                 if (param.passing == "toolkit::ArgPassing::kPointer")
                     w.line(TkString::format("auto %s = *reinterpret_cast<%s**>(ctx.args[%i].data);", param.name.getText(), baseType.getText(), i));
                 else
@@ -610,14 +730,19 @@ namespace toolkit {
             else if (method.returnKind == "toolkit::ReturnKind::kValue")
             {
                 w.line("if (ctx.result == nullptr) return false;");
-                w.line(TkString::format("*reinterpret_cast<%s*>(ctx.result) = %s%s(%s);", qualifyTypeName(method.cppReturnTypeText, type.namespacePath).getText(), callPrefix.getText(), method.name.getText(), args.toString().getText()));
+                w.line(TkString::format("*reinterpret_cast<%s*>(ctx.result) = %s%s(%s);", normalizeType(method.cppReturnTypeText).getText(), callPrefix.getText(), method.name.getText(), args.toString().getText()));
             }
             else
             {
                 w.line("if (ctx.returnValue == nullptr) return false;");
                 w.line(TkString::format("ctx.returnValue->type = %s;", method.returnTypeOfText.getText()));
                 w.line(TkString::format("ctx.returnValue->kind = %s;", method.returnKind.getText()));
-                w.line(TkString::format("ctx.returnValue->data = &%s%s(%s);", callPrefix.getText(), method.name.getText(), args.toString().getText()));
+                if (method.returnKind == "toolkit::ReturnKind::kPointer")
+                    w.line(TkString::format("ctx.returnValue->data = static_cast<void*>(%s%s(%s));", callPrefix.getText(), method.name.getText(), args.toString().getText()));
+                else if (method.returnKind == "toolkit::ReturnKind::kConstLValueRef")
+                    w.line(TkString::format("ctx.returnValue->data = const_cast<void*>(static_cast<const void*>(&%s%s(%s)));", callPrefix.getText(), method.name.getText(), args.toString().getText()));
+                else
+                    w.line(TkString::format("ctx.returnValue->data = &%s%s(%s);", callPrefix.getText(), method.name.getText(), args.toString().getText()));
             }
             w.line("return true;");
             w.unindent();
@@ -647,11 +772,13 @@ namespace toolkit {
         w.line("");
     }
 
-    void Generator::emitMethodArray(const RkTypeModel& type, CodeWriter& w)
+    void Generator::emitMethodArray(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w)
     {
-        for (const RkMethodModel& method : type.methods)
+        for (i32 mi = 0; mi < type.methods.count(); mi++)
         {
-            w.line(TkString::format("const ::toolkit::RkParam s_params_%s_%s[] = {", type.symbolName.getText(), method.name.getText()));
+            const RkMethodModel& method = type.methods[mi];
+            const TkString& sym = methodSymbols[mi];
+            w.line(TkString::format("const ::toolkit::RkParam s_params_%s[] = {", sym.getText()));
             w.indent();
             if (method.params.isEmpty())
                 w.line("{},");
@@ -664,19 +791,19 @@ namespace toolkit {
         w.indent();
         if (type.methods.isEmpty())
             w.line("{},");
-        for (const RkMethodModel& method : type.methods)
+        for (i32 mi = 0; mi < type.methods.count(); mi++)
         {
-            w.line(TkString::format("{ \"%s\", 0, %s, %s, ::toolkit::TkSpan<const ::toolkit::RkParam>(s_params_%s_%s, %i), %i, %s, &rk_invoke_%s_%s, {} },",
+            const RkMethodModel& method = type.methods[mi];
+            const TkString& sym = methodSymbols[mi];
+            w.line(TkString::format("{ \"%s\", 0, %s, %s, ::toolkit::TkSpan<const ::toolkit::RkParam>(s_params_%s, %i), %i, %s, &rk_invoke_%s, {} },",
                 method.name.getText(),
                 method.returnTypeOfText.getText(),
                 method.returnKind.getText(),
-                type.symbolName.getText(),
-                method.name.getText(),
+                sym.getText(),
                 method.params.count(),
                 method.params.count(),
                 methodFlags(method).getText(),
-                type.symbolName.getText(),
-                method.name.getText()));
+                sym.getText()));
         }
         w.unindent();
         w.line("};");
@@ -690,7 +817,57 @@ namespace toolkit {
         if (type.enumItems.isEmpty())
             w.line("{},");
         for (const RkEnumItemModel& item : type.enumItems)
-            w.line(TkString::format("{ \"%s\", static_cast<::toolkit::i64>(%s) },", item.name.getText(), item.valueText.getText()));
+        {
+            // For enum class, rawValue expressions like "kA|kB" need qualifying
+            // because the names are scoped and not visible without the type prefix.
+            TkString valueExpr = item.valueText;
+            if (type.isEnumClass && !valueExpr.isEmpty())
+            {
+                // If the value is purely numeric nothing needs qualifying.
+                // Otherwise prefix each bare identifier with the fully-qualified enum name.
+                bool hasAlpha = false;
+                for (i32 i = 0; i < valueExpr.length(); i++)
+                {
+                    const char c = valueExpr[i];
+                    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')
+                    { hasAlpha = true; break; }
+                }
+                if (hasAlpha)
+                {
+                    // Replace every identifier token with EnumType::identifier
+                    TkStringBuilder qualified;
+                    i32 i = 0;
+                    while (i < valueExpr.length())
+                    {
+                        const char c = valueExpr[i];
+                        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')
+                        {
+                            // read identifier
+                            i32 start = i;
+                            while (i < valueExpr.length())
+                            {
+                                const char ci = valueExpr[i];
+                                if (!((ci >= 'a' && ci <= 'z') || (ci >= 'A' && ci <= 'Z') ||
+                                      (ci >= '0' && ci <= '9') || ci == '_')) break;
+                                i++;
+                            }
+                            const TkString ident = valueExpr.substring(start, i - start);
+                            qualified.append(type.qualifiedCppName);
+                            qualified.append("::");
+                            qualified.append(ident);
+                        }
+                        else
+                        {
+                            qualified.append(c);
+                            i++;
+                        }
+                    }
+                    valueExpr = qualified.toString();
+                }
+            }
+            w.line(TkString::format("{ \"%s\", static_cast<::toolkit::i64>(%s) },",
+                item.name.getText(), valueExpr.getText()));
+        }
         w.unindent();
         w.line("};");
         w.line("");
@@ -710,7 +887,7 @@ namespace toolkit {
             w.line(TkString::format("desc.size = sizeof(%s);", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.align = alignof(%s);", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.baseType = %s;", base.getText()));
-            if (type.derivesFromRkObject && type.hasSpawnConstructor)
+            if (type.derivesFromRkObject && type.hasSpawnConstructor && !type.noSpawn)
             {
                 w.line(TkString::format("desc.spawn = &rk_spawn_%s;", type.symbolName.getText()));
                 w.line(TkString::format("desc.destroy = &rk_destroy_%s;", type.symbolName.getText()));

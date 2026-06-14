@@ -29,6 +29,14 @@ namespace toolkit {
     {
     }
 
+    MocCtx::MocCtx(const TkString& sourcePath, const TkString& outputPath, const TkArray<TkString>& sourceFiles, const TkString& outputName)
+        : m_sourcePath(sourcePath)
+        , m_outputPath(outputPath)
+        , m_outputName(outputName)
+        , m_sourceFiles(sourceFiles)
+    {
+    }
+
 
     MocCtx::~MocCtx() {
         // platform::cleanUp();
@@ -59,7 +67,8 @@ namespace toolkit {
         ParserContext ctx {{
             m_sourcePath,
             m_outputPath,
-            m_sourceFiles
+            m_sourceFiles,
+            m_outputName
         }};
         if (!ctx.setUp()) {
             LogError("[RkGen] failed to scan files in source dir.");

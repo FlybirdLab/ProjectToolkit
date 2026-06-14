@@ -57,6 +57,7 @@ namespace toolkit {
         const TkString name;
         TkArray<TkString> baseClasses;
         TkArray<ASTNode*> members;
+        bool noSpawn = false;
     };
 
     

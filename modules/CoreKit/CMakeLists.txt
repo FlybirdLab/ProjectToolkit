@@ -31,13 +31,19 @@ set(HEAD
 #################################################################
 SetPlatformDeps(INCS LNKS)
 
-AddStb(INCS LNKS)
-AddSpdlog(INCS LNKS)
-AddRpmalloc(INCS LNKS)
-AddXXHash(INCS LNKS)
-AddConcurrentQueue(INCS LNKS)
-AddTracy(INCS LNKS)
-AddRapidJson(INCS LNKS)
+list(APPEND LNKS tbuild::stb)
+list(APPEND LNKS tbuild::spdlog)
+list(APPEND LNKS tbuild::rpmalloc)
+list(APPEND LNKS tbuild::xxhash)
+if(NOT TARGET tbuild::DataExtend)
+        message(FATAL_ERROR "TkCore requires tbuild::DataExtend.")
+endif()
+list(APPEND LNKS tbuild::DataExtend)
+if(NOT TARGET tbuild::tracy)
+        message(FATAL_ERROR "TkCore requires tbuild::tracy.")
+endif()
+list(APPEND LNKS tbuild::tracy)
+list(APPEND LNKS tbuild::rapidjson)
 #################################################################
 # project configurations
 #################################################################

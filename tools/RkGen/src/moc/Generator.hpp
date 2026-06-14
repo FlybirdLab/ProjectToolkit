@@ -89,6 +89,7 @@ namespace toolkit {
         bool isEnumClass = false;
         bool derivesFromRkObject = false;
         bool hasSpawnConstructor = false;
+        bool noSpawn = false;
     };
 
     struct RkFileModel
@@ -117,7 +118,7 @@ namespace toolkit {
     class ModelBuilder
     {
     public:
-        bool build(const TkString& inputFile, const TkString& outputDir, ASTTransUnit* root, RkFileModel* out);
+        bool build(const TkString& inputFile, const TkString& outputDir, const TkString& outputName, ASTTransUnit* root, RkFileModel* out);
 
     private:
         void collectNode(struct ASTNode* node, const TkString& namespacePath, RkFileModel* out);
@@ -139,11 +140,12 @@ namespace toolkit {
         void emitType(const RkTypeModel& type, CodeWriter& w);
         void emitFieldAccessors(const RkTypeModel& type, CodeWriter& w);
         void emitClassLifecycle(const RkTypeModel& type, CodeWriter& w);
-        void emitMethodInvokes(const RkTypeModel& type, CodeWriter& w);
+        void emitMethodInvokes(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w);
         void emitFieldArray(const RkTypeModel& type, CodeWriter& w);
-        void emitMethodArray(const RkTypeModel& type, CodeWriter& w);
+        void emitMethodArray(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w);
         void emitEnumItems(const RkTypeModel& type, CodeWriter& w);
         void emitDescAndRegister(const RkTypeModel& type, CodeWriter& w);
+        static TkArray<TkString> buildMethodSymbols(const RkTypeModel& type);
     };
 
 }

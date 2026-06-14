@@ -34,7 +34,12 @@ AddTkWindow(INCS LNKS DEPS)
 AddTkGraphics(INCS LNKS DEPS)
 AddTkAudio(INCS LNKS DEPS)
 
-AddVideoSystemLib(INCS LNKS)
+if(WIN32 OR APPLE OR ANDROID)
+    if(NOT TARGET tbuild::video)
+        message(FATAL_ERROR "TkVideo requires tbuild::video.")
+    endif()
+    list(APPEND LNKS tbuild::video)
+endif()
 #################################################################
 # project configurations
 #################################################################

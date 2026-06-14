@@ -61,6 +61,8 @@ namespace toolkit {
 
         Expected<void> jumpUnneed();
         void jumpLine();
+        void skipConditionalBlock(bool stopAtElse);
+        bool evalPreprocessorCondition();
 
         bool isMarco(const TkStringView& c) const;
 
@@ -73,5 +75,6 @@ namespace toolkit {
         mutable Token m_current;
 
         i32 m_tk_idx = 0;
+        bool m_skipNextClass = false;  // set when template<> precedes rkclass/rkstruct
     };
 }

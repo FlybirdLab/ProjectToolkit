@@ -26,7 +26,7 @@ set(SRCS
 AddTkCore(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
 
-AddGTest(INCS LNKS)
+list(APPEND LNKS tbuild::gtest)
 ########################################################
 # project configurations
 ########################################################

@@ -41,6 +41,7 @@ namespace toolkit {
         kArrow,
         kLogicAnd,
         kLogicOr,
+        kBitOr,
         kNot,
         kBitNot,
         kQuestion,

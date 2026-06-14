@@ -114,3 +114,49 @@ target_link_libraries(Sandbox PRIVATE
 target_compile_definitions(Sandbox PRIVATE
         ${HEAD}
 )
+
+set(_sandbox_shader_files
+        "${CMAKE_SOURCE_DIR}/tools/Sandbox/shaders/Triangle.tkshader"
+        "${CMAKE_SOURCE_DIR}/tools/Sandbox/shaders/VideoQuad.tkshader"
+)
+set(_sandbox_shader_targets)
+
+if(TK_GFX_DIRECTX12_ENABLE)
+    tk_add_shadercompile_target(SandboxShadersDX12
+            FILES ${_sandbox_shader_files}
+            BACKEND dx
+            OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shader-output/dx12"
+    )
+    list(APPEND _sandbox_shader_targets SandboxShadersDX12)
+endif()
+
+if(TK_GFX_DIRECTX11_ENABLE)
+    tk_add_shadercompile_target(SandboxShadersDX11
+            FILES ${_sandbox_shader_files}
+            BACKEND d3d
+            OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shader-output/dx11"
+    )
+    list(APPEND _sandbox_shader_targets SandboxShadersDX11)
+endif()
+
+if(TK_GFX_VULKAN_ENABLE)
+    tk_add_shadercompile_target(SandboxShadersVulkan
+            FILES ${_sandbox_shader_files}
+            BACKEND vk
+            OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shader-output/vulkan"
+    )
+    list(APPEND _sandbox_shader_targets SandboxShadersVulkan)
+endif()
+
+if(TK_GFX_OPENGL_ENABLE)
+    tk_add_shadercompile_target(SandboxShadersOpenGL
+            FILES ${_sandbox_shader_files}
+            BACKEND opengl
+            OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shader-output/opengl"
+    )
+    list(APPEND _sandbox_shader_targets SandboxShadersOpenGL)
+endif()
+
+if(_sandbox_shader_targets)
+    add_dependencies(Sandbox ${_sandbox_shader_targets})
+endif()

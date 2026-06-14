@@ -1,10 +1,69 @@
+function(_tk_get_rkgen_target outputVar rkgenPathVar)
+    if (TARGET RkGen)
+        set(_rkgen_target "RkGen")
+    elseif (TARGET Toolkit::RkGen)
+        set(_rkgen_target "Toolkit::RkGen")
+    else()
+        message(FATAL_ERROR "tk_target_rkgen: RkGen target does not exist. Include ToolkitProjectToolsConfig.cmake after installing Toolkit tools, or include this helper after add_subdirectory(tools/RkGen).")
+    endif()
+
+    get_target_property(_rkgen_imported "${_rkgen_target}" IMPORTED)
+    if(_rkgen_imported)
+        get_target_property(_rkgen_loc "${_rkgen_target}" IMPORTED_LOCATION)
+        if(_rkgen_loc)
+            get_filename_component(_rkgen_loc "${_rkgen_loc}" ABSOLUTE)
+        endif()
+        if(NOT _rkgen_loc AND CMAKE_BUILD_TYPE)
+            string(TOUPPER "${CMAKE_BUILD_TYPE}" _cfg)
+            get_target_property(_rkgen_loc "${_rkgen_target}" IMPORTED_LOCATION_${_cfg})
+            if(_rkgen_loc)
+                get_filename_component(_rkgen_loc "${_rkgen_loc}" ABSOLUTE)
+            endif()
+        endif()
+
+        if(NOT _rkgen_loc OR NOT EXISTS "${_rkgen_loc}")
+            get_filename_component(_tk_root "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../.." ABSOLUTE)
+            set(_candidates "")
+            if(WIN32)
+                list(APPEND _candidates "${_tk_root}/bin/RkGen.exe" "${_tk_root}/lib/RkGen.exe" "${_tk_root}/tools/RkGen/RkGen.exe")
+            else()
+                list(APPEND _candidates "${_tk_root}/bin/RkGen" "${_tk_root}/lib/RkGen")
+            endif()
+            foreach(_c IN LISTS _candidates)
+                if(EXISTS "${_c}")
+                    set(_rkgen_loc "${_c}")
+                    break()
+                endif()
+            endforeach()
+        endif()
+    else()
+        get_target_property(_rkgen_out_dir "${_rkgen_target}" RUNTIME_OUTPUT_DIRECTORY)
+        get_target_property(_rkgen_out_name "${_rkgen_target}" RUNTIME_OUTPUT_NAME)
+        if(NOT _rkgen_out_name)
+            set(_rkgen_out_name "${_rkgen_target}")
+        endif()
+        if(_rkgen_out_dir)
+            get_filename_component(_rkgen_out_dir "${_rkgen_out_dir}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
+        endif()
+        if(WIN32)
+            set(_rkgen_loc "${_rkgen_out_dir}/${_rkgen_out_name}.exe")
+        else()
+            set(_rkgen_loc "${_rkgen_out_dir}/${_rkgen_out_name}")
+        endif()
+        if(NOT _rkgen_out_dir)
+            set(_rkgen_loc "")
+        endif()
+    endif()
+
+    set(${outputVar} "${_rkgen_target}" PARENT_SCOPE)
+    set(${rkgenPathVar} "${_rkgen_loc}" PARENT_SCOPE)
+endfunction()
+
 function(tk_target_rkgen target)
     if (NOT TARGET ${target})
         message(FATAL_ERROR "tk_target_rkgen: target '${target}' does not exist.")
     endif()
-    if (NOT TARGET RkGen)
-        message(FATAL_ERROR "tk_target_rkgen: RkGen target does not exist. Include this helper after add_subdirectory(tools/RkGen).")
-    endif()
+    _tk_get_rkgen_target(rkgen_target rkgen_exe_path)
 
     set(options RECURSIVE)
     set(oneValueArgs OUTPUT_DIR)
@@ -63,6 +122,7 @@ function(tk_target_rkgen target)
     
     set(rkgen_outputs "")
     set(rkgen_output_names "")
+    get_target_property(rkgen_imported "${rkgen_target}" IMPORTED)
     foreach(input IN LISTS rkgen_filtered_inputs)
         get_filename_component(stem "${input}" NAME_WE)
         list(FIND rkgen_output_names "${stem}" existing_output_name)
@@ -72,18 +132,34 @@ function(tk_target_rkgen target)
         list(APPEND rkgen_output_names "${stem}")
 
         set(output "${RKGEN_OUTPUT_DIR}/${stem}.rkgen.cpp")
-        add_custom_command(
-            OUTPUT "${output}"
-            COMMAND $<TARGET_FILE:RkGen> --file "${input}" --out "${RKGEN_OUTPUT_DIR}"
-            DEPENDS RkGen "${input}"
-            COMMENT "Running RkGen for ${input}"
-            VERBATIM
-        )
+        set(rkgen_depends "${input}")
+        if (NOT rkgen_imported)
+            list(APPEND rkgen_depends ${rkgen_target})
+        endif()
+        if(rkgen_exe_path)
+            add_custom_command(
+                OUTPUT "${output}"
+                COMMAND "${rkgen_exe_path}" --file "${input}" --out "${RKGEN_OUTPUT_DIR}" --out-name "${stem}"
+                DEPENDS ${rkgen_depends}
+                COMMENT "Running RkGen for ${input}"
+                VERBATIM
+            )
+        else()
+            add_custom_command(
+                OUTPUT "${output}"
+                COMMAND $<TARGET_FILE:${rkgen_target}> --file "${input}" --out "${RKGEN_OUTPUT_DIR}" --out-name "${stem}"
+                DEPENDS ${rkgen_depends}
+                COMMENT "Running RkGen for ${input}"
+                VERBATIM
+            )
+        endif()
         list(APPEND rkgen_outputs "${output}")
     endforeach()
 
     target_sources(${target} PRIVATE ${rkgen_outputs})
     target_include_directories(${target} PRIVATE "${RKGEN_OUTPUT_DIR}")
-    add_dependencies(${target} RkGen)
+    if (NOT rkgen_imported)
+        add_dependencies(${target} ${rkgen_target})
+    endif()
     set_source_files_properties(${rkgen_outputs} PROPERTIES GENERATED TRUE)
 endfunction()

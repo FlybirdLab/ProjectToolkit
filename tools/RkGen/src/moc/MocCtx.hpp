@@ -10,6 +10,7 @@ namespace toolkit {
     public:
         MocCtx(const TkString& sourcePath, const TkString& outputPath);
         MocCtx(const TkString& sourcePath, const TkString& outputPath, const TkArray<TkString>& sourceFiles);
+        MocCtx(const TkString& sourcePath, const TkString& outputPath, const TkArray<TkString>& sourceFiles, const TkString& outputName);
         ~MocCtx();
 
         int runMoc();
@@ -17,6 +18,7 @@ namespace toolkit {
     private:
         TkString m_sourcePath;
         TkString m_outputPath;
+        TkString m_outputName;
         TkArray<TkString> m_sourceFiles;
     };
 }

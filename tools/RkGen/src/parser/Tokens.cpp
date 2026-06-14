@@ -42,6 +42,7 @@ namespace toolkit {
         "Arrow",
         "LogicAnd",
         "LogicOr",
+        "BitOr",
         "Not",
         "BitNot",
         "Question",

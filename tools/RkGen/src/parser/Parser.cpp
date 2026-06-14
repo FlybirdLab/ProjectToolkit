@@ -74,6 +74,7 @@ namespace toolkit {
         case TokenType::kGreaterThan: return ">";
         case TokenType::kAnd: return "&";
         case TokenType::kLogicAnd: return "&&";
+        case TokenType::kBitOr: return "|";
         case TokenType::kMultiply: return "*";
         case TokenType::kDivide: return "/";
         case TokenType::kAdd: return "+";
@@ -100,9 +101,9 @@ namespace toolkit {
             return true;
         if (next == TokenType::kLParen || next == TokenType::kLBracket || next == TokenType::kLAngleBracket)
             return true;
-        if (next == TokenType::kAnd || next == TokenType::kLogicAnd || next == TokenType::kMultiply)
+        if (next == TokenType::kAnd || next == TokenType::kLogicAnd || next == TokenType::kBitOr || next == TokenType::kMultiply)
             return true;
-        if (prev == TokenType::kAnd || prev == TokenType::kLogicAnd || prev == TokenType::kMultiply)
+        if (prev == TokenType::kAnd || prev == TokenType::kLogicAnd || prev == TokenType::kBitOr || prev == TokenType::kMultiply)
             return true;
         return false;
     }
@@ -257,28 +258,36 @@ namespace toolkit {
                     CHECK_RESULT(r, jumpUnneed());
                 }
             }
+            else if (isIdentifier("template"))
+            {
+                m_skipNextClass = true;
+                CHECK_RESULT(r, jumpUnneed());
+            }
             else if (isIdentifier("namespace"))
             {
+                m_skipNextClass = false;
                 CHECK_RESULT(r, parseNamespace());
                 m_root->decls.add(r.value());
             }
             else if (isIdentifier("rkclass"))
             {
-                CHECK_RESULT(r, parseCClass());
-                m_root->decls.add(r.value());
+                if (m_skipNextClass) { m_skipNextClass = false; CHECK_RESULT(r, jumpUnneed()); }
+                else { CHECK_RESULT(r, parseCClass()); m_root->decls.add(r.value()); }
             }
             else if (isIdentifier("rkstruct"))
             {
-                CHECK_RESULT(r, parseCStruct());
-                m_root->decls.add(r.value());
+                if (m_skipNextClass) { m_skipNextClass = false; CHECK_RESULT(r, jumpUnneed()); }
+                else { CHECK_RESULT(r, parseCStruct()); m_root->decls.add(r.value()); }
             }
             else if (isIdentifier("rkenum"))
             {
+                m_skipNextClass = false;
                 CHECK_RESULT(r, parseCEnum());
                 m_root->decls.add(r.value());
             }
             else
             {
+                m_skipNextClass = false;
                 CHECK_RESULT(r, jumpUnneed());
             }
         }
@@ -340,28 +349,36 @@ namespace toolkit {
         {
             if (match(TokenType::kEOL) || match(TokenType::kSemiColon))
                 advance();
+            else if (isIdentifier("template"))
+            {
+                m_skipNextClass = true;
+                CHECK_RESULT(r, jumpUnneed());
+            }
             else if (isIdentifier("namespace"))
             {
+                m_skipNextClass = false;
                 CHECK_RESULT(r, parseNamespace());
                 ns->decls.add(r.value());
             }
             else if (isIdentifier("rkclass"))
             {
-                CHECK_RESULT(r, parseCClass());
-                ns->decls.add(r.value());
+                if (m_skipNextClass) { m_skipNextClass = false; CHECK_RESULT(r, jumpUnneed()); }
+                else { CHECK_RESULT(r, parseCClass()); ns->decls.add(r.value()); }
             }
             else if (isIdentifier("rkstruct"))
             {
-                CHECK_RESULT(r, parseCStruct());
-                ns->decls.add(r.value());
+                if (m_skipNextClass) { m_skipNextClass = false; CHECK_RESULT(r, jumpUnneed()); }
+                else { CHECK_RESULT(r, parseCStruct()); ns->decls.add(r.value()); }
             }
             else if (isIdentifier("rkenum"))
             {
+                m_skipNextClass = false;
                 CHECK_RESULT(r, parseCEnum());
                 ns->decls.add(r.value());
             }
             else
             {
+                m_skipNextClass = false;
                 CHECK_RESULT(r, jumpUnneed());
             }
         }
@@ -439,6 +456,7 @@ namespace toolkit {
         while (!match(TokenType::kRCurlyBrace) && !match(TokenType::kEOF))
         {
             if (match(TokenType::kEOL) || match(TokenType::kSemiColon)) { advance(); continue; }
+            const i32 tokenIndexBefore = m_tk_idx;
             if (isIdentifier("rkctor"))
             {
                 advance();
@@ -448,7 +466,7 @@ namespace toolkit {
                 type->members.add(r.value());
             }
             else
-            if (isIdentifier(type->name.getText())) { CHECK_RESULT(r, parseCtor(type->name)); type->members.add(r.value()); }
+            if (isIdentifier(type->name.getText()) && peek().type == TokenType::kLParen) { CHECK_RESULT(r, parseCtor(type->name)); type->members.add(r.value()); }
             else if (isIdentifier("explicit") && peek().type == TokenType::kIdentifier && peek().value == type->name)
             {
                 advance();
@@ -468,8 +486,13 @@ namespace toolkit {
             }
             else
             {
+                // Detect R_OBJECT_NO_SPAWN(X) and similar macros that signal no-spawn
+                if (match(TokenType::kIdentifier) && current().value.find("NO_SPAWN") >= 0)
+                    type->noSpawn = true;
                 CHECK_RESULT(r, jumpUnneed());
             }
+            if (m_tk_idx == tokenIndexBefore)
+                advance();
             isStatic = false;
         }
         consume(TokenType::kRCurlyBrace);
@@ -483,6 +506,11 @@ namespace toolkit {
             return Error::failure("Expected cstruct", ERRR());
         CHECK_RESULT(nameResult, parseDeclName());
         ScopeGuard type = TkMemory::newObject<ASTTypeDecl>(TkMemory::getDefault(), nameResult.value(), ASTTypeDecl::DeclType::kStruct);
+        if (match(TokenType::kColon))
+        {
+            advance();
+            parseBaseList(&type->baseClasses);
+        }
         if (!consume(TokenType::kLCurlyBrace))
             return Error::failure("Expected cstruct body", ERRR());
 
@@ -490,8 +518,24 @@ namespace toolkit {
         while (!match(TokenType::kRCurlyBrace) && !match(TokenType::kEOF))
         {
             if (match(TokenType::kEOL) || match(TokenType::kSemiColon)) { advance(); continue; }
-            if (isIdentifier("static")) { isStatic = true; advance(); continue; }
-            if (isIdentifier("rkfield")) { CHECK_RESULT(r, parseCField(isStatic)); type->members.add(r.value()); }
+            const i32 tokenIndexBefore = m_tk_idx;
+            if (isIdentifier("rkctor"))
+            {
+                advance();
+                while (match(TokenType::kIdentifier) && isConstructorSpecifier(current().value))
+                    advance();
+                CHECK_RESULT(r, parseCtor(type->name, true));
+                type->members.add(r.value());
+            }
+            else if (isIdentifier(type->name.getText()) && peek().type == TokenType::kLParen) { CHECK_RESULT(r, parseCtor(type->name)); type->members.add(r.value()); }
+            else if (isIdentifier("explicit") && peek().type == TokenType::kIdentifier && peek().value == type->name)
+            {
+                advance();
+                CHECK_RESULT(r, parseCtor(type->name));
+                type->members.add(r.value());
+            }
+            else if (isIdentifier("static")) { isStatic = true; advance(); continue; }
+            else if (isIdentifier("rkfield")) { CHECK_RESULT(r, parseCField(isStatic)); type->members.add(r.value()); }
             else if (isIdentifier("rkenum")) { CHECK_RESULT(r, parseCEnum()); type->members.add(r.value()); }
             else if (isIdentifier("rkstruct")) { CHECK_RESULT(r, parseCStruct()); type->members.add(r.value()); }
             else if (isIdentifier("rkclass")) { CHECK_RESULT(r, parseCClass()); type->members.add(r.value()); }
@@ -502,6 +546,8 @@ namespace toolkit {
             }
             else if (match(TokenType::kIdentifier) && isBuiltinSkippedMember(current().value)) { CHECK_RESULT(r, jumpUnneed()); }
             else { CHECK_RESULT(r, parseImplicitStructField(isStatic)); type->members.add(r.value()); }
+            if (m_tk_idx == tokenIndexBefore)
+                advance();
             isStatic = false;
         }
         consume(TokenType::kRCurlyBrace);
@@ -630,6 +676,17 @@ namespace toolkit {
         TkArray<ASTParam> args;
         CHECK_RESULT(result, parseFuncArgs(&args));
         args.swap(f->params);
+
+        while (!match(TokenType::kSemiColon) && !match(TokenType::kEOF))
+        {
+            if (match(TokenType::kLCurlyBrace))
+            {
+                CHECK_RESULT(r, jumpUnneed());
+                break;
+            }
+            advance();
+        }
+        consume(TokenType::kSemiColon);
         return f.getPtr();
     }
 
@@ -640,7 +697,8 @@ namespace toolkit {
         while (!match(TokenType::kLParen) && !match(TokenType::kEOF))
         {
             if (isIdentifier("static")) { isStatic = true; advance(); continue; }
-            if (isIdentifier("inline") || isIdentifier("constexpr")) { advance(); continue; }
+            if (isIdentifier("inline") || isIdentifier("constexpr") || isIdentifier("virtual")) { advance(); continue; }
+            if (match(TokenType::kIdentifier) && isMarco(current().value)) { advance(); continue; }
             if (match(TokenType::kLAngleBracket)) angleDepth++;
             else if (match(TokenType::kRAngleBracket) && angleDepth > 0) angleDepth--;
             sig.add(current());
@@ -839,7 +897,7 @@ namespace toolkit {
         {
             if (isIdentifier("operator") || match(TokenType::kBitNot))
                 looksLikeFunction = true;
-            if (match(TokenType::kEqual))
+            if (!looksLikeFunction && match(TokenType::kEqual))
             {
                 while (!match(TokenType::kSemiColon) && !match(TokenType::kEOF))
                     advance();
@@ -847,6 +905,11 @@ namespace toolkit {
             }
             if (match(TokenType::kLParen))
                 looksLikeFunction = true;
+            if (looksLikeFunction && match(TokenType::kLCurlyBrace))
+            {
+                CHECK_RESULT(r, jumpUnneed());
+                return f.getPtr();
+            }
             decl.add(current());
             advance();
         }
@@ -872,6 +935,77 @@ namespace toolkit {
         return f.getPtr();
     }
 
+    // Evaluate a preprocessor condition token after the directive keyword.
+    // Returns true only for "#ifdef X" / "#ifndef X" / "#if X" / "#if 1" / "#if defined(X)"
+    // where X is a known macro. Everything else is conservatively false.
+    bool CXXParser::evalPreprocessorCondition()
+    {
+        if (isIdentifier("defined"))
+        {
+            advance();
+            if (consume(TokenType::kLParen))
+            {
+                bool r = false;
+                if (match(TokenType::kIdentifier))
+                    r = isMarco(current().value);
+                while (!match(TokenType::kRParen) && !match(TokenType::kEOL) && !match(TokenType::kEOF))
+                    advance();
+                consume(TokenType::kRParen);
+                return r;
+            }
+            return false;
+        }
+        if (match(TokenType::kIdentifier))
+            return isMarco(current().value);
+        // numeric literal "1" → true; "0" / anything else → false
+        if (!current().value.isEmpty() && current().value == "1")
+            return true;
+        return false;
+    }
+
+    // Skip tokens inside a false preprocessor block.
+    // If stopAtElse=true, stops at the matching #else/#elif (so the else-block gets parsed normally).
+    // If stopAtElse=false, skips all the way to #endif.
+    void CXXParser::skipConditionalBlock(bool stopAtElse)
+    {
+        jumpLine();
+        if (match(TokenType::kEOL))
+            advance();
+
+        i32 depth = 1;
+        while (!match(TokenType::kEOF))
+        {
+            if (match(TokenType::kPreprocessor))
+            {
+                advance();
+                if (isIdentifier("if") || isIdentifier("ifdef") || isIdentifier("ifndef"))
+                {
+                    depth++;
+                }
+                else if (isIdentifier("endif"))
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        jumpLine();
+                        if (match(TokenType::kEOL)) advance();
+                        return;
+                    }
+                }
+                else if (stopAtElse && depth == 1 && (isIdentifier("else") || isIdentifier("elif")))
+                {
+                    jumpLine();
+                    if (match(TokenType::kEOL)) advance();
+                    return;
+                }
+                jumpLine();
+                if (match(TokenType::kEOL)) advance();
+                continue;
+            }
+            advance();
+        }
+    }
+
     Expected<void> CXXParser::jumpUnneed()
     {
         if (match(TokenType::kPreprocessor))
@@ -888,6 +1022,42 @@ namespace toolkit {
                 advance();
                 if (match(TokenType::kIdentifier))
                     m_marcos.remove(current().value);
+            }
+            else if (isIdentifier("ifdef") || isIdentifier("ifndef"))
+            {
+                const bool isIfdef = isIdentifier("ifdef");
+                advance();
+                bool condTrue = false;
+                if (match(TokenType::kIdentifier))
+                {
+                    condTrue = isMarco(current().value);
+                    if (!isIfdef) condTrue = !condTrue;
+                }
+                if (!condTrue)
+                {
+                    skipConditionalBlock(true);
+                    return Error::success();
+                }
+                // condTrue: skip rest of directive line and let the block parse normally
+            }
+            else if (isIdentifier("if"))
+            {
+                advance();
+                if (!evalPreprocessorCondition())
+                {
+                    skipConditionalBlock(true);
+                    return Error::success();
+                }
+            }
+            else if (isIdentifier("else") || isIdentifier("elif"))
+            {
+                // We finished parsing a true-block; skip to #endif
+                skipConditionalBlock(false);
+                return Error::success();
+            }
+            else if (isIdentifier("endif"))
+            {
+                // End of a conditional we already parsed; just consume it
             }
             jumpLine();
             if (match(TokenType::kEOL))

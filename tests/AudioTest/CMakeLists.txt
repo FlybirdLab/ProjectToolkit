@@ -28,9 +28,12 @@ AddTkMath(INCS LNKS DEPS)
 
 AddTkAudio(INCS LNKS DEPS)
 
-AddGTest(INCS LNKS)
+list(APPEND LNKS tbuild::gtest)
 
-AddMiniMp3(INCS LNKS)
+if(NOT TARGET tbuild::minimp3)
+    message(FATAL_ERROR "AudioTest requires tbuild::minimp3.")
+endif()
+list(APPEND LNKS tbuild::minimp3)
 # AddVorbis(INCS NULL)
 ########################################################
 # project configurations

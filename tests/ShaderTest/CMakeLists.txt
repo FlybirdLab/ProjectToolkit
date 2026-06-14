@@ -32,7 +32,7 @@ AddTkGraphics(INCS LNKS DEPS)
 # format/ + GfxShaderAsset bits, which aren't enough by themselves.
 AddTkShaderCompilerCore(INCS LNKS DEPS)
 
-AddGTest(INCS LNKS)
+list(APPEND LNKS tbuild::gtest)
 ########################################################
 # project configurations
 ########################################################

@@ -25,6 +25,7 @@
 #include <toolkit/platforms/System.hpp>
 #include <toolkit/shader/format/GfxShaderAssetLoader.hpp>
 #include <toolkit/threading/Thread.hpp>
+#include <toolkit/types/Path.hpp>
 #include <toolkit/utils/CommandLine.hpp>
 #include <toolkit/utils/StringUtils.hpp>
 #include <toolkit/video/VideoBackend.hpp>
@@ -126,12 +127,24 @@ namespace toolkit
             return true;
         }
 
+        bool makeVideoShaderOutputDir(const char *backendName, TkString &outputDir)
+        {
+            TkString rootDir = System::getWorkDir() / "shader-output";
+            TkPath::normalize(rootDir);
+            outputDir = rootDir / TkString(backendName);
+            TkPath::normalize(outputDir);
+
+            if (!TkFileSystem::isDirExist(rootDir) && !TkFileSystem::makeDir(rootDir))
+                return false;
+            return TkFileSystem::isDirExist(outputDir) || TkFileSystem::makeDir(outputDir);
+        }
+
         bool compileVideoQuadShader(const VideoBackendDescriptor &backend, TkString &cachePath)
         {
             // Shader payloads are backend-specific; keep concurrent clients
             // from replacing the tksd that a different backend is loading.
-            const TkString outputDir = (System::getWorkDir() / "shader-output") / TkString(backend.cliName);
-            if (!TkFileSystem::isDirExist(outputDir) && !TkFileSystem::makeDir(outputDir))
+            TkString outputDir;
+            if (!makeVideoShaderOutputDir(backend.cliName, outputDir))
             {
                 LogError("[VideoSandbox] Failed to create shader output directory: %s", outputDir.getText());
                 return false;

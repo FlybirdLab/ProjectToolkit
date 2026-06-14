@@ -28,11 +28,20 @@ AddTkMath(INCS LNKS DEPS)
 AddTkWindow(INCS LNKS DEPS)
 AddTkGraphics(INCS LNKS DEPS)
 
-        AddVulkanSDK(INCS LNKS)
-        AddVolk(INCS LNKS)
-        AddVMA(INCS LNKS)
+        if(NOT TARGET tbuild::vulkan)
+            message(FATAL_ERROR "GraphicsTest requires tbuild::vulkan.")
+        endif()
+        list(APPEND LNKS tbuild::vulkan)
+        if(NOT TARGET tbuild::volk)
+            message(FATAL_ERROR "GraphicsTest requires tbuild::volk.")
+        endif()
+        list(APPEND LNKS tbuild::volk)
+        if(NOT TARGET tbuild::vma)
+            message(FATAL_ERROR "GraphicsTest requires tbuild::vma.")
+        endif()
+        list(APPEND LNKS tbuild::vma)
 
-AddGTest(INCS LNKS)
+list(APPEND LNKS tbuild::gtest)
 ########################################################
 # project configurations
 ########################################################

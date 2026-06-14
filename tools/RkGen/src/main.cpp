@@ -34,6 +34,8 @@ namespace toolkit
             "  -s <dir>          same as --source-dir\n"
             "  --output <dir>    same as --out\n"
             "  -o <dir>          same as --out\n"
+            "  --out-name <name> generated output stem for --file mode\n"
+            "  --output-name <name> same as --out-name\n"
             "\n");
     }
 
@@ -108,7 +110,11 @@ int main(int argc, char** argv)
     }
     outputDir = makeAbsolutePath(outputDir);
 
-    MocCtx ctx(sourceDir, outputDir, sourceFiles);
+    TkString outputName = args.get("out-name");
+    if (outputName.isEmpty())
+        outputName = args.get("output-name");
+
+    MocCtx ctx(sourceDir, outputDir, sourceFiles, outputName);
     const int result = ctx.runMoc();
 
     System::beforeQuit();

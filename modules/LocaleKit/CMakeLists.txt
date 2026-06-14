@@ -25,7 +25,10 @@ SetPlatformDeps(INCS LNKS)
 
 AddTkCore(INCS LNKS DEPS)
 
-AddCultureInfo(INCS LNKS)
+if(NOT TARGET tbuild::DataExtend)
+    message(FATAL_ERROR "TkLocale requires tbuild::DataExtend.")
+endif()
+list(APPEND LNKS tbuild::DataExtend)
 #################################################################
 # project configurations
 #################################################################
