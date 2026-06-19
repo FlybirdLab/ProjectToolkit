@@ -57,7 +57,7 @@ set(TK_NET_BACKEND_KCP 0)
 
 if(TK_NET_BACKEND STREQUAL "enet")
     set(TK_NET_BACKEND_ENET 1)
-    list(APPEND LNKS tbuild::enet)
+    list(APPEND LNKS tpkg::enet)
 
 elseif(TK_NET_BACKEND STREQUAL "kcp")
     set(TK_NET_BACKEND_KCP 1)

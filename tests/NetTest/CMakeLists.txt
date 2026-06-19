@@ -26,7 +26,7 @@ set(SRCS
 AddTkCore(INCS LNKS DEPS)
 AddTkReflect(INCS LNKS DEPS)
 AddTkNet(INCS LNKS DEPS)
-list(APPEND LNKS tbuild::gtest)
+list(APPEND LNKS tpkg::gtest)
 ########################################################
 # project configurations
 ########################################################

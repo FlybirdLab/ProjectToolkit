@@ -31,19 +31,19 @@ set(HEAD
 #################################################################
 SetPlatformDeps(INCS LNKS)
 
-list(APPEND LNKS tbuild::stb)
-list(APPEND LNKS tbuild::spdlog)
-list(APPEND LNKS tbuild::rpmalloc)
-list(APPEND LNKS tbuild::xxhash)
-if(NOT TARGET tbuild::DataExtend)
-        message(FATAL_ERROR "TkCore requires tbuild::DataExtend.")
+list(APPEND LNKS tpkg::stb)
+list(APPEND LNKS tpkg::spdlog)
+list(APPEND LNKS tpkg::rpmalloc)
+list(APPEND LNKS tpkg::xxhash)
+if(NOT TARGET tpkg::DataExtend)
+        message(FATAL_ERROR "TkCore requires tpkg::DataExtend.")
 endif()
-list(APPEND LNKS tbuild::DataExtend)
-if(NOT TARGET tbuild::tracy)
-        message(FATAL_ERROR "TkCore requires tbuild::tracy.")
+list(APPEND LNKS tpkg::DataExtend)
+if(NOT TARGET tpkg::tracy)
+        message(FATAL_ERROR "TkCore requires tpkg::tracy.")
 endif()
-list(APPEND LNKS tbuild::tracy)
-list(APPEND LNKS tbuild::rapidjson)
+list(APPEND LNKS tpkg::tracy)
+list(APPEND LNKS tpkg::rapidjson)
 #################################################################
 # project configurations
 #################################################################

@@ -14,7 +14,7 @@ param(
 
     [string]$Generator = "Ninja",
 
-    [string]$TBuild = "tbuild",
+    [string]$TBuild = "tpkg",
 
     [string]$CMake = "cmake",
 
@@ -53,23 +53,23 @@ $buildRoot = if ([System.IO.Path]::IsPathRooted($BuildDir)) {
 }
 
 $configLower = $Config.ToLowerInvariant()
-$tbuildRootArgs = @("--root", $repoRoot)
-$tbuildCommandArgs = @("--config", $configLower)
+$tpkgRootArgs = @("--root", $repoRoot)
+$tpkgCommandArgs = @("--config", $configLower)
 if (-not [string]::IsNullOrWhiteSpace($Toolchain)) {
-    $tbuildCommandArgs += @("--toolchain", $Toolchain)
+    $tpkgCommandArgs += @("--toolchain", $Toolchain)
 }
 
 Push-Location $repoRoot
 try {
     if (-not $SkipRestore) {
-        Invoke-Step "tbuild restore" {
-            & $TBuild @tbuildRootArgs restore @tbuildCommandArgs
+        Invoke-Step "tpkg restore" {
+            & $TBuild @tpkgRootArgs restore @tpkgCommandArgs
         }
     }
 
     if (-not $SkipGenerate) {
-        Invoke-Step "tbuild generate" {
-            & $TBuild @tbuildRootArgs generate @tbuildCommandArgs
+        Invoke-Step "tpkg generate" {
+            & $TBuild @tpkgRootArgs generate @tpkgCommandArgs
         }
     }
 

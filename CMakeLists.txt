@@ -19,10 +19,10 @@ if (MSVC)
 endif()
 
 ##########################################################
-# ToolkitBuild integration
+# Toolkit Package Manager integration
 ##########################################################
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/.tbuild/generated/cmake")
-find_package(tbuild CONFIG REQUIRED)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/.tpkg/generated/cmake")
+find_package(tpkg CONFIG REQUIRED)
 
 ##########################################################
 # dependencies

@@ -5,15 +5,15 @@
 # TkCore module index file
 
 function(AddTkCore incVar lnkVar depVar)
-    if(NOT TARGET tbuild::DataExtend)
-        message(FATAL_ERROR "TkCore requires tbuild::DataExtend.")
+    if(NOT TARGET tpkg::DataExtend)
+        message(FATAL_ERROR "TkCore requires tpkg::DataExtend.")
     endif()
 
     list(APPEND ${depVar} "TkCore")
     list(APPEND ${incVar}
         "${CMAKE_SOURCE_DIR}/modules/CoreKit/src"
     )
-    list(APPEND ${lnkVar} tbuild::DataExtend)
+    list(APPEND ${lnkVar} tpkg::DataExtend)
     
     IF(WIN32)
         list(APPEND ${lnkVar} "TkCore")

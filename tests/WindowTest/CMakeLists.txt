@@ -27,7 +27,7 @@ AddTkCore(INCS LNKS DEPS)
 AddTkMath(INCS LNKS DEPS)
 AddTkWindow(INCS LNKS DEPS)
 
-list(APPEND LNKS tbuild::gtest)
+list(APPEND LNKS tpkg::gtest)
 ########################################################
 # project configurations
 ########################################################

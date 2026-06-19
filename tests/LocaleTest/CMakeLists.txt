@@ -26,7 +26,7 @@ set(SRCS
 AddTkCore(INCS LNKS DEPS)
 AddTkLocale(INCS LNKS DEPS)
 
-list(APPEND LNKS tbuild::gtest)
+list(APPEND LNKS tpkg::gtest)
 ########################################################
 # project configurations
 ########################################################

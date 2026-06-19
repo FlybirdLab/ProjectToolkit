@@ -35,10 +35,10 @@ AddTkGraphics(INCS LNKS DEPS)
 AddTkAudio(INCS LNKS DEPS)
 
 if(WIN32 OR APPLE OR ANDROID)
-    if(NOT TARGET tbuild::video)
-        message(FATAL_ERROR "TkVideo requires tbuild::video.")
+    if(NOT TARGET tpkg::video)
+        message(FATAL_ERROR "TkVideo requires tpkg::video.")
     endif()
-    list(APPEND LNKS tbuild::video)
+    list(APPEND LNKS tpkg::video)
 endif()
 #################################################################
 # project configurations

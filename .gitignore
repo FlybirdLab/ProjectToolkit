@@ -16,6 +16,6 @@ references
 install
 shader-output
 .codegraph
-tbuild.lock.toml
-.tbuild
+tpkg.lock.toml
+.tpkg
 *.pdb
