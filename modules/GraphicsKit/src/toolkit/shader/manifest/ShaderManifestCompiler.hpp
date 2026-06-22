@@ -44,6 +44,10 @@ namespace toolkit
         // Used purely as part of generated TkUuid()s so different inputs in
         // the same CLI invocation get distinct ids.
         u32 inputIndex = 0;
+
+        // Skip compilation when an existing .tksd is newer than the manifest
+        // and every recorded source dependency.
+        bool incremental = true;
     };
 
     struct ShaderManifestCompileResult
@@ -56,6 +60,7 @@ namespace toolkit
         i32 cacheHit = 0;
         i32 cacheMiss = 0;
         i32 compiled = 0; // == caseCount - cacheHit - failed (approximately)
+        i32 skipped = 0;
         // Phase 8 dependency-scan stats.
         i32 includeMissingCount = 0;
         i32 includeCycleCount = 0;

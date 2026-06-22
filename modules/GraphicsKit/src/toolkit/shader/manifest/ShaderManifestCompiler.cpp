@@ -14,6 +14,7 @@
 #include <toolkit/shader/diagnostics/Diagnostic.hpp>
 #include <toolkit/shader/core/Compilation.hpp>
 #include <toolkit/shader/format/ShaderAsset.hpp>
+#include <toolkit/shader/format/TksdReader.hpp>
 #include <toolkit/shader/format/TksdWriter.hpp>
 #include <toolkit/shader/format/TksdFormat.hpp>
 #include <toolkit/shader/compilegraph/ShaderCompileJob.hpp>
@@ -24,6 +25,7 @@
 #include <toolkit/debug/Logger.hpp>
 #include <toolkit/io/MemoryStream.hpp>
 #include <toolkit/platforms/FileSystem.hpp>
+#include <toolkit/types/DateTime.hpp>
 #include <toolkit/types/Path.hpp>
 #include <toolkit/types/UUID.hpp>
 
@@ -157,6 +159,72 @@ namespace toolkit
             }
             return out;
         }
+
+        TkString makeOutputPath(const TkString &outputDir, const TkString &shaderBaseName)
+        {
+            return TkString(outputDir)
+                / TkString::format("%s.tksd",
+                    shaderBaseName.isEmpty() ? "shader" : shaderBaseName.get());
+        }
+
+        bool hasCompatibleProfile(const ShaderDecl &decl, GfxShaderProfile profile)
+        {
+            const char *backend = manifestBackendFor(profile);
+            return backend != nullptr && backend[0] != 0 && pickSubShaderIndex(decl, backend) >= 0;
+        }
+
+        bool hasStageProfile(const ShaderAsset &asset, GfxShaderProfile profile)
+        {
+            for (i32 i = 0; i < asset.stages.count(); i++)
+            {
+                if (asset.stages[i].profile == profile)
+                    return true;
+            }
+            return false;
+        }
+
+        bool isIncrementalHit(
+            const ShaderManifestCompileOptions &options,
+            const ShaderDecl &decl,
+            const TkString &tksdPath)
+        {
+            if (!TkFileSystem::isFileExist(tksdPath))
+                return false;
+
+            ShaderAsset existing;
+            TksdReader reader;
+            if (reader.readFromFile(tksdPath, existing) != TksdReadResult::Ok)
+                return false;
+
+            if (existing.stages.isEmpty() || existing.dependencies.isEmpty())
+                return false;
+
+            for (i32 i = 0; i < options.profiles.count(); i++)
+            {
+                const GfxShaderProfile profile = options.profiles[i];
+                if (hasCompatibleProfile(decl, profile) && !hasStageProfile(existing, profile))
+                    return false;
+            }
+
+            const TkDateTime outputTime = TkFileSystem::getLastEdit(tksdPath);
+            if (outputTime <= TkDateTime::minValue())
+                return false;
+            if (TkFileSystem::getLastEdit(options.manifestPath) > outputTime)
+                return false;
+
+            for (i32 i = 0; i < existing.dependencies.count(); i++)
+            {
+                const TkString &dependency = existing.dependencies[i];
+                if (dependency.isEmpty())
+                    continue;
+                if (!TkFileSystem::isFileExist(dependency))
+                    return false;
+                if (TkFileSystem::getLastEdit(dependency) > outputTime)
+                    return false;
+            }
+
+            return true;
+        }
     }
 
     bool ShaderManifestCompiler::compile(
@@ -165,13 +233,20 @@ namespace toolkit
     {
         outResult.caseCount = 0;
         outResult.failedCount = 0;
+        outResult.cacheHit = 0;
+        outResult.cacheMiss = 0;
+        outResult.compiled = 0;
+        outResult.skipped = 0;
+        outResult.includeMissingCount = 0;
+        outResult.includeCycleCount = 0;
+        outResult.dependencyTotalCount = 0;
 
         SourceManager *sources = options.sources;
         DiagnosticSink *sink = options.diagnostics;
         if (sources == nullptr || sink == nullptr)
         {
             // Pure programming error; the CLI must always provide both.
-            LogError("[ShaderManifestCompiler] sources/diagnostics required");
+            LogError("sources/diagnostics required");
             return false;
         }
 
@@ -201,6 +276,14 @@ namespace toolkit
         // ---- 3. For each selected CLI profile, drive the legacy compile path. ----
         const TkString manifestDir(TkPath::getDir(TkStringView(options.manifestPath)));
         const TkString shaderBaseName = sanitizeForFileName(decl.name);
+        const TkString tksdPath = makeOutputPath(options.outputDir, shaderBaseName);
+
+        if (options.incremental && isIncrementalHit(options, decl, tksdPath))
+        {
+            outResult.skipped++;
+            LogInfo("skipped up-to-date %s", tksdPath.get());
+            return true;
+        }
 
         // v1 stops short of variant expansion -- if the manifest declares any
         // Variants, surface the fact that we're silently picking the "all-off"
@@ -240,6 +323,18 @@ namespace toolkit
         // write at the end.
         ShaderAsset accumulatedAsset;
         accumulatedAsset.name = decl.name;
+        auto addAssetDependency = [&](const TkString &path)
+        {
+            if (path.isEmpty())
+                return;
+            for (i32 i = 0; i < accumulatedAsset.dependencies.count(); i++)
+            {
+                if (accumulatedAsset.dependencies[i] == path)
+                    return;
+            }
+            accumulatedAsset.dependencies.add(path);
+        };
+        addAssetDependency(options.manifestPath);
         for (i32 i = 0; i < decl.properties.count(); i++)
         {
             ShaderProperty out;
@@ -512,6 +607,7 @@ namespace toolkit
                     sourceFileId = src->getId();
                     scanAnchorPath = resolved;
                     cacheSourcePath = resolved;
+                    addAssetDependency(resolved);
                 }
 
                 // ---- 3a'. Dependency scan (Phase 8). ----
@@ -582,7 +678,7 @@ namespace toolkit
                 compileOpts.includeDirs = hashIncludeDirs;
                 compileOpts.prebuiltEntries = manifestEntries;
 
-                LogInfo("[ShaderManifestCompiler] compiling '%s' pass '%s' as %s",
+                LogInfo("compiling '%s' pass '%s' as %s",
                         decl.name, pass.name, profileShortName(profile));
 
                 // ---- 3b'. Job cache lookup (Phase 6B, extended in Phase 8). ----
@@ -622,7 +718,7 @@ namespace toolkit
                                               static_cast<u32>(cached.bytecode.count()));
                         outResult.cacheHit++;
                         cacheHit = true;
-                        LogInfo("[ShaderManifestCompiler] cache hit '%s' (%i bytes, %i bindings, %i vertex inputs, %i deps)",
+                        LogInfo("cache hit '%s' (%i bytes, %i bindings, %i vertex inputs, %i deps)",
                                 pass.name.get(),
                                 output.getPosition(),
                                 cached.reflectionBindings.count(),
@@ -755,22 +851,10 @@ namespace toolkit
                 for (i32 i = 0; i < cached.dependencies.count(); i++)
                 {
                     const TkString &p = cached.dependencies[i];
-                    if (p.isEmpty())
-                        continue;
-                    bool already = false;
-                    for (i32 j = 0; j < accumulatedAsset.dependencies.count(); j++)
-                    {
-                        if (accumulatedAsset.dependencies[j] == p)
-                        {
-                            already = true;
-                            break;
-                        }
-                    }
-                    if (!already)
-                        accumulatedAsset.dependencies.add(p);
+                    addAssetDependency(p);
                 }
 
-                LogInfo("[ShaderManifestCompiler] queued pass '%s' (%i bytes) for tksd",
+                LogInfo("queued pass '%s' (%i bytes) for tksd",
                         pass.name.get(), byteCount);
             }
         }
@@ -795,10 +879,6 @@ namespace toolkit
                 return false;
             }
 
-            const TkString tksdPath = TkString(options.outputDir)
-                / TkString::format("%s.tksd",
-                    shaderBaseName.isEmpty() ? "shader" : shaderBaseName.get());
-
             TksdWriter writer;
             if (!writer.writeToFile(accumulatedAsset, tksdPath))
             {
@@ -810,7 +890,7 @@ namespace toolkit
                 return false;
             }
 
-            LogInfo("[ShaderManifestCompiler] wrote %s (%i passes, %i stages)",
+            LogInfo("wrote %s (%i passes, %i stages)",
                     tksdPath.get(),
                     accumulatedAsset.passes.count(),
                     accumulatedAsset.stages.count());

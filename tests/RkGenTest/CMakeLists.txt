@@ -25,6 +25,7 @@ set(SRCS
 ########################################################
 AddTkCore(INCS LNKS DEPS)
 AddTkReflect(INCS LNKS DEPS)
+AddTkMath(INCS LNKS DEPS)
 
 ########################################################
 # project configurations

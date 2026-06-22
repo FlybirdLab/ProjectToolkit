@@ -24,10 +24,12 @@ namespace toolkit
         // Preferred creation API is newObjectHandle(). newObject() is a pointer convenience that also registers a handle.
         static RkObject* newObject(TypeHandle type);
         static RkObject* newObject(TypeHandle type, ArgValue* args, u32 argCount);
+        static RkObject* newObject(const ObjectSpawnParams& params);
         static void destroyObject(RkObject* object);
 
         static ObjectHandle newObjectHandle(TypeHandle type);
         static ObjectHandle newObjectHandle(TypeHandle type, ArgValue* args, u32 argCount);
+        static ObjectHandle newObjectHandle(const ObjectSpawnParams& params);
         static void destroyObject(ObjectHandle handle);
         static RkObject* resolveObject(ObjectHandle handle);
         static bool isObjectAlive(ObjectHandle handle);
@@ -41,6 +43,7 @@ namespace toolkit
         static void registerObject(RkObject* object);
         static void unregisterObject(RkObject* object);
         static void onObjectIdChanged(RkObject* object, const TkUuid& oldId);
+        static void destroyObjectsFromModule(RkModule* module);
 
         static RkObject* findObject(const TkUuid& id);
         static TkArray<RkObject*> getObjects();
@@ -93,6 +96,11 @@ namespace toolkit
             return TypeRegistry::newObject(type, args, argCount);
         }
 
+        static RkObject* newObject(const ObjectSpawnParams& params)
+        {
+            return TypeRegistry::newObject(params);
+        }
+
         template <class T>
         static T* newObject()
         {
@@ -118,6 +126,11 @@ namespace toolkit
         static ObjectHandle newObjectHandle(TypeHandle type, ArgValue* args, const u32 argCount)
         {
             return TypeRegistry::newObjectHandle(type, args, argCount);
+        }
+
+        static ObjectHandle newObjectHandle(const ObjectSpawnParams& params)
+        {
+            return TypeRegistry::newObjectHandle(params);
         }
 
         template <class T>

@@ -39,18 +39,18 @@ namespace toolkit
         return TkString::format("%s", *this);
     }
 
-    float Mat::getDeterminant() const
+    f32 Mat::getDeterminant() const
     {
-        const float temp1 = m33 * m44 - m34 * m43;
-        const float temp2 = m32 * m44 - m34 * m42;
-        const float temp3 = m32 * m43 - m33 * m42;
-        const float temp4 = m31 * m44 - m34 * m41;
-        const float temp5 = m31 * m43 - m33 * m41;
-        const float temp6 = m31 * m42 - m32 * m41;
+        const f32 temp1 = m33 * m44 - m34 * m43;
+        const f32 temp2 = m32 * m44 - m34 * m42;
+        const f32 temp3 = m32 * m43 - m33 * m42;
+        const f32 temp4 = m31 * m44 - m34 * m41;
+        const f32 temp5 = m31 * m43 - m33 * m41;
+        const f32 temp6 = m31 * m42 - m32 * m41;
         return m11 * (m22 * temp1 - m23 * temp2 + m24 * temp3) - m12 * (m21 * temp1 - m23 * temp4 + m24 * temp5) + m13 * (m21 * temp2 - m22 * temp4 + m24 * temp6) - m14 * (m21 * temp3 - m22 * temp5 + m23 * temp6);
     }
 
-    float Mat::rotDeterminant() const
+    f32 Mat::rotDeterminant() const
     {
         return values[0][0] * (values[1][1] * values[2][2] - values[1][2] * values[2][1]) -
                values[1][0] * (values[0][1] * values[2][2] - values[0][2] * values[2][1]) +
@@ -59,9 +59,9 @@ namespace toolkit
 
     void Mat::normalizeScale()
     {
-        const float scaleX = 1.0f / FVec3(m11, m21, m31).length();
-        const float scaleY = 1.0f / FVec3(m12, m22, m32).length();
-        const float scaleZ = 1.0f / FVec3(m13, m23, m33).length();
+        const f32 scaleX = 1.0f / FVec3(m11, m21, m31).length();
+        const f32 scaleY = 1.0f / FVec3(m12, m22, m32).length();
+        const f32 scaleZ = 1.0f / FVec3(m13, m23, m33).length();
 
         m11 *= scaleX;
         m21 *= scaleX;
@@ -76,7 +76,7 @@ namespace toolkit
         m33 *= scaleZ;
     }
 
-    void Mat::decompose(float &yaw, float &pitch, float &roll) const
+    void Mat::decompose(f32 &yaw, f32 &pitch, f32 &roll) const
     {
         pitch = TkMath::asin(-m32);
         if (TkMath::cos(pitch) > 1e-12f)
@@ -199,7 +199,7 @@ namespace toolkit
         result.m44 = left.m44 - right.m44;
     }
 
-    void Mat::multiply(const Mat &left, float right, Mat &result)
+    void Mat::multiply(const Mat &left, f32 right, Mat &result)
     {
         result.m11 = left.m11 * right;
         result.m12 = left.m12 * right;
@@ -239,10 +239,10 @@ namespace toolkit
         result.m44 = left.m41 * right.m14 + left.m42 * right.m24 + left.m43 * right.m34 + left.m44 * right.m44;
     }
 
-    void Mat::divide(const Mat &left, float right, Mat &result)
+    void Mat::divide(const Mat &left, f32 right, Mat &result)
     {
         TK_ASSERT(!TkMath::isZero(right));
-        const float inv = 1.0f / right;
+        const f32 inv = 1.0f / right;
 
         result.m11 = left.m11 * inv;
         result.m12 = left.m12 * inv;
@@ -302,7 +302,7 @@ namespace toolkit
         result.m44 = -value.m44;
     }
 
-    void Mat::lerp(const Mat &start, const Mat &end, float amount, Mat &result)
+    void Mat::lerp(const Mat &start, const Mat &end, f32 amount, Mat &result)
     {
         result.m11 = TkMath::lerp(start.m11, end.m11, amount);
         result.m12 = TkMath::lerp(start.m12, end.m12, amount);
@@ -368,19 +368,19 @@ namespace toolkit
 
     void Mat::invert(const Mat &value, Mat &result)
     {
-        const float b0 = value.m31 * value.m42 - value.m32 * value.m41;
-        const float b1 = value.m31 * value.m43 - value.m33 * value.m41;
-        const float b2 = value.m34 * value.m41 - value.m31 * value.m44;
-        const float b3 = value.m32 * value.m43 - value.m33 * value.m42;
-        const float b4 = value.m34 * value.m42 - value.m32 * value.m44;
-        const float b5 = value.m33 * value.m44 - value.m34 * value.m43;
+        const f32 b0 = value.m31 * value.m42 - value.m32 * value.m41;
+        const f32 b1 = value.m31 * value.m43 - value.m33 * value.m41;
+        const f32 b2 = value.m34 * value.m41 - value.m31 * value.m44;
+        const f32 b3 = value.m32 * value.m43 - value.m33 * value.m42;
+        const f32 b4 = value.m34 * value.m42 - value.m32 * value.m44;
+        const f32 b5 = value.m33 * value.m44 - value.m34 * value.m43;
 
-        const float d11 = value.m22 * b5 + value.m23 * b4 + value.m24 * b3;
-        const float d12 = value.m21 * b5 + value.m23 * b2 + value.m24 * b1;
-        const float d13 = value.m21 * -b4 + value.m22 * b2 + value.m24 * b0;
-        const float d14 = value.m21 * b3 + value.m22 * -b1 + value.m23 * b0;
+        const f32 d11 = value.m22 * b5 + value.m23 * b4 + value.m24 * b3;
+        const f32 d12 = value.m21 * b5 + value.m23 * b2 + value.m24 * b1;
+        const f32 d13 = value.m21 * -b4 + value.m22 * b2 + value.m24 * b0;
+        const f32 d14 = value.m21 * b3 + value.m22 * -b1 + value.m23 * b0;
 
-        float det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13 - value.m14 * d14;
+        f32 det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13 - value.m14 * d14;
         if (TkMath::abs(det) <= 1e-12f)
         {
             result = kZero;
@@ -389,27 +389,27 @@ namespace toolkit
 
         det = 1.0f / det;
 
-        const float a0 = value.m11 * value.m22 - value.m12 * value.m21;
-        const float a1 = value.m11 * value.m23 - value.m13 * value.m21;
-        const float a2 = value.m14 * value.m21 - value.m11 * value.m24;
-        const float a3 = value.m12 * value.m23 - value.m13 * value.m22;
-        const float a4 = value.m14 * value.m22 - value.m12 * value.m24;
-        const float a5 = value.m13 * value.m24 - value.m14 * value.m23;
+        const f32 a0 = value.m11 * value.m22 - value.m12 * value.m21;
+        const f32 a1 = value.m11 * value.m23 - value.m13 * value.m21;
+        const f32 a2 = value.m14 * value.m21 - value.m11 * value.m24;
+        const f32 a3 = value.m12 * value.m23 - value.m13 * value.m22;
+        const f32 a4 = value.m14 * value.m22 - value.m12 * value.m24;
+        const f32 a5 = value.m13 * value.m24 - value.m14 * value.m23;
 
-        const float d21 = value.m12 * b5 + value.m13 * b4 + value.m14 * b3;
-        const float d22 = value.m11 * b5 + value.m13 * b2 + value.m14 * b1;
-        const float d23 = value.m11 * -b4 + value.m12 * b2 + value.m14 * b0;
-        const float d24 = value.m11 * b3 + value.m12 * -b1 + value.m13 * b0;
+        const f32 d21 = value.m12 * b5 + value.m13 * b4 + value.m14 * b3;
+        const f32 d22 = value.m11 * b5 + value.m13 * b2 + value.m14 * b1;
+        const f32 d23 = value.m11 * -b4 + value.m12 * b2 + value.m14 * b0;
+        const f32 d24 = value.m11 * b3 + value.m12 * -b1 + value.m13 * b0;
 
-        const float d31 = value.m42 * a5 + value.m43 * a4 + value.m44 * a3;
-        const float d32 = value.m41 * a5 + value.m43 * a2 + value.m44 * a1;
-        const float d33 = value.m41 * -a4 + value.m42 * a2 + value.m44 * a0;
-        const float d34 = value.m41 * a3 + value.m42 * -a1 + value.m43 * a0;
+        const f32 d31 = value.m42 * a5 + value.m43 * a4 + value.m44 * a3;
+        const f32 d32 = value.m41 * a5 + value.m43 * a2 + value.m44 * a1;
+        const f32 d33 = value.m41 * -a4 + value.m42 * a2 + value.m44 * a0;
+        const f32 d34 = value.m41 * a3 + value.m42 * -a1 + value.m43 * a0;
 
-        const float d41 = value.m32 * a5 + value.m33 * a4 + value.m34 * a3;
-        const float d42 = value.m31 * a5 + value.m33 * a2 + value.m34 * a1;
-        const float d43 = value.m31 * -a4 + value.m32 * a2 + value.m34 * a0;
-        const float d44 = value.m31 * a3 + value.m32 * -a1 + value.m33 * a0;
+        const f32 d41 = value.m32 * a5 + value.m33 * a4 + value.m34 * a3;
+        const f32 d42 = value.m31 * a5 + value.m33 * a2 + value.m34 * a1;
+        const f32 d43 = value.m31 * -a4 + value.m32 * a2 + value.m34 * a0;
+        const f32 d44 = value.m31 * a3 + value.m32 * -a1 + value.m33 * a0;
 
         result.m11 = +d11 * det;
         result.m12 = -d21 * det;
@@ -435,7 +435,7 @@ namespace toolkit
         FVec3 final;
         FVec3 difference = cameraPosition - objectPosition;
 
-        const float lengthSq = difference.lengthSquared();
+        const f32 lengthSq = difference.lengthSquared();
         if (TkMath::isZero(lengthSq))
             difference = -cameraForwardFloat;
         else
@@ -497,9 +497,9 @@ namespace toolkit
         result.m44 = 1.0f;
     }
 
-    void Mat::orthoOffCenter(float left, float right, float bottom, float top, float zNear, float zFar, Mat &result)
+    void Mat::orthoOffCenter(f32 left, f32 right, f32 bottom, f32 top, f32 zNear, f32 zFar, Mat &result)
     {
-        const float zRange = 1.0f / (zFar - zNear);
+        const f32 zRange = 1.0f / (zFar - zNear);
 
         result = kIdentity;
         result.m11 = 2.0f / (right - left);
@@ -510,20 +510,20 @@ namespace toolkit
         result.m43 = -zNear * zRange;
     }
 
-    void Mat::perspectiveFov(float fov, float aspect, float zNear, float zFar, Mat &result)
+    void Mat::perspectiveFov(f32 fov, f32 aspect, f32 zNear, f32 zFar, Mat &result)
     {
-        const float yScale = 1.0f / TkMath::tan(fov * 0.5f);
-        const float xScale = yScale / aspect;
+        const f32 yScale = 1.0f / TkMath::tan(fov * 0.5f);
+        const f32 xScale = yScale / aspect;
 
-        const float halfWidth = zNear / xScale;
-        const float halfHeight = zNear / yScale;
+        const f32 halfWidth = zNear / xScale;
+        const f32 halfHeight = zNear / yScale;
 
         perspectiveOffCenter(-halfWidth, halfWidth, -halfHeight, halfHeight, zNear, zFar, result);
     }
 
-    void Mat::perspectiveOffCenter(float left, float right, float bottom, float top, float zNear, float zFar, Mat &result)
+    void Mat::perspectiveOffCenter(f32 left, f32 right, f32 bottom, f32 top, f32 zNear, f32 zFar, Mat &result)
     {
-        const float zRange = zFar / (zFar - zNear);
+        const f32 zRange = zFar / (zFar - zNear);
 
         result = kZero;
         result.m11 = 2.0f * zNear / (right - left);
@@ -535,10 +535,10 @@ namespace toolkit
         result.m43 = -zNear * zRange;
     }
 
-    void Mat::rotationX(float angle, Mat &result)
+    void Mat::rotationX(f32 angle, Mat &result)
     {
-        const float cosA = TkMath::cos(angle);
-        const float sinA = TkMath::sin(angle);
+        const f32 cosA = TkMath::cos(angle);
+        const f32 sinA = TkMath::sin(angle);
         result = kIdentity;
         result.m22 = cosA;
         result.m23 = sinA;
@@ -546,10 +546,10 @@ namespace toolkit
         result.m33 = cosA;
     }
 
-    void Mat::rotationY(float angle, Mat &result)
+    void Mat::rotationY(f32 angle, Mat &result)
     {
-        const float cosA = TkMath::cos(angle);
-        const float sinA = TkMath::sin(angle);
+        const f32 cosA = TkMath::cos(angle);
+        const f32 sinA = TkMath::sin(angle);
         result = kIdentity;
         result.m11 = cosA;
         result.m13 = -sinA;
@@ -557,10 +557,10 @@ namespace toolkit
         result.m33 = cosA;
     }
 
-    void Mat::rotationZ(float angle, Mat &result)
+    void Mat::rotationZ(f32 angle, Mat &result)
     {
-        const float cosA = TkMath::cos(angle);
-        const float sinA = TkMath::sin(angle);
+        const f32 cosA = TkMath::cos(angle);
+        const f32 sinA = TkMath::sin(angle);
         result = kIdentity;
         result.m11 = cosA;
         result.m12 = sinA;
@@ -568,19 +568,19 @@ namespace toolkit
         result.m22 = cosA;
     }
 
-    void Mat::rotationAxis(const FVec3 &axis, float angle, Mat &result)
+    void Mat::rotationAxis(const FVec3 &axis, f32 angle, Mat &result)
     {
-        const float x = axis.x;
-        const float y = axis.y;
-        const float z = axis.z;
-        const float cosA = TkMath::cos(angle);
-        const float sinA = TkMath::sin(angle);
-        const float xx = x * x;
-        const float yy = y * y;
-        const float zz = z * z;
-        const float xy = x * y;
-        const float xz = x * z;
-        const float yz = y * z;
+        const f32 x = axis.x;
+        const f32 y = axis.y;
+        const f32 z = axis.z;
+        const f32 cosA = TkMath::cos(angle);
+        const f32 sinA = TkMath::sin(angle);
+        const f32 xx = x * x;
+        const f32 yy = y * y;
+        const f32 zz = z * z;
+        const f32 xy = x * y;
+        const f32 xz = x * z;
+        const f32 yz = y * z;
 
         result = kIdentity;
         result.m11 = xx + cosA * (1.0f - xx);
@@ -596,15 +596,15 @@ namespace toolkit
 
     void Mat::rotationQuaternion(const Quat &rotation, Mat &result)
     {
-        const float xx = rotation.x * rotation.x;
-        const float yy = rotation.y * rotation.y;
-        const float zz = rotation.z * rotation.z;
-        const float xy = rotation.x * rotation.y;
-        const float zw = rotation.z * rotation.w;
-        const float zx = rotation.z * rotation.x;
-        const float yw = rotation.y * rotation.w;
-        const float yz = rotation.y * rotation.z;
-        const float xw = rotation.x * rotation.w;
+        const f32 xx = rotation.x * rotation.x;
+        const f32 yy = rotation.y * rotation.y;
+        const f32 zz = rotation.z * rotation.z;
+        const f32 xy = rotation.x * rotation.y;
+        const f32 zw = rotation.z * rotation.w;
+        const f32 zx = rotation.z * rotation.x;
+        const f32 yw = rotation.y * rotation.w;
+        const f32 yz = rotation.y * rotation.z;
+        const f32 xw = rotation.x * rotation.w;
 
         result.m11 = 1.0f - 2.0f * (yy + zz);
         result.m12 = 2.0f * (xy + zw);
@@ -627,7 +627,7 @@ namespace toolkit
         result.m44 = 1;
     }
 
-    void Mat::rotationYawPitchRoll(float yaw, float pitch, float roll, Mat &result)
+    void Mat::rotationYawPitchRoll(f32 yaw, f32 pitch, f32 roll, Mat &result)
     {
         Quat quaternion;
         Quat::rotationYawPitchRoll(yaw, pitch, roll, quaternion);
@@ -651,7 +651,7 @@ namespace toolkit
         result.m43 = value.z;
     }
 
-    void Mat::translation(float x, float y, float z, Mat &result)
+    void Mat::translation(f32 x, f32 y, f32 z, Mat &result)
     {
         result = kIdentity;
         result.m41 = x;
@@ -659,26 +659,26 @@ namespace toolkit
         result.m43 = z;
     }
 
-    void Mat::skew(float angle, const FVec3 &rotationVec, const FVec3 &transVec, Mat &matrix)
+    void Mat::skew(f32 angle, const FVec3 &rotationVec, const FVec3 &transVec, Mat &matrix)
     {
         // http://elckerlyc.ewi.utwente.nl/browser/Elckerlyc/Hmi/HmiMath/src/hmi/math/Mat3f.java
-        const float MINIMAL_SKEW_ANGLE = 0.000001f;
+        const f32 MINIMAL_SKEW_ANGLE = 0.000001f;
 
         FVec3 e0 = rotationVec;
         FVec3 e1;
         FVec3::normalize(transVec, e1);
 
-        const float rv1 = FVec3::dot(rotationVec, e1);
+        const f32 rv1 = FVec3::dot(rotationVec, e1);
         e0 += rv1 * e1;
-        const float rv0 = FVec3::dot(rotationVec, e0);
-        const float cosa = TkMath::cos(angle);
-        const float sina = TkMath::sin(angle);
-        const float rr0 = rv0 * cosa - rv1 * sina;
-        const float rr1 = rv0 * sina + rv1 * cosa;
+        const f32 rv0 = FVec3::dot(rotationVec, e0);
+        const f32 cosa = TkMath::cos(angle);
+        const f32 sina = TkMath::sin(angle);
+        const f32 rr0 = rv0 * cosa - rv1 * sina;
+        const f32 rr1 = rv0 * sina + rv1 * cosa;
 
         TK_ASSERT(rr0 >= MINIMAL_SKEW_ANGLE);
 
-        const float d = rr1 / rr0 - rv1 / rv0;
+        const f32 d = rr1 / rr0 - rv1 / rv0;
 
         matrix = kIdentity;
         matrix.m11 = d * e1.x * e0.x + 1.0f;
@@ -703,15 +703,15 @@ namespace toolkit
         //    *Mat.Position(translation);
 
         // Rotation
-        const float xx = rotation.x * rotation.x;
-        const float yy = rotation.y * rotation.y;
-        const float zz = rotation.z * rotation.z;
-        const float xy = rotation.x * rotation.y;
-        const float zw = rotation.z * rotation.w;
-        const float zx = rotation.z * rotation.x;
-        const float yw = rotation.y * rotation.w;
-        const float yz = rotation.y * rotation.z;
-        const float xw = rotation.x * rotation.w;
+        const f32 xx = rotation.x * rotation.x;
+        const f32 yy = rotation.y * rotation.y;
+        const f32 zz = rotation.z * rotation.z;
+        const f32 xy = rotation.x * rotation.y;
+        const f32 zw = rotation.z * rotation.w;
+        const f32 zx = rotation.z * rotation.x;
+        const f32 yw = rotation.y * rotation.w;
+        const f32 yz = rotation.y * rotation.z;
+        const f32 xw = rotation.x * rotation.w;
         result.m11 = 1.0f - 2.0f * (yy + zz);
         result.m12 = 2.0f * (xy + zw);
         result.m13 = 2.0f * (zx - yw);
@@ -744,22 +744,22 @@ namespace toolkit
         result.m44 = 1.0f;
     }
 
-    void Mat::affineTransformation(float scaling, const Quat &rotation, const FVec3 &translation, Mat &result)
+    void Mat::affineTransformation(f32 scaling, const Quat &rotation, const FVec3 &translation, Mat &result)
     {
         result = Mat::scaling(scaling) * rotationQuaternion(rotation) * Mat::translation(translation);
     }
 
-    void Mat::affineTransformation(float scaling, const FVec3 &rotationCenter, const Quat &rotation, const FVec3 &translation, Mat &result)
+    void Mat::affineTransformation(f32 scaling, const FVec3 &rotationCenter, const Quat &rotation, const FVec3 &translation, Mat &result)
     {
         result = Mat::scaling(scaling) * Mat::translation(-rotationCenter) * rotationQuaternion(rotation) * Mat::translation(rotationCenter) * Mat::translation(translation);
     }
 
-    void Mat::affineTransformation2D(float scaling, float rotation, const FVec2 &translation, Mat &result)
+    void Mat::affineTransformation2D(f32 scaling, f32 rotation, const FVec2 &translation, Mat &result)
     {
         result = Mat::scaling(scaling, scaling, 1.0f) * Mat::rotationZ(rotation) * Mat::translation((FVec3)translation);
     }
 
-    void Mat::affineTransformation2D(float scaling, const FVec2 &rotationCenter, float rotation, const FVec2 &translation, Mat &result)
+    void Mat::affineTransformation2D(f32 scaling, const FVec2 &rotationCenter, f32 rotation, const FVec2 &translation, Mat &result)
     {
         result = Mat::scaling(scaling, scaling, 1.0f) * Mat::translation((FVec3)-rotationCenter) * rotationZ(rotation) * Mat::translation((FVec3)rotationCenter) * Mat::translation((FVec3)translation);
     }
@@ -771,7 +771,7 @@ namespace toolkit
         result = Mat::translation(-scalingCenter) * transpose(sr) * Mat::scaling(scaling) * sr * Mat::translation(scalingCenter) * Mat::translation(-rotationCenter) * rotationQuaternion(rotation) * Mat::translation(rotationCenter) * Mat::translation(translation);
     }
 
-    void Mat::transformation2D(const FVec2 &scalingCenter, float scalingRotation, const FVec2 &scaling, const FVec2 &rotationCenter, float rotation, const FVec2 &translation, Mat &result)
+    void Mat::transformation2D(const FVec2 &scalingCenter, f32 scalingRotation, const FVec2 &scaling, const FVec2 &rotationCenter, f32 rotation, const FVec2 &translation, Mat &result)
     {
         result = Mat::translation((FVec3)-scalingCenter) * rotationZ(-scalingRotation) * Mat::scaling((FVec3)scaling) * rotationZ(scalingRotation) * Mat::translation((FVec3)scalingCenter) * Mat::translation((FVec3)-rotationCenter) * rotationZ(rotation) * Mat::translation((FVec3)rotationCenter) * Mat::translation((FVec3)translation);
         result.m33 = 1.0f;
@@ -815,26 +815,26 @@ namespace toolkit
         result.m44 = 1.0f;
     }
 
-    Mat Mat::createFromAxisAngle(const FVec3 &axis, float angle)
+    Mat Mat::createFromAxisAngle(const FVec3 &axis, f32 angle)
     {
         Mat result;
         createFromAxisAngle(axis, angle, result);
         return result;
     }
 
-    void Mat::createFromAxisAngle(const FVec3 &axis, float angle, Mat &result)
+    void Mat::createFromAxisAngle(const FVec3 &axis, f32 angle, Mat &result)
     {
-        const float x = axis.x;
-        const float y = axis.y;
-        const float z = axis.z;
-        const float single = TkMath::sin(angle);
-        const float single1 = TkMath::cos(angle);
-        const float single2 = x * x;
-        const float single3 = y * y;
-        const float single4 = z * z;
-        const float single5 = x * y;
-        const float single6 = x * z;
-        const float single7 = y * z;
+        const f32 x = axis.x;
+        const f32 y = axis.y;
+        const f32 z = axis.z;
+        const f32 single = TkMath::sin(angle);
+        const f32 single1 = TkMath::cos(angle);
+        const f32 single2 = x * x;
+        const f32 single3 = y * y;
+        const f32 single4 = z * z;
+        const f32 single5 = x * y;
+        const f32 single6 = x * z;
+        const f32 single7 = y * z;
 
         result.m11 = single2 + single1 * (1.0f - single2);
         result.m12 = single5 - single1 * single5 + single * z;
@@ -885,8 +885,8 @@ namespace toolkit
 
     void Mat3x4::setMatrix(const Mat &m)
     {
-        const float *src = m.raw;
-        float *dst = raw;
+        const f32 *src = m.raw;
+        f32 *dst = raw;
         dst[0] = src[0];
         dst[1] = src[1];
         dst[2] = src[2];
@@ -903,8 +903,8 @@ namespace toolkit
 
     void Mat3x4::setMatrixTranspose(const Mat &m)
     {
-        const float *src = m.raw;
-        float *dst = raw;
+        const f32 *src = m.raw;
+        f32 *dst = raw;
         dst[0] = src[0];
         dst[1] = src[4];
         dst[2] = src[8];
@@ -937,16 +937,16 @@ namespace toolkit
         return TkString::format("%s", *this);
     }
 
-    float Mat3x3::getDeterminant() const
+    f32 Mat3x3::getDeterminant() const
     {
         return m11 * m22 * m33 + m12 * m23 * m31 + m13 * m21 * m32 - m13 * m22 * m31 - m12 * m21 * m33 - m11 * m23 * m32;
     }
 
     void Mat3x3::normalizeScale()
     {
-        const float scaleX = 1.0f / FVec3(m11, m21, m31).length();
-        const float scaleY = 1.0f / FVec3(m12, m22, m32).length();
-        const float scaleZ = 1.0f / FVec3(m13, m23, m33).length();
+        const f32 scaleX = 1.0f / FVec3(m11, m21, m31).length();
+        const f32 scaleY = 1.0f / FVec3(m12, m22, m32).length();
+        const f32 scaleZ = 1.0f / FVec3(m13, m23, m33).length();
 
         m11 *= scaleX;
         m21 *= scaleX;
@@ -963,11 +963,11 @@ namespace toolkit
 
     void Mat3x3::invert(const Mat3x3 &value, Mat3x3 &result)
     {
-        const float d11 = value.m22 * value.m33 + value.m23 * -value.m32;
-        const float d12 = value.m21 * value.m33 + value.m23 * -value.m31;
-        const float d13 = value.m21 * value.m32 + value.m22 * -value.m31;
+        const f32 d11 = value.m22 * value.m33 + value.m23 * -value.m32;
+        const f32 d12 = value.m21 * value.m33 + value.m23 * -value.m31;
+        const f32 d13 = value.m21 * value.m32 + value.m22 * -value.m31;
 
-        float det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13;
+        f32 det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13;
         if (TkMath::abs(det) < TkMath::ZeroTolerance)
         {
             result = kZero;
@@ -976,13 +976,13 @@ namespace toolkit
 
         det = 1.0f / det;
 
-        const float d21 = value.m12 * value.m33 + value.m13 * -value.m32;
-        const float d22 = value.m11 * value.m33 + value.m13 * -value.m31;
-        const float d23 = value.m11 * value.m32 + value.m12 * -value.m31;
+        const f32 d21 = value.m12 * value.m33 + value.m13 * -value.m32;
+        const f32 d22 = value.m11 * value.m33 + value.m13 * -value.m31;
+        const f32 d23 = value.m11 * value.m32 + value.m12 * -value.m31;
 
-        const float d31 = value.m12 * value.m23 - value.m13 * value.m22;
-        const float d32 = value.m11 * value.m23 - value.m13 * value.m21;
-        const float d33 = value.m11 * value.m22 - value.m12 * value.m21;
+        const f32 d31 = value.m12 * value.m23 - value.m13 * value.m22;
+        const f32 d32 = value.m11 * value.m23 - value.m13 * value.m21;
+        const f32 d33 = value.m11 * value.m22 - value.m12 * value.m21;
 
         result = Mat3x3(
             +d11 * det,
@@ -1036,7 +1036,7 @@ namespace toolkit
         result.m33 = left.m33 - right.m33;
     }
 
-    void Mat3x3::multiply(const Mat3x3 &left, float right, Mat3x3 &result)
+    void Mat3x3::multiply(const Mat3x3 &left, f32 right, Mat3x3 &result)
     {
         result.m11 = left.m11 * right;
         result.m12 = left.m12 * right;
@@ -1063,10 +1063,10 @@ namespace toolkit
             left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33);
     }
 
-    void Mat3x3::divide(const Mat3x3 &left, float right, Mat3x3 &result)
+    void Mat3x3::divide(const Mat3x3 &left, f32 right, Mat3x3 &result)
     {
         TK_ASSERT(!TkMath::isZero(right));
-        const float inv = 1.0f / right;
+        const f32 inv = 1.0f / right;
 
         result.m11 = left.m11 * inv;
         result.m12 = left.m12 * inv;
@@ -1116,15 +1116,15 @@ namespace toolkit
 
     void Mat3x3::rotationQuaternion(const Quat &rotation, Mat3x3 &result)
     {
-        const float xx = rotation.x * rotation.x;
-        const float yy = rotation.y * rotation.y;
-        const float zz = rotation.z * rotation.z;
-        const float xy = rotation.x * rotation.y;
-        const float zw = rotation.z * rotation.w;
-        const float zx = rotation.z * rotation.x;
-        const float yw = rotation.y * rotation.w;
-        const float yz = rotation.y * rotation.z;
-        const float xw = rotation.x * rotation.w;
+        const f32 xx = rotation.x * rotation.x;
+        const f32 yy = rotation.y * rotation.y;
+        const f32 zz = rotation.z * rotation.z;
+        const f32 xy = rotation.x * rotation.y;
+        const f32 zw = rotation.z * rotation.w;
+        const f32 zx = rotation.z * rotation.x;
+        const f32 yw = rotation.y * rotation.w;
+        const f32 yz = rotation.y * rotation.z;
+        const f32 xw = rotation.x * rotation.w;
 
         result.m11 = 1.0f - 2.0f * (yy + zz);
         result.m12 = 2.0f * (xy + zw);
@@ -1184,5 +1184,177 @@ namespace toolkit
                TkMath::nearEqual(m31, other.m31) &&
                TkMath::nearEqual(m32, other.m32) &&
                TkMath::nearEqual(m33, other.m33);
+    }
+
+    DMat4x4::DMat4x4(const Mat &matrix)
+    {
+        for (i32 i = 0; i < 16; i++)
+            raw[i] = matrix.raw[i];
+    }
+
+    void DMat4x4::invert(const DMat4x4 &value, DMat4x4 &result)
+    {
+        const f64 b0 = value.m31 * value.m42 - value.m32 * value.m41;
+        const f64 b1 = value.m31 * value.m43 - value.m33 * value.m41;
+        const f64 b2 = value.m34 * value.m41 - value.m31 * value.m44;
+        const f64 b3 = value.m32 * value.m43 - value.m33 * value.m42;
+        const f64 b4 = value.m34 * value.m42 - value.m32 * value.m44;
+        const f64 b5 = value.m33 * value.m44 - value.m34 * value.m43;
+
+        const f64 d11 = value.m22 * b5 + value.m23 * b4 + value.m24 * b3;
+        const f64 d12 = value.m21 * b5 + value.m23 * b2 + value.m24 * b1;
+        const f64 d13 = value.m21 * -b4 + value.m22 * b2 + value.m24 * b0;
+        const f64 d14 = value.m21 * b3 + value.m22 * -b1 + value.m23 * b0;
+
+        f64 det = value.m11 * d11 - value.m12 * d12 + value.m13 * d13 - value.m14 * d14;
+        if (TkMathD::abs(det) <= 1e-12)
+        {
+            TkMemory::memoryClear(&result, sizeof(DMat4x4));
+            return;
+        }
+
+        det = 1.0 / det;
+
+        const f64 a0 = value.m11 * value.m22 - value.m12 * value.m21;
+        const f64 a1 = value.m11 * value.m23 - value.m13 * value.m21;
+        const f64 a2 = value.m14 * value.m21 - value.m11 * value.m24;
+        const f64 a3 = value.m12 * value.m23 - value.m13 * value.m22;
+        const f64 a4 = value.m14 * value.m22 - value.m12 * value.m24;
+        const f64 a5 = value.m13 * value.m24 - value.m14 * value.m23;
+
+        const f64 d21 = value.m12 * b5 + value.m13 * b4 + value.m14 * b3;
+        const f64 d22 = value.m11 * b5 + value.m13 * b2 + value.m14 * b1;
+        const f64 d23 = value.m11 * -b4 + value.m12 * b2 + value.m14 * b0;
+        const f64 d24 = value.m11 * b3 + value.m12 * -b1 + value.m13 * b0;
+
+        const f64 d31 = value.m42 * a5 + value.m43 * a4 + value.m44 * a3;
+        const f64 d32 = value.m41 * a5 + value.m43 * a2 + value.m44 * a1;
+        const f64 d33 = value.m41 * -a4 + value.m42 * a2 + value.m44 * a0;
+        const f64 d34 = value.m41 * a3 + value.m42 * -a1 + value.m43 * a0;
+
+        const f64 d41 = value.m32 * a5 + value.m33 * a4 + value.m34 * a3;
+        const f64 d42 = value.m31 * a5 + value.m33 * a2 + value.m34 * a1;
+        const f64 d43 = value.m31 * -a4 + value.m32 * a2 + value.m34 * a0;
+        const f64 d44 = value.m31 * a3 + value.m32 * -a1 + value.m33 * a0;
+
+        result.m11 = +d11 * det;
+        result.m12 = -d21 * det;
+        result.m13 = +d31 * det;
+        result.m14 = -d41 * det;
+        result.m21 = -d12 * det;
+        result.m22 = +d22 * det;
+        result.m23 = -d32 * det;
+        result.m24 = +d42 * det;
+        result.m31 = +d13 * det;
+        result.m32 = -d23 * det;
+        result.m33 = +d33 * det;
+        result.m34 = -d43 * det;
+        result.m41 = -d14 * det;
+        result.m42 = +d24 * det;
+        result.m43 = -d34 * det;
+        result.m44 = +d44 * det;
+    }
+
+    void DMat4x4::lookAt(const DVec3 &eye, const DVec3 &target, const DVec3 &up, DMat4x4 &result)
+    {
+        DVec3 xaxis, yaxis, zaxis;
+        DVec3::subtract(target, eye, zaxis);
+        zaxis.normalize();
+        DVec3::cross(up, zaxis, xaxis);
+        xaxis.normalize();
+        DVec3::cross(zaxis, xaxis, yaxis);
+
+        result.m11 = xaxis.x;
+        result.m21 = xaxis.y;
+        result.m31 = xaxis.z;
+
+        result.m12 = yaxis.x;
+        result.m22 = yaxis.y;
+        result.m32 = yaxis.z;
+
+        result.m13 = zaxis.x;
+        result.m23 = zaxis.y;
+        result.m33 = zaxis.z;
+
+        result.m14 = 0.0f;
+        result.m24 = 0.0f;
+        result.m34 = 0.0f;
+
+        result.m41 = -DVec3::dot(xaxis, eye);
+        result.m42 = -DVec3::dot(yaxis, eye);
+        result.m43 = -DVec3::dot(zaxis, eye);
+        result.m44 = 1.0f;
+    }
+
+    void DMat4x4::multiply(const DMat4x4 &left, const DMat4x4 &right, DMat4x4 &result)
+    {
+        result.m11 = left.m11 * right.m11 + left.m12 * right.m21 + left.m13 * right.m31 + left.m14 * right.m41;
+        result.m12 = left.m11 * right.m12 + left.m12 * right.m22 + left.m13 * right.m32 + left.m14 * right.m42;
+        result.m13 = left.m11 * right.m13 + left.m12 * right.m23 + left.m13 * right.m33 + left.m14 * right.m43;
+        result.m14 = left.m11 * right.m14 + left.m12 * right.m24 + left.m13 * right.m34 + left.m14 * right.m44;
+        result.m21 = left.m21 * right.m11 + left.m22 * right.m21 + left.m23 * right.m31 + left.m24 * right.m41;
+        result.m22 = left.m21 * right.m12 + left.m22 * right.m22 + left.m23 * right.m32 + left.m24 * right.m42;
+        result.m23 = left.m21 * right.m13 + left.m22 * right.m23 + left.m23 * right.m33 + left.m24 * right.m43;
+        result.m24 = left.m21 * right.m14 + left.m22 * right.m24 + left.m23 * right.m34 + left.m24 * right.m44;
+        result.m31 = left.m31 * right.m11 + left.m32 * right.m21 + left.m33 * right.m31 + left.m34 * right.m41;
+        result.m32 = left.m31 * right.m12 + left.m32 * right.m22 + left.m33 * right.m32 + left.m34 * right.m42;
+        result.m33 = left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33 + left.m34 * right.m43;
+        result.m34 = left.m31 * right.m14 + left.m32 * right.m24 + left.m33 * right.m34 + left.m34 * right.m44;
+        result.m41 = left.m41 * right.m11 + left.m42 * right.m21 + left.m43 * right.m31 + left.m44 * right.m41;
+        result.m42 = left.m41 * right.m12 + left.m42 * right.m22 + left.m43 * right.m32 + left.m44 * right.m42;
+        result.m43 = left.m41 * right.m13 + left.m42 * right.m23 + left.m43 * right.m33 + left.m44 * right.m43;
+        result.m44 = left.m41 * right.m14 + left.m42 * right.m24 + left.m43 * right.m34 + left.m44 * right.m44;
+    }
+
+    void DMat4x4::transformation(const FVec3 &scaling, const Quat &rotation, const Vec3 &translation, DMat4x4 &result)
+    {
+        // Equivalent to:
+        // result =
+        //    Matrix.Scaling(scaling)
+        //    *Matrix.RotationX(rotation.x)
+        //    *Matrix.RotationY(rotation.y)
+        //    *Matrix.RotationZ(rotation.z)
+        //    *Matrix.Position(translation);
+
+        // Rotation
+        const f32 xx = rotation.x * rotation.x;
+        const f32 yy = rotation.y * rotation.y;
+        const f32 zz = rotation.z * rotation.z;
+        const f32 xy = rotation.x * rotation.y;
+        const f32 zw = rotation.z * rotation.w;
+        const f32 zx = rotation.z * rotation.x;
+        const f32 yw = rotation.y * rotation.w;
+        const f32 yz = rotation.y * rotation.z;
+        const f32 xw = rotation.x * rotation.w;
+        result.m11 = 1.0f - 2.0f * (yy + zz);
+        result.m12 = 2.0f * (xy + zw);
+        result.m13 = 2.0f * (zx - yw);
+        result.m21 = 2.0f * (xy - zw);
+        result.m22 = 1.0f - 2.0f * (zz + xx);
+        result.m23 = 2.0f * (yz + xw);
+        result.m31 = 2.0f * (zx + yw);
+        result.m32 = 2.0f * (yz - xw);
+        result.m33 = 1.0f - 2.0f * (yy + xx);
+
+        // Position
+        result.m41 = translation.x;
+        result.m42 = translation.y;
+        result.m43 = translation.z;
+
+        // Scale
+        result.m11 *= scaling.x;
+        result.m12 *= scaling.x;
+        result.m13 *= scaling.x;
+        result.m21 *= scaling.y;
+        result.m22 *= scaling.y;
+        result.m23 *= scaling.y;
+        result.m31 *= scaling.z;
+        result.m32 *= scaling.z;
+        result.m33 *= scaling.z;
+
+        result.m14 = 0.0;
+        result.m24 = 0.0;
+        result.m34 = 0.0;
+        result.m44 = 1.0;
     }
 }

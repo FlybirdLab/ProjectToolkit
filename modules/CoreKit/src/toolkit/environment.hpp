@@ -176,6 +176,8 @@
 #	define TK_PURE __attribute__((pure))
 #   define TK_PACK_BEGIN()
 #   define TK_PACK_END() __attribute__((__packed__))
+#   define TK_ALIGN_BEGIN(_align)
+#   define TK_ALIGN_END(_align) __attribute__((aligned(_align)))
 #elif TK_COMPILER_MSVC
 #	define TK_RESTRICT
 #   define TK_THREAD_LOCAL __declspec(thread)
@@ -190,6 +192,8 @@
 #	define TK_PURE
 #   define TK_PACK_BEGIN() __pragma(pack(push, 1))
 #   define TK_PACK_END() ; __pragma(pack(pop))
+#   define TK_ALIGN_BEGIN(_align) __declspec(align(_align))
+#   define TK_ALIGN_END(_align)
 #else
 #	define TK_RESTRICT
 #	define TK_FORCE_INLINE 
@@ -201,6 +205,8 @@
 #	define TK_PREFETCH_MEMORY(addr) (void)(addr)
 #	define TK_CHECK_FORMAT(fmtArgIdx, firstArgIdx)
 #	define TK_PURE
+#   define TK_ALIGN_BEGIN(_align)
+#   define TK_ALIGN_END(_align)
 #endif
 
 #if TK_MACOS

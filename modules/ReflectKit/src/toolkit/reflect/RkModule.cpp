@@ -3,9 +3,11 @@
  */
 
 #include <toolkit/reflect/RkModule.hpp>
+#include <toolkit/reflect/RkEvents.hpp>
 #include <toolkit/reflect/RkManager.hpp>
 #include <toolkit/reflect/RkObject.hpp>
 #include <toolkit/memory/Memory.hpp>
+#include <toolkit/platforms/System.hpp>
 
 namespace toolkit
 {
@@ -15,6 +17,23 @@ namespace toolkit
         {
             static TkArray<RkModule*> modules;
             return modules;
+        }
+
+        TkAction<const RkModuleEvent&>& getModuleEvents()
+        {
+            static TkAction<const RkModuleEvent&> events;
+            return events;
+        }
+
+        u64 hashModuleName(const TkStringView& name)
+        {
+            u64 hash = 1469598103934665603ull;
+            for (i32 i = 0; i < name.length(); ++i)
+            {
+                hash ^= static_cast<u8>(name[i]);
+                hash *= 1099511628211ull;
+            }
+            return hash != 0 ? hash : 1;
         }
 
         TkStringView makeLeafName(const TkStringView& fullName)
@@ -229,10 +248,33 @@ namespace toolkit
         return hash != 0 ? hash : 1;
     }
 
+    TypeHandle::TypeHandle(RkModule* inModule, const i32 inTypeIndex)
+        : module(inModule)
+        , moduleId(inModule != nullptr ? inModule->getId() : 0)
+        , moduleGeneration(inModule != nullptr ? inModule->getGeneration() : 0)
+        , typeIndex(inTypeIndex)
+    {
+        const RkType* type = inModule != nullptr ? inModule->tryGetType(inTypeIndex) : nullptr;
+        typeId = type != nullptr ? inModule->makeTypeId(type->fullName) : 0;
+    }
+
     TypeHandle::TypeHandle(const TypeInitializer& initializer)
         : module(initializer.getHandle().module)
+        , moduleId(initializer.getHandle().moduleId)
+        , moduleGeneration(initializer.getHandle().moduleGeneration)
+        , typeId(initializer.getHandle().typeId)
         , typeIndex(initializer.getHandle().typeIndex)
     {
+    }
+
+    bool TypeHandle::isValid() const
+    {
+        return module != nullptr && typeIndex >= 0 && isAlive();
+    }
+
+    bool TypeHandle::isAlive() const
+    {
+        return module != nullptr && module->isHandleAlive(*this);
     }
 
     const RkType& TypeHandle::getType() const
@@ -355,6 +397,26 @@ namespace toolkit
         return findFieldInSpan(fields, fieldName);
     }
 
+    const RkMethod* RkStruct::findMethod(const TkStringView& methodName) const
+    {
+        return findUniqueMethodInSpan(methods, methodName);
+    }
+
+    const RkMethod* RkStruct::findMethod(const TkStringView& methodName, const u64 signatureHash) const
+    {
+        return findMethodBySignatureInSpan(methods, methodName, signatureHash);
+    }
+
+    const RkMethod* RkStruct::findMethod(const TkStringView& methodName, const TkSpan<const TypeHandle> paramTypes) const
+    {
+        return findMethodByParamsInSpan(methods, methodName, paramTypes);
+    }
+
+    const RkMethod* RkStruct::findMethod(const TkStringView& methodName, const TkSpan<const RkParam> params) const
+    {
+        return findMethodByResolvedParamsInSpan(methods, methodName, params);
+    }
+
     const RkMethod* RkInterface::findMethod(const TkStringView& methodName) const
     {
         return findUniqueMethodInSpan(methods, methodName);
@@ -402,13 +464,20 @@ namespace toolkit
 
     RkModule::RkModule(const TkStringView& moduleName)
         : m_name(moduleName)
+        , m_id(hashModuleName(moduleName))
     {
         getModuleStorage().add(this);
+        getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kLoaded });
     }
 
     RkModule::~RkModule()
     {
+        unload();
         getModuleStorage().remove(this);
+    }
+
+    void RkModule::clearTypes()
+    {
         for (RkType* type : m_types)
             TkMemory::deletePtr(RkManager::getAllocator(), type);
         m_types.clear();
@@ -452,7 +521,9 @@ namespace toolkit
         const auto iterator = m_typeIndexByName.find(fullName.toString());
         if (iterator.isEnd())
             return TypeHandle();
-        return TypeHandle(const_cast<RkModule*>(this), iterator->value);
+        const i32 index = iterator->value;
+        const u64 typeId = m_types.isValidIndex(index) ? makeTypeId(m_types[index]->fullName) : 0;
+        return TypeHandle(const_cast<RkModule*>(this), index, m_id, m_generation, typeId);
     }
 
     const RkType* RkModule::findTypePtr(const TkStringView& fullName) const
@@ -470,6 +541,23 @@ namespace toolkit
     {
         TK_ASSERT(m_types.isValidIndex(index));
         return *m_types[index];
+    }
+
+    bool RkModule::isHandleAlive(const TypeHandle& handle) const
+    {
+        if (!m_loaded || handle.module != this || handle.moduleId != m_id || handle.moduleGeneration != m_generation)
+            return false;
+        if (!m_types.isValidIndex(handle.typeIndex))
+            return false;
+        return handle.typeId == 0 || handle.typeId == makeTypeId(m_types[handle.typeIndex]->fullName);
+    }
+
+    u64 RkModule::makeTypeId(const TkStringView& fullName) const
+    {
+        u64 hash = m_id;
+        hashAppendByte(hash, ':');
+        hashAppendView(hash, fullName);
+        return hash != 0 ? hash : 1;
     }
 
     const RkField* RkModule::findField(const TypeHandle owner, const TkStringView& fieldName) const
@@ -522,6 +610,116 @@ namespace toolkit
         return nullptr;
     }
 
+    RkModule* RkModule::findModuleById(const u64 moduleId)
+    {
+        for (RkModule* module : getModuleStorage())
+        {
+            if (module->getId() == moduleId)
+                return module;
+        }
+        return nullptr;
+    }
+
+    TkAction<const RkModuleEvent&>& RkModule::events()
+    {
+        return getModuleEvents();
+    }
+
+    bool RkModule::load(const TkStringView& libraryPath)
+    {
+        if (m_libraryHandle != nullptr)
+            unload();
+
+        m_libraryPath = libraryPath;
+        m_libraryHandle = System::loadLib(m_libraryPath.getText());
+        if (m_libraryHandle == nullptr)
+        {
+            m_loaded = false;
+            getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kLoadFailed });
+            return false;
+        }
+
+        m_loaded = true;
+        ++m_generation;
+        TypeRegistry::markDirty();
+        getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kLoaded });
+        return true;
+    }
+
+    void RkModule::attachLibrary(void* handle, const TkStringView& libraryPath)
+    {
+        if (m_libraryHandle != nullptr && m_libraryHandle != handle)
+            System::freeLib(m_libraryHandle);
+
+        m_libraryHandle = handle;
+        m_libraryPath = libraryPath;
+        m_loaded = handle != nullptr;
+        ++m_generation;
+        TypeRegistry::markDirty();
+        if (m_loaded)
+            getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kLoaded });
+    }
+
+    void RkModule::addDependency(RkModule* module)
+    {
+        if (module == nullptr || module == this || m_dependencies.find(module) >= 0)
+            return;
+        m_dependencies.add(module);
+    }
+
+    bool RkModule::dependsOn(const RkModule* module) const
+    {
+        if (module == nullptr)
+            return false;
+        for (RkModule* dependency : m_dependencies)
+        {
+            if (dependency == module)
+                return true;
+            if (dependency != nullptr && dependency->dependsOn(module))
+                return true;
+        }
+        return false;
+    }
+
+    void RkModule::unload()
+    {
+        if (!m_loaded)
+            return;
+
+        getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kBeforeUnload });
+        TypeRegistry::destroyObjectsFromModule(this);
+        RkEvents::unregisterBindingsForModule(this);
+        clearTypes();
+        if (m_libraryHandle != nullptr)
+        {
+            System::freeLib(m_libraryHandle);
+            m_libraryHandle = nullptr;
+        }
+        m_dependencies.clear();
+        m_loaded = false;
+        ++m_generation;
+        TypeRegistry::markDirty();
+        getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kUnloaded });
+    }
+
+    void RkModule::reload()
+    {
+        getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kBeforeReload });
+        const TkString libraryPath = m_libraryPath;
+        if (libraryPath.hasChars())
+        {
+            unload();
+            if (!load(libraryPath))
+                return;
+        }
+        else if (m_loaded)
+            unload();
+        m_loaded = true;
+        ++m_generation;
+        TypeRegistry::markDirty();
+        getModuleEvents()(RkModuleEvent{ this, RkModuleEventKind::kReloaded });
+    }
+
     TypeHandle RkModule::registerTypeInternal(RkType* type)
     {
         TK_ASSERT(type != nullptr);
@@ -529,7 +727,8 @@ namespace toolkit
         TK_ASSERT(!m_typeIndexByName.containsKey(type->fullName.toString()));
 
         const i32 index = m_types.count();
-        type->handle = TypeHandle(this, index);
+        m_loaded = true;
+        type->handle = TypeHandle(this, index, m_id, m_generation, makeTypeId(type->fullName));
         m_types.add(type);
         m_typeIndexByName.add(type->fullName.toString(), index);
         TypeRegistry::markDirty();

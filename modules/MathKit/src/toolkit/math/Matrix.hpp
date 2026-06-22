@@ -1029,6 +1029,85 @@ namespace toolkit
             Value = true
         };
     };
+
+    // Represent a 4x4 mathematical matrix using f64-precision floating-point values.
+    struct TK_API DMat4x4
+    {
+    public:
+        union
+        {
+            struct
+            {
+                f64 m11;
+                f64 m12;
+                f64 m13;
+                f64 m14;
+                f64 m21;
+                f64 m22;
+                f64 m23;
+                f64 m24;
+                f64 m31;
+                f64 m32;
+                f64 m33;
+                f64 m34;
+                f64 m41;
+                f64 m42;
+                f64 m43;
+                f64 m44;
+            };
+
+            f64 values[4][4];
+            f64 raw[16];
+        };
+
+    public:
+        DMat4x4() = default;
+        DMat4x4(const Mat &matrix);
+
+    public:
+        // Inverts the matrix.
+        void invert()
+        {
+            invert(*this, *this);
+        }
+
+        // Calculate the inverse of the specified matrix.
+        static DMat4x4 invert(const DMat4x4 &value)
+        {
+            DMat4x4 result;
+            invert(value, result);
+            return result;
+        }
+
+        // Calculate the inverse of the specified matrix.
+        static void invert(const DMat4x4 &value, DMat4x4 &result);
+
+        // Create a left-handed, look-at matrix.
+        static void lookAt(const DVec3 &eye, const DVec3 &target, const DVec3 &up, DMat4x4 &result);
+
+        // Calculates the product of two matrices.
+        static void multiply(const DMat4x4 &left, const DMat4x4 &right, DMat4x4 &result);
+
+        // Creates a matrix that contains both the X, Y and Z rotation, as well as scaling and translation.
+        static void transformation(const FVec3 &scaling, const Quat &rotation, const Vec3 &translation, DMat4x4 &result);
+
+    public:
+        DMat4x4 operator*(const DMat4x4 &other) const
+        {
+            DMat4x4 result;
+            multiply(*this, other, result);
+            return result;
+        }
+    };
+
+    template <>
+    struct TIsPODType<DMat4x4>
+    {
+        enum
+        {
+            Value = true
+        };
+    };
 }
 
 FORMAT_CUSTOM(toolkit::Mat,

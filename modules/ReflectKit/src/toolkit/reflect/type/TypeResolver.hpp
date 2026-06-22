@@ -10,16 +10,38 @@
 #include <toolkit/reflect/type/TypeHandle.hpp>
 #include <toolkit/reflect/common.hpp>
 
+#include <type_traits>
+#include <typeinfo>
+
 namespace toolkit
 {
     TK_API TypeHandle getBuiltinTypeHandle(BuiltinTypeId id);
+    TK_API TypeHandle getOpaqueRuntimeTypeHandle(const TkStringView &fullName, u32 size, u32 align);
+
+    namespace detail
+    {
+        template <class T, class = void>
+        struct THasStaticTypeHandle : TBoolConstant<false>
+        {
+        };
+
+        template <class T>
+        struct THasStaticTypeHandle<T, std::void_t<decltype(T::staticTypeHandle())>> : TBoolConstant<true>
+        {
+        };
+    }
 
     template <class T, class Enable = void>
     struct TypeResolver
     {
         static TypeHandle get()
         {
-            return T::staticTypeHandle();
+            if constexpr (detail::THasStaticTypeHandle<T>::Value)
+                return T::staticTypeHandle();
+            else if constexpr (TIsCompleteType<T>::Value)
+                return getOpaqueRuntimeTypeHandle(TkStringView(typeid(T).name()), static_cast<u32>(sizeof(T)), static_cast<u32>(alignof(T)));
+            else
+                return TypeHandle();
         }
     };
 
@@ -30,7 +52,10 @@ namespace toolkit
         {
             // Pointer types are not registered as independent reflected types.
             // ArgPassing::kPointer and ReturnKind::kPointer carry pointer semantics while TypeHandle stores the pointee.
-            return TypeResolver<T>::get();
+            if constexpr (detail::THasStaticTypeHandle<T>::Value || TIsCompleteType<T>::Value)
+                return TypeResolver<T>::get();
+            else
+                return TypeHandle();
         }
     };
 

@@ -42,6 +42,25 @@ namespace
         return nullptr;
     }
 
+    const toolkit::Attribute* findAttribute(toolkit::AttributeSpan attributes, const char* name)
+    {
+        for (toolkit::i32 i = 0; i < attributes.length(); ++i)
+        {
+            const toolkit::Attribute& attr = attributes[i];
+            if (attr.name == name)
+                return &attr;
+        }
+        return nullptr;
+    }
+
+    void expectAttribute(toolkit::AttributeSpan attributes, const char* name, const char* value, const char* message)
+    {
+        const toolkit::Attribute* attr = findAttribute(attributes, name);
+        expect(attr != nullptr, message);
+        if (attr != nullptr && value != nullptr)
+            expect(attr->value == value, message);
+    }
+
     void testVec3Reflection(toolkit::RkModule& module)
     {
         const toolkit::TypeHandle vec3Handle = module.findType("test::Vec3");
@@ -127,6 +146,89 @@ namespace
         expect(red->value == 0, "test::Color::Red value should be 0");
         expect(green->value == 2, "test::Color::Green value should be 2");
         expect(blue->value == 3, "test::Color::Blue value should be 3");
+    }
+
+    void testRuntimePayloadReflection(toolkit::RkModule& module)
+    {
+        const toolkit::TypeHandle payloadHandle = module.findType("test::RuntimePayload");
+        expect(payloadHandle.isValid(), "test::RuntimePayload should be registered");
+        if (!payloadHandle.isValid())
+            return;
+
+        const toolkit::RkType& payloadType = payloadHandle.getType();
+        expect(payloadType.kind == toolkit::TypeKind::kStruct, "test::RuntimePayload should be a reflected struct");
+        expect(payloadType.attributes.length() == 2, "test::RuntimePayload should expose type attributes");
+        expectAttribute(payloadType.attributes, "LoadOrder", "10", "test::RuntimePayload LoadOrder attribute should be generated");
+        expectAttribute(payloadType.attributes, "Plugin", "Core", "test::RuntimePayload Plugin attribute should be generated");
+
+        const toolkit::RkStruct* payloadStruct = payloadType.asStruct();
+        expect(payloadStruct != nullptr, "test::RuntimePayload should expose RkStruct data");
+        if (payloadStruct == nullptr)
+            return;
+
+        expect(payloadStruct->fields.length() == 10, "test::RuntimePayload should expose 10 fields");
+        const toolkit::RkField* migratedValue = payloadStruct->findField("migratedValue");
+        const toolkit::RkField* label = payloadStruct->findField("label");
+        const toolkit::RkField* labelView = payloadStruct->findField("labelView");
+        const toolkit::RkField* uuid = payloadStruct->findField("uuid");
+        const toolkit::RkField* dateTime = payloadStruct->findField("dateTime");
+        const toolkit::RkField* timeSpan = payloadStruct->findField("timeSpan");
+        const toolkit::RkField* version = payloadStruct->findField("version");
+        const toolkit::RkField* position = payloadStruct->findField("position");
+        const toolkit::RkField* rotation = payloadStruct->findField("rotation");
+        const toolkit::RkField* owner = payloadStruct->findField("owner");
+
+        expect(migratedValue != nullptr, "test::RuntimePayload.migratedValue field should exist");
+        expect(label != nullptr, "test::RuntimePayload.label field should exist");
+        expect(labelView != nullptr, "test::RuntimePayload.labelView field should exist");
+        expect(uuid != nullptr, "test::RuntimePayload.uuid field should exist");
+        expect(dateTime != nullptr, "test::RuntimePayload.dateTime field should exist");
+        expect(timeSpan != nullptr, "test::RuntimePayload.timeSpan field should exist");
+        expect(version != nullptr, "test::RuntimePayload.version field should exist");
+        expect(position != nullptr, "test::RuntimePayload.position field should exist");
+        expect(rotation != nullptr, "test::RuntimePayload.rotation field should exist");
+        expect(owner != nullptr, "test::RuntimePayload.owner field should exist");
+        if (migratedValue == nullptr || label == nullptr || labelView == nullptr || uuid == nullptr || dateTime == nullptr ||
+            timeSpan == nullptr || version == nullptr || position == nullptr || rotation == nullptr || owner == nullptr)
+            return;
+
+        expect(migratedValue->type == toolkit::typeOf<toolkit::i32>(), "RuntimePayload.migratedValue type should be i32");
+        expect(label->type.isValid(), "RuntimePayload.label should generate a valid TypeHandle");
+        expect(labelView->type.isValid(), "RuntimePayload.labelView should generate a valid TypeHandle");
+        expect(uuid->type.isValid(), "RuntimePayload.uuid should generate a valid TypeHandle");
+        expect(dateTime->type.isValid(), "RuntimePayload.dateTime should generate a valid TypeHandle");
+        expect(timeSpan->type.isValid(), "RuntimePayload.timeSpan should generate a valid TypeHandle");
+        expect(version->type.isValid(), "RuntimePayload.version should generate a valid TypeHandle");
+        expect(position->type.isValid(), "RuntimePayload.position should generate a valid TypeHandle");
+        expect(rotation->type.isValid(), "RuntimePayload.rotation should generate a valid TypeHandle");
+        expect(owner->type.isValid(), "RuntimePayload.owner should generate a valid TypeHandle");
+
+        expectAttribute(migratedValue->attributes, "NoSerialize", nullptr, "RuntimePayload.migratedValue NoSerialize attribute should be generated");
+        expectAttribute(migratedValue->attributes, "OldName", "legacyName", "RuntimePayload.migratedValue OldName attribute should be generated");
+        expectAttribute(migratedValue->attributes, "Default", "42", "RuntimePayload.migratedValue Default attribute should be generated");
+        expect(toolkit::hasAnyFlags(migratedValue->serialization.flags, toolkit::FieldSerializationFlags::kNoSerialize), "RuntimePayload.migratedValue should be marked NoSerialize");
+        expect(migratedValue->serialization.defaultValue == "42", "RuntimePayload.migratedValue default metadata should be 42");
+        expect(migratedValue->serialization.oldName == "legacyName", "RuntimePayload.migratedValue old-name metadata should be legacyName");
+        expect(!migratedValue->serialization.shouldSerialize(), "RuntimePayload.migratedValue should not serialize");
+
+        expect(toolkit::hasAnyFlags(label->serialization.flags, toolkit::FieldSerializationFlags::kEditorOnly), "RuntimePayload.label should be EditorOnly");
+        expect(toolkit::hasAnyFlags(label->serialization.flags, toolkit::FieldSerializationFlags::kReadOnly), "RuntimePayload.label should be ReadOnly");
+        expect(toolkit::hasAnyFlags(owner->serialization.flags, toolkit::FieldSerializationFlags::kSoftObjectReference), "RuntimePayload.owner should be a soft object reference");
+        expect(owner->serialization.referencePolicy == "Weak", "RuntimePayload.owner reference policy should be Weak");
+
+        const toolkit::RkMethod* describe = payloadStruct->findMethod("Describe");
+        expect(describe != nullptr, "RuntimePayload.Describe method should exist");
+        if (describe != nullptr)
+        {
+            expectAttribute(describe->attributes, "RuntimeCallable", nullptr, "RuntimePayload.Describe RuntimeCallable attribute should be generated");
+            expect(describe->returnType.isValid(), "RuntimePayload.Describe return type should be valid");
+            expect(describe->params.length() == 2, "RuntimePayload.Describe should expose 2 params");
+            if (describe->params.length() == 2)
+            {
+                expect(describe->params[0].type.isValid(), "RuntimePayload.Describe prefix param type should be valid");
+                expect(describe->params[1].type.isValid(), "RuntimePayload.Describe offset param type should be valid");
+            }
+        }
     }
 
     void testActorReflection(toolkit::RkModule& module)
@@ -236,6 +338,25 @@ namespace
             toolkit::RkManager::destroyObject(spawnedObject);
         }
 
+        toolkit::RkObject* outerObject = toolkit::RkManager::newObject(actorHandle);
+        expect(outerObject != nullptr, "test::Actor outer object should be creatable through RkManager");
+        if (outerObject != nullptr)
+        {
+            const toolkit::TkUuid customId(0x11111111, 0x22222222, 0x33333333, 0x44444444);
+            toolkit::ObjectSpawnParams params(customId, actorHandle, outerObject, "SpawnedActor", 0x24u);
+            toolkit::RkObject* spawnedWithParams = toolkit::RkManager::newObject(params);
+            expect(spawnedWithParams != nullptr, "test::Actor should be creatable through full ObjectSpawnParams");
+            if (spawnedWithParams != nullptr)
+            {
+                expect(spawnedWithParams->getId() == customId, "full ObjectSpawnParams should preserve id");
+                expect(spawnedWithParams->getOuter() == outerObject, "full ObjectSpawnParams should preserve outer");
+                expect(spawnedWithParams->getName() == "SpawnedActor", "full ObjectSpawnParams should preserve name");
+                expect(spawnedWithParams->getFlags() == 0x24u, "full ObjectSpawnParams should preserve flags");
+                toolkit::RkManager::destroyObject(spawnedWithParams);
+            }
+            toolkit::RkManager::destroyObject(outerObject);
+        }
+
         toolkit::i32 ctorHealth = 91;
         toolkit::f32 ctorEnergy = 4.5f;
         toolkit::ArgValue ctorArgs[] = {
@@ -286,9 +407,10 @@ int main(int argc, char **argv)
     toolkit::RkModule module("RkGenTest");
     rkgen_register_file_Test(module);
 
-    expect(module.getTypeCount() == 4, "RkGenTest module should register 4 reflected types");
+    expect(module.getTypeCount() == 5, "RkGenTest module should register 5 reflected types");
     testVec3Reflection(module);
     testColorReflection(module);
+    testRuntimePayloadReflection(module);
     testActorReflection(module);
     testNestedStructReflection(module);
     expect(!module.findType("test::Missing").isValid(), "missing reflected type lookup should fail");

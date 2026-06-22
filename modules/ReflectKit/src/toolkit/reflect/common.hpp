@@ -25,106 +25,109 @@ public:                                                                         
     const ::toolkit::RkClass &getClass() const override { return staticClass(); }                                                 \
                                                                                                                                   \
 private:                                                                                                                          \
-    friend struct Type##_ReflectAccess;
-
-#define R_STRUCT(Type)                                                                                                             \
-public:                                                                                                                           \
-    static ::toolkit::TypeInitializer TypeInitializer;                                                                            \
-    static ::toolkit::TypeHandle staticTypeHandle() { return TypeInitializer.getHandle(); }                                       \
-    static const ::toolkit::RkStruct &staticStruct() { return static_cast<const ::toolkit::RkStruct &>(TypeInitializer.getType()); } \
-    static const ::toolkit::RkStruct &staticType() { return staticStruct(); }                                                     \
+    friend struct Type##_ReflectAccess;                                                                                           \
                                                                                                                                   \
-private:                                                                                                                          \
-    friend struct Type##_ReflectAccess;
+public:
+
+#define R_STRUCT(Type)                                                                                                               \
+public:                                                                                                                              \
+    static ::toolkit::TypeInitializer TypeInitializer;                                                                               \
+    static ::toolkit::TypeHandle staticTypeHandle() { return TypeInitializer.getHandle(); }                                          \
+    static const ::toolkit::RkStruct &staticStruct() { return static_cast<const ::toolkit::RkStruct &>(TypeInitializer.getType()); } \
+    static const ::toolkit::RkStruct &staticType() { return staticStruct(); }                                                        \
+                                                                                                                                     \
+private:                                                                                                                             \
+    friend struct Type##_ReflectAccess;                                                                                              \
+public:
 
 #define R_OBJECT_NO_SPAWN(Type) R_OBJECT(Type)
 
-#define R_OBJECT_SPAWN(Type)                                                                                                      \
-    R_OBJECT_NO_SPAWN(Type)                                                                                                       \
-public:                                                                                                                           \
-    using SpawnParams = ::toolkit::ObjectSpawnParams;                                                                             \
-    static Type *spawn(const ::toolkit::ObjectSpawnParams &params) { return new Type(params); }                                  \
-    explicit Type() : Type(::toolkit::ObjectSpawnParams(Type::TypeInitializer)) {}                                                \
+#define R_OBJECT_SPAWN(Type)                                                                    \
+    R_OBJECT_NO_SPAWN(Type)                                                                     \
+public:                                                                                         \
+    using SpawnParams = ::toolkit::ObjectSpawnParams;                                           \
+    static Type *spawn(const ::toolkit::ObjectSpawnParams &params) { return new Type(params); } \
+    explicit Type() : Type(::toolkit::ObjectSpawnParams(Type::TypeInitializer)) {}              \
     explicit Type(const ::toolkit::ObjectSpawnParams &params)
 
-#define R_OBJECT_WITH_CONSTRUCTOR_IMPL(Type, BaseType)                                                                            \
-    R_OBJECT_NO_SPAWN(Type)                                                                                                       \
-public:                                                                                                                           \
-    using SpawnParams = ::toolkit::ObjectSpawnParams;                                                                             \
-    static Type *spawn(const ::toolkit::ObjectSpawnParams &params) { return new Type(params); }                                  \
-    explicit Type(const ::toolkit::ObjectSpawnParams &params) : BaseType(params) {}                                               \
+#define R_OBJECT_WITH_CONSTRUCTOR_IMPL(Type, BaseType)                                          \
+    R_OBJECT_NO_SPAWN(Type)                                                                     \
+public:                                                                                         \
+    using SpawnParams = ::toolkit::ObjectSpawnParams;                                           \
+    static Type *spawn(const ::toolkit::ObjectSpawnParams &params) { return new Type(params); } \
+    explicit Type(const ::toolkit::ObjectSpawnParams &params) : BaseType(params) {}             \
     explicit Type() : BaseType(::toolkit::ObjectSpawnParams(Type::TypeInitializer)) {}
 
-#define R_IMPLEMENT_OBJECT(Type, BaseType, Module, FullName)                                                                      \
-    static ::toolkit::RkObject *rk_spawn_##Type(const ::toolkit::ObjectSpawnParams &params)                                      \
-    {                                                                                                                             \
-        return Type::spawn(params);                                                                                               \
-    }                                                                                                                             \
-    static void rk_destroy_##Type(::toolkit::RkObject *object)                                                                    \
-    {                                                                                                                             \
-        delete static_cast<Type *>(object);                                                                                       \
-    }                                                                                                                             \
-    ::toolkit::TypeInitializer Type::TypeInitializer(                                                                             \
-        Module,                                                                                                                   \
-        ::toolkit::RkClassDesc{                                                                                                   \
-            .name = #Type,                                                                                                        \
-            .fullName = FullName,                                                                                                 \
-            .size = static_cast<::toolkit::u32>(sizeof(Type)),                                                                    \
-            .align = static_cast<::toolkit::u32>(alignof(Type)),                                                                  \
-            .baseType = BaseType::staticTypeHandle(),                                                                             \
-            .spawn = &rk_spawn_##Type,                                                                                            \
-            .destroy = &rk_destroy_##Type,                                                                                        \
+#define R_IMPLEMENT_OBJECT(Type, BaseType, Module, FullName)                                \
+    static ::toolkit::RkObject *rk_spawn_##Type(const ::toolkit::ObjectSpawnParams &params) \
+    {                                                                                       \
+        return Type::spawn(params);                                                         \
+    }                                                                                       \
+    static void rk_destroy_##Type(::toolkit::RkObject *object)                              \
+    {                                                                                       \
+        delete static_cast<Type *>(object);                                                 \
+    }                                                                                       \
+    ::toolkit::TypeInitializer Type::TypeInitializer(                                       \
+        Module,                                                                             \
+        ::toolkit::RkClassDesc{                                                             \
+            .name = #Type,                                                                  \
+            .fullName = FullName,                                                           \
+            .size = static_cast<::toolkit::u32>(sizeof(Type)),                              \
+            .align = static_cast<::toolkit::u32>(alignof(Type)),                            \
+            .baseType = BaseType::staticTypeHandle(),                                       \
+            .spawn = &rk_spawn_##Type,                                                      \
+            .destroy = &rk_destroy_##Type,                                                  \
         });
 
-#define R_IMPLEMENT_OBJECT_NO_BASE(Type, Module, FullName)                                                                        \
-    static ::toolkit::RkObject *rk_spawn_##Type(const ::toolkit::ObjectSpawnParams &params)                                      \
-    {                                                                                                                             \
-        return Type::spawn(params);                                                                                               \
-    }                                                                                                                             \
-    static void rk_destroy_##Type(::toolkit::RkObject *object)                                                                    \
-    {                                                                                                                             \
-        delete static_cast<Type *>(object);                                                                                       \
-    }                                                                                                                             \
-    ::toolkit::TypeInitializer Type::TypeInitializer(                                                                             \
-        Module,                                                                                                                   \
-        ::toolkit::RkClassDesc{                                                                                                   \
-            .name = #Type,                                                                                                        \
-            .fullName = FullName,                                                                                                 \
-            .size = static_cast<::toolkit::u32>(sizeof(Type)),                                                                    \
-            .align = static_cast<::toolkit::u32>(alignof(Type)),                                                                  \
-            .spawn = &rk_spawn_##Type,                                                                                            \
-            .destroy = &rk_destroy_##Type,                                                                                        \
+#define R_IMPLEMENT_OBJECT_NO_BASE(Type, Module, FullName)                                  \
+    static ::toolkit::RkObject *rk_spawn_##Type(const ::toolkit::ObjectSpawnParams &params) \
+    {                                                                                       \
+        return Type::spawn(params);                                                         \
+    }                                                                                       \
+    static void rk_destroy_##Type(::toolkit::RkObject *object)                              \
+    {                                                                                       \
+        delete static_cast<Type *>(object);                                                 \
+    }                                                                                       \
+    ::toolkit::TypeInitializer Type::TypeInitializer(                                       \
+        Module,                                                                             \
+        ::toolkit::RkClassDesc{                                                             \
+            .name = #Type,                                                                  \
+            .fullName = FullName,                                                           \
+            .size = static_cast<::toolkit::u32>(sizeof(Type)),                              \
+            .align = static_cast<::toolkit::u32>(alignof(Type)),                            \
+            .spawn = &rk_spawn_##Type,                                                      \
+            .destroy = &rk_destroy_##Type,                                                  \
         });
 
-#define R_IMPLEMENT_OBJECT_NO_SPAWN_WITH_BASE(Type, BaseType, Module, FullName)                                                  \
-    ::toolkit::TypeInitializer Type::TypeInitializer(                                                                             \
-        Module,                                                                                                                   \
-        ::toolkit::RkClassDesc{                                                                                                   \
-            .name = #Type,                                                                                                        \
-            .fullName = FullName,                                                                                                 \
-            .size = static_cast<::toolkit::u32>(sizeof(Type)),                                                                    \
-            .align = static_cast<::toolkit::u32>(alignof(Type)),                                                                  \
-            .baseType = BaseType::staticTypeHandle(),                                                                             \
+#define R_IMPLEMENT_OBJECT_NO_SPAWN_WITH_BASE(Type, BaseType, Module, FullName) \
+    ::toolkit::TypeInitializer Type::TypeInitializer(                           \
+        Module,                                                                 \
+        ::toolkit::RkClassDesc{                                                 \
+            .name = #Type,                                                      \
+            .fullName = FullName,                                               \
+            .size = static_cast<::toolkit::u32>(sizeof(Type)),                  \
+            .align = static_cast<::toolkit::u32>(alignof(Type)),                \
+            .baseType = BaseType::staticTypeHandle(),                           \
         });
 
-#define R_IMPLEMENT_OBJECT_NO_SPAWN(Type, Module, FullName)                                                                       \
-    ::toolkit::TypeInitializer Type::TypeInitializer(                                                                             \
-        Module,                                                                                                                   \
-        ::toolkit::RkClassDesc{                                                                                                   \
-            .name = #Type,                                                                                                        \
-            .fullName = FullName,                                                                                                 \
-            .size = static_cast<::toolkit::u32>(sizeof(Type)),                                                                    \
-            .align = static_cast<::toolkit::u32>(alignof(Type)),                                                                  \
+#define R_IMPLEMENT_OBJECT_NO_SPAWN(Type, Module, FullName)      \
+    ::toolkit::TypeInitializer Type::TypeInitializer(            \
+        Module,                                                  \
+        ::toolkit::RkClassDesc{                                  \
+            .name = #Type,                                       \
+            .fullName = FullName,                                \
+            .size = static_cast<::toolkit::u32>(sizeof(Type)),   \
+            .align = static_cast<::toolkit::u32>(alignof(Type)), \
         });
 
-#define R_IMPLEMENT_STRUCT(Type, Module, FullName)                                                                                \
-    ::toolkit::TypeInitializer Type::TypeInitializer(                                                                             \
-        Module,                                                                                                                   \
-        ::toolkit::RkStructDesc{                                                                                                  \
-            .name = #Type,                                                                                                        \
-            .fullName = FullName,                                                                                                 \
-            .size = static_cast<::toolkit::u32>(sizeof(Type)),                                                                    \
-            .align = static_cast<::toolkit::u32>(alignof(Type)),                                                                  \
+#define R_IMPLEMENT_STRUCT(Type, Module, FullName)               \
+    ::toolkit::TypeInitializer Type::TypeInitializer(            \
+        Module,                                                  \
+        ::toolkit::RkStructDesc{                                 \
+            .name = #Type,                                       \
+            .fullName = FullName,                                \
+            .size = static_cast<::toolkit::u32>(sizeof(Type)),   \
+            .align = static_cast<::toolkit::u32>(alignof(Type)), \
         });
 
 namespace toolkit
@@ -142,6 +145,10 @@ namespace toolkit
         kNone = 0,
         kStatic = 1u << 0u,
         kReadOnly = 1u << 1u,
+        kNoSerialize = 1u << 2u,
+        kEditorOnly = 1u << 3u,
+        kObjectReference = 1u << 4u,
+        kSoftObjectReference = 1u << 5u,
         kOwnerClass = 1u << 30u,
     };
 
@@ -187,6 +194,16 @@ namespace toolkit
         kF64,
     };
 
+    enum class FieldSerializationFlags : u32
+    {
+        kNone = 0,
+        kNoSerialize = 1u << 0u,
+        kReadOnly = 1u << 1u,
+        kEditorOnly = 1u << 2u,
+        kObjectReference = 1u << 3u,
+        kSoftObjectReference = 1u << 4u,
+    };
+
     inline FieldFlags operator|(const FieldFlags a, const FieldFlags b)
     {
         return static_cast<FieldFlags>(static_cast<u32>(a) | static_cast<u32>(b));
@@ -197,12 +214,22 @@ namespace toolkit
         return static_cast<MethodFlags>(static_cast<u32>(a) | static_cast<u32>(b));
     }
 
+    inline FieldSerializationFlags operator|(const FieldSerializationFlags a, const FieldSerializationFlags b)
+    {
+        return static_cast<FieldSerializationFlags>(static_cast<u32>(a) | static_cast<u32>(b));
+    }
+
     inline bool hasAnyFlags(const FieldFlags value, const FieldFlags flags)
     {
         return (static_cast<u32>(value) & static_cast<u32>(flags)) != 0;
     }
 
     inline bool hasAnyFlags(const MethodFlags value, const MethodFlags flags)
+    {
+        return (static_cast<u32>(value) & static_cast<u32>(flags)) != 0;
+    }
+
+    inline bool hasAnyFlags(const FieldSerializationFlags value, const FieldSerializationFlags flags)
     {
         return (static_cast<u32>(value) & static_cast<u32>(flags)) != 0;
     }

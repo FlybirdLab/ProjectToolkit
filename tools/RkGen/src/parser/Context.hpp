@@ -32,6 +32,7 @@ namespace toolkit {
         ~ParserContext();
 
         bool setUp();
+        i32 filterUpToDateOutputs();
         bool processAll();
 
         const ParserContextData& getData() {

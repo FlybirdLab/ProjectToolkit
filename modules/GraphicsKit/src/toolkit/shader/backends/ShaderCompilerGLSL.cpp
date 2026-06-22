@@ -605,7 +605,7 @@ namespace toolkit
             }
             effectiveSource = crossCompiled.c_str();
             effectiveSize = static_cast<u32>(crossCompiled.size());
-            LogInfo("[ShaderCompilerGLSL] HLSL -> SPIR-V -> GLSL 410 ok (entry=%s, %u bytes out, +%i bindings, +%i vertex inputs)",
+            LogInfo("HLSL -> SPIR-V -> GLSL 410 ok (entry=%s, %u bytes out, +%i bindings, +%i vertex inputs)",
                     meta.name.isEmpty() ? "main" : meta.name.get(),
                     effectiveSize,
                     m_context->reflectionBindings.count(),

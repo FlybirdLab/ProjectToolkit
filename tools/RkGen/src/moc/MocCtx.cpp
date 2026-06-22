@@ -37,6 +37,15 @@ namespace toolkit {
     {
     }
 
+    MocCtx::MocCtx(const TkString& sourcePath, const TkString& outputPath, const TkArray<TkString>& sourceFiles, const TkString& outputName, const bool incremental)
+        : m_sourcePath(sourcePath)
+        , m_outputPath(outputPath)
+        , m_outputName(outputName)
+        , m_sourceFiles(sourceFiles)
+        , m_incremental(incremental)
+    {
+    }
+
 
     MocCtx::~MocCtx() {
         // platform::cleanUp();
@@ -54,12 +63,12 @@ namespace toolkit {
             return -1;
         }
 
-        LogInfo("[RkGen] source path: %s", m_sourcePath.getText());
-        LogInfo("[RkGen] output path: %s", m_outputPath.getText());
+        LogDebug("source path: %s", m_sourcePath.getText());
+        LogDebug("output path: %s", m_outputPath.getText());
 
         if (!TkFileSystem::isDirExist(m_outputPath)) {
             if (!TkFileSystem::makeDir(m_outputPath)) {
-                LogError("[RkGen] failed to create output directory: %s", m_outputPath.getText());
+                LogError("failed to create output directory: %s", m_outputPath.getText());
                 return -1;
             }
         }
@@ -70,19 +79,26 @@ namespace toolkit {
             m_sourceFiles,
             m_outputName
         }};
+        LogDebug("scanning source files...");
         if (!ctx.setUp()) {
-            LogError("[RkGen] failed to scan files in source dir.");
+            LogError("failed to scan files in source dir.");
             return -1;
         }
+        if (m_incremental)
+            ctx.filterUpToDateOutputs();
+
+        LogDebug("parsing source files...");
         if (!ctx.processAll()) {
-            LogError("[RkGen] failed to parse files in source dir.");
+            LogError("failed to parse files in source dir.");
             return -1;
         }
         Generator generator;
+        LogDebug("generating reflection sources...");
         if (!generator.generate(ctx)) {
-            LogError("[RkGen] failed to generate files.");
+            LogError("failed to generate files.");
             return -1;
         }
+        LogDebug("generation finished.");
 
         return 0;
     }

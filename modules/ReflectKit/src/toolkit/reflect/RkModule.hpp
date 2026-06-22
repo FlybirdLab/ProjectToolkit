@@ -7,10 +7,27 @@
 #pragma once
 
 #include <toolkit/reflect/RkType.hpp>
+#include <toolkit/base/Function.hpp>
 #include <toolkit/collection/HashMap.hpp>
 
 namespace toolkit
 {
+    enum class RkModuleEventKind : u8
+    {
+        kLoaded = 0,
+        kBeforeUnload,
+        kUnloaded,
+        kBeforeReload,
+        kReloaded,
+        kLoadFailed,
+    };
+
+    struct RkModuleEvent
+    {
+        RkModule *module = nullptr;
+        RkModuleEventKind kind = RkModuleEventKind::kLoaded;
+    };
+
     class TK_API RkModule
     {
     public:
@@ -20,6 +37,21 @@ namespace toolkit
         const TkString& getName() const
         {
             return m_name;
+        }
+
+        u64 getId() const
+        {
+            return m_id;
+        }
+
+        u32 getGeneration() const
+        {
+            return m_generation;
+        }
+
+        bool isLoaded() const
+        {
+            return m_loaded;
         }
 
         i32 getTypeCount() const
@@ -32,6 +64,21 @@ namespace toolkit
             return m_types;
         }
 
+        const TkString& getLibraryPath() const
+        {
+            return m_libraryPath;
+        }
+
+        void* getLibraryHandle() const
+        {
+            return m_libraryHandle;
+        }
+
+        const TkArray<RkModule*>& getDependencies() const
+        {
+            return m_dependencies;
+        }
+
         TypeHandle registerType(const RkClassDesc& desc);
         TypeHandle registerType(const RkStructDesc& desc);
         TypeHandle registerType(const RkEnumDesc& desc);
@@ -41,6 +88,8 @@ namespace toolkit
         const RkType* findTypePtr(const TkStringView& fullName) const;
         const RkType* tryGetType(i32 index) const;
         const RkType& getType(i32 index) const;
+        bool isHandleAlive(const TypeHandle& handle) const;
+        u64 makeTypeId(const TkStringView& fullName) const;
 
         const RkField* findField(TypeHandle owner, const TkStringView& fieldName) const;
         const RkMethod* findMethod(TypeHandle owner, const TkStringView& methodName) const;
@@ -57,12 +106,28 @@ namespace toolkit
 
         static const TkArray<RkModule*>& getModules();
         static RkModule* findModule(const TkStringView& moduleName);
+        static RkModule* findModuleById(u64 moduleId);
+        static TkAction<const RkModuleEvent&>& events();
+
+        bool load(const TkStringView& libraryPath);
+        void attachLibrary(void* handle, const TkStringView& libraryPath = TkStringView());
+        void addDependency(RkModule* module);
+        bool dependsOn(const RkModule* module) const;
+        void unload();
+        void reload();
 
     private:
         TypeHandle registerTypeInternal(RkType* type);
+        void clearTypes();
 
     private:
         TkString m_name;
+        u64 m_id = 0;
+        u32 m_generation = 1;
+        bool m_loaded = true;
+        void* m_libraryHandle = nullptr;
+        TkString m_libraryPath;
+        TkArray<RkModule*> m_dependencies;
         TkArray<RkType*> m_types;
         TkHashMap<TkString, i32> m_typeIndexByName;
     };

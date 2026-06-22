@@ -14,23 +14,23 @@ namespace toolkit
 {
     struct TK_API TypeHandle
     {
-        // TODO: Dynamic-library unload requires replacing RkModule* with a stable moduleId + typeIndex.
-        // The current handle is valid only while modules live for the whole program/static-plugin lifetime.
-        RkModule* module = nullptr;
+        RkModule *module = nullptr;
+        u64 moduleId = 0;
+        u32 moduleGeneration = 0;
+        u64 typeId = 0;
         i32 typeIndex = kInvalidIndex;
 
         TypeHandle() = default;
-        TypeHandle(RkModule* inModule, i32 inTypeIndex)
-            : module(inModule), typeIndex(inTypeIndex)
+        TypeHandle(RkModule *inModule, i32 inTypeIndex);
+        TypeHandle(RkModule *inModule, i32 inTypeIndex, u64 inModuleId, u32 inModuleGeneration, u64 inTypeId)
+            : module(inModule), moduleId(inModuleId), moduleGeneration(inModuleGeneration), typeId(inTypeId), typeIndex(inTypeIndex)
         {
         }
 
         explicit TypeHandle(const TypeInitializer& initializer);
 
-        bool isValid() const
-        {
-            return module != nullptr && typeIndex >= 0;
-        }
+        bool isValid() const;
+        bool isAlive() const;
 
         explicit operator bool() const
         {
@@ -44,6 +44,8 @@ namespace toolkit
 
         bool operator==(const TypeHandle& other) const
         {
+            if (typeId != 0 || other.typeId != 0)
+                return moduleId == other.moduleId && typeId == other.typeId && typeIndex == other.typeIndex;
             return module == other.module && typeIndex == other.typeIndex;
         }
 
@@ -58,8 +60,9 @@ namespace toolkit
     {
         static u32 get(const TypeHandle& key)
         {
-            u32 hash = HashFunc<void*>::get(key.module);
+            u32 hash = key.typeId != 0 ? HashFunc<u64>::get(key.moduleId) : HashFunc<void*>::get(key.module);
             combineHash(hash, HashFunc<i32>::get(key.typeIndex));
+            combineHash(hash, HashFunc<u64>::get(key.typeId));
             return hash;
         }
     };

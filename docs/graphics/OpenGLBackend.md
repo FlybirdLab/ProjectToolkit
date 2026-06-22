@@ -189,7 +189,7 @@ GL_VENDOR: <driver>
 GL_RENDERER: <GPU>
 GL_VERSION: 4.1.0 <driver-specific>
 GL_SHADING_LANGUAGE_VERSION: 4.10
-[ShaderCompiler] compiling Triangle.glsl as glsl410
+compiling Triangle.glsl as glsl410
 Sandbox using backend: OpenGL 4.1 (opengl)
 ```
 

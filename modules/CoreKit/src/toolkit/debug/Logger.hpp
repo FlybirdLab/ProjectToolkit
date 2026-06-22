@@ -32,7 +32,8 @@ namespace toolkit
         kWarn,
         kError,
         kDebug,
-        kTrace
+        kTrace,
+        kSuccess
     };
 
 
@@ -43,6 +44,9 @@ namespace toolkit
 
         const char *name = "Anonmous";
         const char *format = sDefaultFormat;
+        const char *infoFormat = nullptr;
+        const char *successFormat = nullptr;
+        const char *fileFormat = nullptr;
         bool useFileRecord : 1 = false;
         IAllocator &alloc = TkMemory::getDefault();
     };
@@ -56,6 +60,7 @@ namespace toolkit
         ~TkLogger();
 
         void setFormat(const char* format);
+        void setup(LoggerInitParams& params);
 
     public:
         template <typename... Args>
@@ -127,6 +132,18 @@ namespace toolkit
             emitLog(msg, LogLevel::kTrace);
         }
 
+        template <typename... Args>
+        TK_FORCE_INLINE void success(const char *fmtStr, const Args &...args)
+        {
+            FormatBuffer buf{m_alloc};
+            Formatter::format(buf, fmtStr, std::forward<const Args &>(args)...);
+            emitLog(buf.getPointer(), LogLevel::kSuccess);
+        }
+        TK_FORCE_INLINE void success(const char *msg)
+        {
+            emitLog(msg, LogLevel::kSuccess);
+        }
+
         TK_FORCE_INLINE void log(LogLevel level, const char* msg) {
             emitLog(msg, level);
         }
@@ -136,11 +153,12 @@ namespace toolkit
 
     private:
         void emitLog(const char *msg, LogLevel level);
-        void setup(LoggerInitParams& params);
 
     private:
         IAllocator &m_alloc;
         spdlog::logger *m_logger = nullptr;
+        spdlog::logger *m_infoLogger = nullptr;
+        spdlog::logger *m_successLogger = nullptr;
         bool m_isShared : 1 = false;
     };
 
@@ -151,3 +169,4 @@ namespace toolkit
 #define LogError(STR, ...) ::toolkit::TkLogger::getShared()->error(STR, __VA_ARGS__)
 #define LogDebug(STR, ...) ::toolkit::TkLogger::getShared()->debug(STR, __VA_ARGS__)
 #define LogTrace(STR, ...) ::toolkit::TkLogger::getShared()->trace(STR, __VA_ARGS__)
+#define LogSuccess(STR, ...) ::toolkit::TkLogger::getShared()->success(STR, __VA_ARGS__)

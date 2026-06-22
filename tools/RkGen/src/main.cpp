@@ -19,6 +19,17 @@ using namespace toolkit;
 
 namespace toolkit
 {
+    void setupRkGenLogger()
+    {
+        LoggerInitParams params;
+        params.name = "RkGen";
+        params.format = "%^%l:%$ %v";
+        params.infoFormat = "info: %v";
+        params.successFormat = "\033[32msuccess:\033[0m %v";
+        params.fileFormat = "%l: %v";
+        TkLogger::getShared()->setup(params);
+    }
+
     void printUsage()
     {
         std::printf(
@@ -36,6 +47,8 @@ namespace toolkit
             "  -o <dir>          same as --out\n"
             "  --out-name <name> generated output stem for --file mode\n"
             "  --output-name <name> same as --out-name\n"
+            "  --no-incremental  always regenerate even when output is up to date\n"
+            "  --force           same as --no-incremental\n"
             "\n");
     }
 
@@ -54,8 +67,8 @@ int main(int argc, char** argv)
     if (!System::init())
         return 1;
     System::beforeRun();
+    setupRkGenLogger();
 
-    
     TkCommandLine args(argc, argv);
     if (args.has("help") || args.has("h"))
     {
@@ -114,18 +127,20 @@ int main(int argc, char** argv)
     if (outputName.isEmpty())
         outputName = args.get("output-name");
 
-    MocCtx ctx(sourceDir, outputDir, sourceFiles, outputName);
+    const bool incremental = !args.has("no-incremental") && !args.has("force");
+    MocCtx ctx(sourceDir, outputDir, sourceFiles, outputName, incremental);
     const int result = ctx.runMoc();
-
-    System::beforeQuit();
-    System::quit();
 
     if (result != 0)
     {
-        LogError("[RkGen] Processing failed.\n");
+        LogError("Processing failed.");
+        System::beforeQuit();
+        System::quit();
         return 1;
     }
 
-    LogInfo("[RkGen] Processing passed. Output dir: %s\n", outputDir.getText());
+    LogSuccess("Processing passed. Output dir: %s", outputDir.getText());
+    System::beforeQuit();
+    System::quit();
     return 0;
 }

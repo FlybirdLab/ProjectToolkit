@@ -36,6 +36,10 @@ namespace toolkit {
         bool isTransient = false;
         bool isPointer = false;
         bool isReference = false;
+        TkString serializationFlags;
+        TkString defaultValue;
+        TkString oldName;
+        TkString referencePolicy;
     };
 
     struct RkMethodModel
@@ -85,6 +89,7 @@ namespace toolkit {
         TkArray<RkMethodModel> methods;
         TkArray<RkConstructorModel> constructors;
         TkArray<RkEnumItemModel> enumItems;
+        TkArray<RkAttributeModel> attributes;
         TkString enumUnderlyingType;
         bool isEnumClass = false;
         bool derivesFromRkObject = false;
@@ -141,6 +146,7 @@ namespace toolkit {
         void emitFieldAccessors(const RkTypeModel& type, CodeWriter& w);
         void emitClassLifecycle(const RkTypeModel& type, CodeWriter& w);
         void emitMethodInvokes(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w);
+        void emitAttributeArrays(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w);
         void emitFieldArray(const RkTypeModel& type, CodeWriter& w);
         void emitMethodArray(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w);
         void emitEnumItems(const RkTypeModel& type, CodeWriter& w);

@@ -79,6 +79,41 @@ function(tk_target_rkgen target)
     endif()
     get_filename_component(RKGEN_OUTPUT_DIR "${RKGEN_OUTPUT_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_BINARY_DIR}")
     file(MAKE_DIRECTORY "${RKGEN_OUTPUT_DIR}")
+    set(rkgen_runner_script "${CMAKE_CURRENT_BINARY_DIR}/tk_rkgen_run_if_reflected.cmake")
+    file(WRITE "${rkgen_runner_script}" [=[
+if(NOT DEFINED RKGEN_EXE OR RKGEN_EXE STREQUAL "")
+    message(FATAL_ERROR "tk_target_rkgen: RKGEN_EXE is not set.")
+endif()
+if(NOT DEFINED RKGEN_INPUT OR RKGEN_INPUT STREQUAL "")
+    message(FATAL_ERROR "tk_target_rkgen: RKGEN_INPUT is not set.")
+endif()
+if(NOT DEFINED RKGEN_OUTPUT_DIR OR RKGEN_OUTPUT_DIR STREQUAL "")
+    message(FATAL_ERROR "tk_target_rkgen: RKGEN_OUTPUT_DIR is not set.")
+endif()
+if(NOT DEFINED RKGEN_OUTPUT OR RKGEN_OUTPUT STREQUAL "")
+    message(FATAL_ERROR "tk_target_rkgen: RKGEN_OUTPUT is not set.")
+endif()
+if(NOT DEFINED RKGEN_OUTPUT_STEM OR RKGEN_OUTPUT_STEM STREQUAL "")
+    message(FATAL_ERROR "tk_target_rkgen: RKGEN_OUTPUT_STEM is not set.")
+endif()
+
+file(READ "${RKGEN_INPUT}" header_text)
+if(header_text MATCHES "(^|[^A-Za-z0-9_])(rkattr|rkclass|rkstruct|rkenum|rkfield|rkfunc|rkctor)([^A-Za-z0-9_]|$)")
+    file(MAKE_DIRECTORY "${RKGEN_OUTPUT_DIR}")
+    execute_process(
+        COMMAND "${RKGEN_EXE}" --file "${RKGEN_INPUT}" --out "${RKGEN_OUTPUT_DIR}" --out-name "${RKGEN_OUTPUT_STEM}"
+        RESULT_VARIABLE rkgen_result
+    )
+    if(NOT rkgen_result EQUAL 0)
+        message(FATAL_ERROR "tk_target_rkgen: RkGen failed for ${RKGEN_INPUT}")
+    endif()
+    if(NOT EXISTS "${RKGEN_OUTPUT}")
+        file(WRITE "${RKGEN_OUTPUT}" "\n")
+    endif()
+else()
+    file(WRITE "${RKGEN_OUTPUT}" "\n")
+endif()
+]=])
 
     set(rkgen_inputs "")
 
@@ -104,34 +139,37 @@ function(tk_target_rkgen target)
 
     list(REMOVE_DUPLICATES rkgen_inputs)
 
-    set(rkgen_filtered_inputs "")
     foreach(input IN LISTS rkgen_inputs)
         if (NOT EXISTS "${input}")
             message(FATAL_ERROR "tk_target_rkgen: input does not exist: ${input}")
         endif()
-        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${input}")
-        file(READ "${input}" header_text)
-        if (header_text MATCHES "(^|[^A-Za-z0-9_])(rkattr|rkclass|rkstruct|rkenum|rkfield|rkfunc|rkctor)([^A-Za-z0-9_]|$)")
-            list(APPEND rkgen_filtered_inputs "${input}")
-        endif()
     endforeach()
-
-    if (NOT rkgen_filtered_inputs)
-        return()
-    endif()
     
     set(rkgen_outputs "")
-    set(rkgen_output_names "")
+    set(rkgen_output_name_keys "")
     get_target_property(rkgen_imported "${rkgen_target}" IMPORTED)
-    foreach(input IN LISTS rkgen_filtered_inputs)
-        get_filename_component(stem "${input}" NAME_WE)
-        list(FIND rkgen_output_names "${stem}" existing_output_name)
+    foreach(input IN LISTS rkgen_inputs)
+        get_filename_component(base_stem "${input}" NAME_WE)
+        set(output_stem "${base_stem}")
+        string(TOLOWER "${output_stem}" output_stem_key)
+        list(FIND rkgen_output_name_keys "${output_stem_key}" existing_output_name)
         if (NOT existing_output_name EQUAL -1)
-            message(FATAL_ERROR "tk_target_rkgen: duplicate generated file name '${stem}.rkgen.cpp'. Rename one input or use separate OUTPUT_DIR values.")
+            string(SHA256 output_hash "${input}")
+            string(SUBSTRING "${output_hash}" 0 8 output_hash_short)
+            set(output_stem "${base_stem}_${output_hash_short}")
+            string(TOLOWER "${output_stem}" output_stem_key)
+            list(FIND rkgen_output_name_keys "${output_stem_key}" existing_output_name)
+            set(output_suffix_index 0)
+            while (NOT existing_output_name EQUAL -1)
+                math(EXPR output_suffix_index "${output_suffix_index} + 1")
+                set(output_stem "${base_stem}_${output_hash_short}_${output_suffix_index}")
+                string(TOLOWER "${output_stem}" output_stem_key)
+                list(FIND rkgen_output_name_keys "${output_stem_key}" existing_output_name)
+            endwhile()
         endif()
-        list(APPEND rkgen_output_names "${stem}")
+        list(APPEND rkgen_output_name_keys "${output_stem_key}")
 
-        set(output "${RKGEN_OUTPUT_DIR}/${stem}.rkgen.cpp")
+        set(output "${RKGEN_OUTPUT_DIR}/${output_stem}.rkgen.cpp")
         set(rkgen_depends "${input}")
         if (NOT rkgen_imported)
             list(APPEND rkgen_depends ${rkgen_target})
@@ -139,7 +177,13 @@ function(tk_target_rkgen target)
         if(rkgen_exe_path)
             add_custom_command(
                 OUTPUT "${output}"
-                COMMAND "${rkgen_exe_path}" --file "${input}" --out "${RKGEN_OUTPUT_DIR}" --out-name "${stem}"
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DRKGEN_EXE=${rkgen_exe_path}"
+                    "-DRKGEN_INPUT=${input}"
+                    "-DRKGEN_OUTPUT_DIR=${RKGEN_OUTPUT_DIR}"
+                    "-DRKGEN_OUTPUT=${output}"
+                    "-DRKGEN_OUTPUT_STEM=${output_stem}"
+                    -P "${rkgen_runner_script}"
                 DEPENDS ${rkgen_depends}
                 COMMENT "Running RkGen for ${input}"
                 VERBATIM
@@ -147,7 +191,13 @@ function(tk_target_rkgen target)
         else()
             add_custom_command(
                 OUTPUT "${output}"
-                COMMAND $<TARGET_FILE:${rkgen_target}> --file "${input}" --out "${RKGEN_OUTPUT_DIR}" --out-name "${stem}"
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DRKGEN_EXE=$<TARGET_FILE:${rkgen_target}>"
+                    "-DRKGEN_INPUT=${input}"
+                    "-DRKGEN_OUTPUT_DIR=${RKGEN_OUTPUT_DIR}"
+                    "-DRKGEN_OUTPUT=${output}"
+                    "-DRKGEN_OUTPUT_STEM=${output_stem}"
+                    -P "${rkgen_runner_script}"
                 DEPENDS ${rkgen_depends}
                 COMMENT "Running RkGen for ${input}"
                 VERBATIM

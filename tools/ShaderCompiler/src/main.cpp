@@ -59,6 +59,17 @@ namespace toolkit
         }
     }
 
+    void setupShaderCompilerLogger()
+    {
+        LoggerInitParams params;
+        params.name = "ShaderCompiler";
+        params.format = "%^%l:%$ %v";
+        params.infoFormat = "info: %v";
+        params.successFormat = "\033[32msuccess:\033[0m %v";
+        params.fileFormat = "%l: %v";
+        TkLogger::getShared()->setup(params);
+    }
+
     void printUsage()
     {
         std::printf(
@@ -86,6 +97,8 @@ namespace toolkit
             "Cache:\n"
             "  --cache-dir=<path>       job cache directory (default: .shader-cache)\n"
             "  --no-cache               disable read/write of the job cache\n"
+            "  --no-incremental         always compile even when .tksd is up to date\n"
+            "  --force                  same as --no-incremental\n"
             "  --jobs=<N>               parallel job count (N>1 falls back to serial)\n"
             "  --show-stats             print compile stats at the end\n"
             "\n"
@@ -131,7 +144,7 @@ namespace toolkit
         input.path = makeAbsolutePath(path);
         if (!isManifestFile(input.path))
         {
-            LogError("[ShaderCompiler] only .tkshader inputs are accepted: %s", input.path);
+            LogError("only .tkshader inputs are accepted: %s", input.path);
             diagnostics.error(
                 SourceRange::invalid(),
                 TKSHD_INVALID_CLI,
@@ -140,7 +153,7 @@ namespace toolkit
         }
         if (!TkFileSystem::isFileExist(input.path))
         {
-            LogError("[ShaderCompiler] input file not found: %s", input.path);
+            LogError("input file not found: %s", input.path);
             diagnostics.error(
                 SourceRange::invalid(),
                 TKSHD_READ_SOURCE_FAILED,
@@ -159,7 +172,7 @@ namespace toolkit
         const TkString dir = makeAbsolutePath(path);
         if (!TkFileSystem::isDirExist(dir))
         {
-            LogError("[ShaderCompiler] source directory not found: %s", dir);
+            LogError("source directory not found: %s", dir);
             diagnostics.error(
                 SourceRange::invalid(),
                 TKSHD_NO_INPUT,
@@ -170,7 +183,7 @@ namespace toolkit
         TkArray<TkString> files;
         if (!TkFileSystem::listDir(files, dir, "*", true))
         {
-            LogError("[ShaderCompiler] failed to list source directory: %s", dir);
+            LogError("failed to list source directory: %s", dir);
             diagnostics.error(
                 SourceRange::invalid(),
                 TKSHD_NO_INPUT,
@@ -239,7 +252,7 @@ namespace toolkit
         }
         if (normalized == "metal" || normalized == "mtl")
         {
-            LogWarn("[ShaderCompiler] backend '%s' is recognized but not implemented yet.", normalized);
+            LogWarn("backend '%s' is recognized but not implemented yet.", normalized);
             diagnostics.warning(
                 SourceRange::invalid(),
                 TKSHD_UNSUPPORTED_BACKEND,
@@ -247,7 +260,7 @@ namespace toolkit
             return;
         }
 
-        LogWarn("[ShaderCompiler] unknown backend '%s'.", normalized);
+        LogWarn("unknown backend '%s'.", normalized);
         diagnostics.warning(
             SourceRange::invalid(),
             TKSHD_UNSUPPORTED_BACKEND,
@@ -306,6 +319,7 @@ int main(int argc, char **argv)
     if (!System::init())
         return 1;
     System::beforeRun();
+    setupShaderCompilerLogger();
 
     TkCommandLine args(argc, argv);
     if (args.has("help") || args.has("h"))
@@ -347,6 +361,7 @@ int main(int argc, char **argv)
     }
 
     const bool showStats = args.has("show-stats");
+    const bool incremental = !args.has("no-incremental") && !args.has("force");
     ShaderManifestCompileResult aggregateStats;
 
     // Tie cache verbose-logging to --show-stats so the same flag the user
@@ -398,7 +413,7 @@ int main(int argc, char **argv)
     }
     if (!inputFile.isEmpty() && !sourceDir.isEmpty())
     {
-        LogError("[ShaderCompiler] use either --file or --source-dir, not both.");
+        LogError("use either --file or --source-dir, not both.");
         diagnostics.error(
             SourceRange::invalid(),
             TKSHD_INVALID_CLI,
@@ -410,7 +425,7 @@ int main(int argc, char **argv)
     }
     if (!ensureDirectory(outputDir))
     {
-        LogError("[ShaderCompiler] failed to create output directory: %s", outputDir);
+        LogError("failed to create output directory: %s", outputDir);
         diagnostics.error(
             SourceRange::invalid(),
             TKSHD_WRITE_OUTPUT_FAILED,
@@ -427,7 +442,7 @@ int main(int argc, char **argv)
         : collectInputsFromDirectory(diagnostics, sourceDir, inputs);
     if (!collectedInputs || inputs.isEmpty())
     {
-        LogError("[ShaderCompiler] no .tkshader input files found.");
+        LogError("no .tkshader input files found.");
         if (!diagnostics.hasError())
         {
             diagnostics.error(
@@ -445,7 +460,7 @@ int main(int argc, char **argv)
     parseBackends(diagnostics, backendText, profiles);
     if (profiles.isEmpty())
     {
-        LogError("[ShaderCompiler] no supported backend selected.");
+        LogError("no supported backend selected.");
         diagnostics.error(
             SourceRange::invalid(),
             TKSHD_UNSUPPORTED_BACKEND,
@@ -459,7 +474,7 @@ int main(int argc, char **argv)
     ShadersCompilation::init();
     ShadersCompilation::onIncludeChanged.bind([](const TkString &path, FileAction action)
     {
-        LogInfo("[ShaderCompiler] include changed: %s action=%i", path, static_cast<i32>(action));
+        LogInfo("include changed: %s action=%i", path, static_cast<i32>(action));
     });
 
     const TkDateTime statsStart = TkDateTime::nowUTC();
@@ -477,6 +492,7 @@ int main(int argc, char **argv)
         mopts.cache = jobCache.isEnabled() ? &jobCache : nullptr;
         mopts.inputIndex = inputIndex;
         mopts.includeDirs = includeDirs;
+        mopts.incremental = incremental;
 
         ShaderManifestCompileResult mresult;
         ShaderManifestCompiler manifestCompiler;
@@ -488,6 +504,7 @@ int main(int argc, char **argv)
         aggregateStats.cacheHit += mresult.cacheHit;
         aggregateStats.cacheMiss += mresult.cacheMiss;
         aggregateStats.compiled += mresult.compiled;
+        aggregateStats.skipped += mresult.skipped;
         aggregateStats.dependencyTotalCount += mresult.dependencyTotalCount;
         aggregateStats.includeMissingCount += mresult.includeMissingCount;
         aggregateStats.includeCycleCount += mresult.includeCycleCount;
@@ -507,6 +524,7 @@ int main(int argc, char **argv)
         std::printf("  cache hit:  %i\n", aggregateStats.cacheHit);
         std::printf("  cache miss: %i\n", aggregateStats.cacheMiss);
         std::printf("  compiled:   %i\n", aggregateStats.compiled);
+        std::printf("  skipped:    %i\n", aggregateStats.skipped);
         std::printf("  failed:     %i\n", aggregateStats.failedCount);
         std::printf("  deps:       %i (missing=%i, cycles=%i)\n",
                     aggregateStats.dependencyTotalCount,
@@ -515,15 +533,16 @@ int main(int argc, char **argv)
         std::printf("  time:        %.1f ms\n", elapsedMs);
     }
 
-    System::beforeQuit();
-    System::quit();
-
     if (failed != 0 || diagnostics.hasError())
     {
-        std::printf("ShaderCompiler failed: %i case(s)\n", failed);
+        LogError("failed: %i case(s)", failed);
+        System::beforeQuit();
+        System::quit();
         return 1;
     }
 
-    std::printf("ShaderCompiler passed. Output: %s\n", outputDir.getText());
+    LogSuccess("passed. Output: %s", outputDir.getText());
+    System::beforeQuit();
+    System::quit();
     return 0;
 }

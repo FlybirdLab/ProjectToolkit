@@ -258,6 +258,10 @@ namespace toolkit {
                     CHECK_RESULT(r, jumpUnneed());
                 }
             }
+            else if (isIdentifier("rkattr"))
+            {
+                CHECK_RESULT(r, parsePendingAttributes());
+            }
             else if (isIdentifier("template"))
             {
                 m_skipNextClass = true;
@@ -347,8 +351,13 @@ namespace toolkit {
         ScopeGuard ns = TkMemory::newObject<ASTNamespace>(TkMemory::getDefault(), name.toString());
         while (!match(TokenType::kRCurlyBrace) && !match(TokenType::kEOF))
         {
+            const i32 tokenIndexBefore = m_tk_idx;
             if (match(TokenType::kEOL) || match(TokenType::kSemiColon))
                 advance();
+            else if (isIdentifier("rkattr"))
+            {
+                CHECK_RESULT(r, parsePendingAttributes());
+            }
             else if (isIdentifier("template"))
             {
                 m_skipNextClass = true;
@@ -381,6 +390,8 @@ namespace toolkit {
                 m_skipNextClass = false;
                 CHECK_RESULT(r, jumpUnneed());
             }
+            if (m_tk_idx == tokenIndexBefore)
+                advance();
         }
         consume(TokenType::kRCurlyBrace);
         return ns.getPtr();
@@ -443,6 +454,7 @@ namespace toolkit {
 
         CHECK_RESULT(nameResult, parseDeclName());
         ScopeGuard type = TkMemory::newObject<ASTTypeDecl>(TkMemory::getDefault(), nameResult.value(), ASTTypeDecl::DeclType::kClass);
+        applyPendingAttributes(type.operator->());
 
         if (match(TokenType::kColon))
         {
@@ -463,19 +475,22 @@ namespace toolkit {
                 while (match(TokenType::kIdentifier) && isConstructorSpecifier(current().value))
                     advance();
                 CHECK_RESULT(r, parseCtor(type->name, true));
+                applyPendingAttributes(r.value());
                 type->members.add(r.value());
             }
             else
-            if (isIdentifier(type->name.getText()) && peek().type == TokenType::kLParen) { CHECK_RESULT(r, parseCtor(type->name)); type->members.add(r.value()); }
+            if (isIdentifier(type->name.getText()) && peek().type == TokenType::kLParen) { CHECK_RESULT(r, parseCtor(type->name)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
             else if (isIdentifier("explicit") && peek().type == TokenType::kIdentifier && peek().value == type->name)
             {
                 advance();
                 CHECK_RESULT(r, parseCtor(type->name));
+                applyPendingAttributes(r.value());
                 type->members.add(r.value());
             }
             else if (isIdentifier("static")) { isStatic = true; advance(); continue; }
-            else if (isIdentifier("rkfunc")) { CHECK_RESULT(r, parseCFunction(isStatic)); type->members.add(r.value()); }
-            else if (isIdentifier("rkfield")) { CHECK_RESULT(r, parseCField(isStatic)); type->members.add(r.value()); }
+            else if (isIdentifier("rkattr")) { CHECK_RESULT(r, parsePendingAttributes()); }
+            else if (isIdentifier("rkfunc")) { CHECK_RESULT(r, parseCFunction(isStatic)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
+            else if (isIdentifier("rkfield")) { CHECK_RESULT(r, parseCField(isStatic)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
             else if (isIdentifier("rkenum")) { CHECK_RESULT(r, parseCEnum()); type->members.add(r.value()); }
             else if (isIdentifier("rkstruct")) { CHECK_RESULT(r, parseCStruct()); type->members.add(r.value()); }
             else if (isIdentifier("rkclass")) { CHECK_RESULT(r, parseCClass()); type->members.add(r.value()); }
@@ -506,6 +521,7 @@ namespace toolkit {
             return Error::failure("Expected cstruct", ERRR());
         CHECK_RESULT(nameResult, parseDeclName());
         ScopeGuard type = TkMemory::newObject<ASTTypeDecl>(TkMemory::getDefault(), nameResult.value(), ASTTypeDecl::DeclType::kStruct);
+        applyPendingAttributes(type.operator->());
         if (match(TokenType::kColon))
         {
             advance();
@@ -525,17 +541,21 @@ namespace toolkit {
                 while (match(TokenType::kIdentifier) && isConstructorSpecifier(current().value))
                     advance();
                 CHECK_RESULT(r, parseCtor(type->name, true));
+                applyPendingAttributes(r.value());
                 type->members.add(r.value());
             }
-            else if (isIdentifier(type->name.getText()) && peek().type == TokenType::kLParen) { CHECK_RESULT(r, parseCtor(type->name)); type->members.add(r.value()); }
+            else if (isIdentifier(type->name.getText()) && peek().type == TokenType::kLParen) { CHECK_RESULT(r, parseCtor(type->name)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
             else if (isIdentifier("explicit") && peek().type == TokenType::kIdentifier && peek().value == type->name)
             {
                 advance();
                 CHECK_RESULT(r, parseCtor(type->name));
+                applyPendingAttributes(r.value());
                 type->members.add(r.value());
             }
             else if (isIdentifier("static")) { isStatic = true; advance(); continue; }
-            else if (isIdentifier("rkfield")) { CHECK_RESULT(r, parseCField(isStatic)); type->members.add(r.value()); }
+            else if (isIdentifier("rkattr")) { CHECK_RESULT(r, parsePendingAttributes()); }
+            else if (isIdentifier("rkfunc")) { CHECK_RESULT(r, parseCFunction(isStatic)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
+            else if (isIdentifier("rkfield")) { CHECK_RESULT(r, parseCField(isStatic)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
             else if (isIdentifier("rkenum")) { CHECK_RESULT(r, parseCEnum()); type->members.add(r.value()); }
             else if (isIdentifier("rkstruct")) { CHECK_RESULT(r, parseCStruct()); type->members.add(r.value()); }
             else if (isIdentifier("rkclass")) { CHECK_RESULT(r, parseCClass()); type->members.add(r.value()); }
@@ -545,7 +565,7 @@ namespace toolkit {
                 consume(TokenType::kColon);
             }
             else if (match(TokenType::kIdentifier) && isBuiltinSkippedMember(current().value)) { CHECK_RESULT(r, jumpUnneed()); }
-            else { CHECK_RESULT(r, parseImplicitStructField(isStatic)); type->members.add(r.value()); }
+            else { CHECK_RESULT(r, parseImplicitStructField(isStatic)); applyPendingAttributes(r.value()); type->members.add(r.value()); }
             if (m_tk_idx == tokenIndexBefore)
                 advance();
             isStatic = false;
@@ -569,6 +589,7 @@ namespace toolkit {
         if (!match(TokenType::kIdentifier))
             return Error::failure("Expected enum name", ERRR());
         ScopeGuard e = TkMemory::newObject<ASTEnum>(TkMemory::getDefault(), current().value);
+        applyPendingAttributes(e.operator->());
         e->isEnumClass = enumClass;
         advance();
         while (match(TokenType::kEOL))
@@ -655,11 +676,17 @@ namespace toolkit {
         CHECK_RESULT(r2, parseFuncArgs(&args));
         args.swap(f->params);
 
-        while (!match(TokenType::kSemiColon) && !match(TokenType::kEOL) && !match(TokenType::kEOF))
+        while (!match(TokenType::kEOF))
         {
-            if (isIdentifier("const")) f->isConst = true;
-            else if (isIdentifier("noexcept")) f->isNoexcept = true;
-            else if (match(TokenType::kLCurlyBrace)) { CHECK_RESULT(r, jumpUnneed()); break; }
+            if (match(TokenType::kEOL))
+            {
+                advance();
+                continue;
+            }
+            if (isIdentifier("const")) { f->isConst = true; advance(); continue; }
+            if (isIdentifier("noexcept")) { f->isNoexcept = true; advance(); continue; }
+            if (match(TokenType::kSemiColon)) { advance(); break; }
+            if (match(TokenType::kLCurlyBrace)) { CHECK_RESULT(r, jumpUnneed()); break; }
             advance();
         }
         return f.getPtr();
@@ -782,6 +809,75 @@ namespace toolkit {
         }
         consume(TokenType::kRParen);
         return Error::success();
+    }
+
+    Expected<void> CXXParser::parsePendingAttributes()
+    {
+        if (!consumeIdentifier("rkattr"))
+            return Error::failure("Expected rkattr", ERRR());
+        if (!consume(TokenType::kLParen))
+            return Error::failure("Expected rkattr body", ERRR());
+
+        TkArray<Token> chunk;
+        i32 depth = 0;
+        while (!match(TokenType::kEOF))
+        {
+            if (match(TokenType::kLParen))
+                depth++;
+            else if (match(TokenType::kRParen))
+            {
+                if (depth == 0)
+                {
+                    const TkString attr = trimCopy(tokensToText(chunk, 0, chunk.count()));
+                    if (!attr.isEmpty())
+                        m_pendingAttributes.add(attr);
+                    advance();
+                    break;
+                }
+                depth--;
+            }
+
+            if (match(TokenType::kComma) && depth == 0)
+            {
+                const TkString attr = trimCopy(tokensToText(chunk, 0, chunk.count()));
+                if (!attr.isEmpty())
+                    m_pendingAttributes.add(attr);
+                chunk.clear();
+                advance();
+                continue;
+            }
+
+            chunk.add(current());
+            advance();
+        }
+
+        while (!match(TokenType::kSemiColon) && !match(TokenType::kEOL) && !match(TokenType::kEOF))
+            advance();
+        consume(TokenType::kSemiColon);
+        if (match(TokenType::kEOL))
+            advance();
+        return Error::success();
+    }
+
+    void CXXParser::applyPendingAttributes(ASTTypeDecl* type)
+    {
+        if (type != nullptr && !m_pendingAttributes.isEmpty())
+            type->attributes.add(m_pendingAttributes);
+        m_pendingAttributes.clear();
+    }
+
+    void CXXParser::applyPendingAttributes(ASTField* field)
+    {
+        if (field != nullptr && !m_pendingAttributes.isEmpty())
+            field->attributes.add(m_pendingAttributes);
+        m_pendingAttributes.clear();
+    }
+
+    void CXXParser::applyPendingAttributes(ASTFunction* function)
+    {
+        if (function != nullptr && !m_pendingAttributes.isEmpty())
+            function->attributes.add(m_pendingAttributes);
+        m_pendingAttributes.clear();
     }
 
     static void applyFieldMeta(ASTField* f, const TkString& raw, i32 positional)

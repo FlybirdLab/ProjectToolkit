@@ -37,6 +37,19 @@ namespace toolkit
 
     using AttributeSpan = TkSpan<const Attribute>;
 
+    struct FieldSerializationMeta
+    {
+        FieldSerializationFlags flags = FieldSerializationFlags::kNone;
+        TkStringView defaultValue;
+        TkStringView oldName;
+        TkStringView referencePolicy;
+
+        bool shouldSerialize() const
+        {
+            return !hasAnyFlags(flags, FieldSerializationFlags::kNoSerialize);
+        }
+    };
+
     struct ObjectSpawnParams
     {
         TkUuid id;
@@ -66,6 +79,11 @@ namespace toolkit
             : id(TkUuid::create()), type(inType), args(inArgs), argCount(inArgCount)
         {
         }
+
+        ObjectSpawnParams(const TkUuid &inId, const TypeHandle &inType, RkObject *inOuter, const TkStringView inName, const u32 inFlags, ArgValue *inArgs = nullptr, const u32 inArgCount = 0)
+            : id(inId.isValid() ? inId : TkUuid::create()), type(inType), outer(inOuter), name(inName), args(inArgs), argCount(inArgCount), flags(inFlags)
+        {
+        }
     };
 
     using ObjectSpawnFn = RkObject *(*)(const ObjectSpawnParams &params);
@@ -86,6 +104,7 @@ namespace toolkit
         FieldFlags flags = FieldFlags::kNone;
         AttributeSpan attributes;
         FieldAccessorFn accessor = nullptr;
+        FieldSerializationMeta serialization;
 
         void *getPtr(void *instance) const
         {
@@ -192,6 +211,7 @@ namespace toolkit
         StructDtorFn dtor = nullptr;
         StructCopyFn copy = nullptr;
         TkSpan<const RkField> fields;
+        TkSpan<const RkMethod> methods;
         AttributeSpan attributes;
     };
 
@@ -361,7 +381,9 @@ namespace toolkit
         StructDtorFn dtor = nullptr;
         StructCopyFn copy = nullptr;
         TkArray<RkField> fieldStorage;
+        TkArray<RkMethod> methodStorage;
         TkSpan<const RkField> fields;
+        TkSpan<const RkMethod> methods;
 
         RkStruct() = default;
         explicit RkStruct(const RkStructDesc &desc)
@@ -371,6 +393,17 @@ namespace toolkit
             for (const RkField &field : desc.fields)
                 fieldStorage.add(field);
             fields = TkSpan<const RkField>(fieldStorage.get(), fieldStorage.count());
+
+            methodStorage.reserve(desc.methods.length());
+            for (const RkMethod &method : desc.methods)
+            {
+                RkMethod local = method;
+                local.paramCount = static_cast<u32>(local.params.length());
+                if (local.signatureHash == 0)
+                    local.signatureHash = makeMethodSignatureHash(desc.fullName, local.name, local.returnType, local.returnKind, local.params);
+                methodStorage.add(local);
+            }
+            methods = TkSpan<const RkMethod>(methodStorage.get(), methodStorage.count());
         }
 
         const RkStruct *asStruct() const override
@@ -379,6 +412,10 @@ namespace toolkit
         }
 
         const RkField *findField(const TkStringView &fieldName) const override;
+        const RkMethod *findMethod(const TkStringView &methodName) const override;
+        const RkMethod *findMethod(const TkStringView &methodName, u64 signatureHash) const override;
+        const RkMethod *findMethod(const TkStringView &methodName, TkSpan<const TypeHandle> paramTypes) const override;
+        const RkMethod *findMethod(const TkStringView &methodName, TkSpan<const RkParam> params) const override;
     };
 
     class TK_API RkEnum final : public RkType

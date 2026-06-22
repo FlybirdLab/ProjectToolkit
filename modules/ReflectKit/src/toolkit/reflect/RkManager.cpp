@@ -52,6 +52,12 @@ namespace toolkit
             return state;
         }
 
+        RkModule &getOpaqueRuntimeModule()
+        {
+            static RkModule module("ReflectKit::Runtime");
+            return module;
+        }
+
         void registerBuiltinStruct(
             RkModule &module,
             BuiltinTypeState &state,
@@ -100,6 +106,21 @@ namespace toolkit
         return getBuiltinTypes().handles[static_cast<int>(id)];
     }
 
+    TypeHandle getOpaqueRuntimeTypeHandle(const TkStringView &fullName, const u32 size, const u32 align)
+    {
+        RkModule &module = getOpaqueRuntimeModule();
+        TypeHandle handle = module.findType(fullName);
+        if (handle.isValid())
+            return handle;
+
+        RkStructDesc desc;
+        desc.name = fullName;
+        desc.fullName = fullName;
+        desc.size = size;
+        desc.align = align;
+        return module.registerType(desc);
+    }
+
     RkObject *resolveObjectHandle(const ObjectHandle handle)
     {
         return TypeRegistry::resolveObject(handle);
@@ -139,17 +160,16 @@ namespace toolkit
         return getRegistryDirty();
     }
 
-    static RkObject *spawnRegisteredObject(const TypeHandle type, ArgValue *args, const u32 argCount)
+    static RkObject *spawnRegisteredObject(const ObjectSpawnParams &params)
     {
         TypeRegistry::finalize();
-        if (!type.isValid())
+        if (!params.type.isValid())
             return nullptr;
 
-        const RkClass *klass = type.getType().asClass();
+        const RkClass *klass = params.type.getType().asClass();
         if (klass == nullptr || klass->spawn == nullptr || klass->isAbstract)
             return nullptr;
 
-        ObjectSpawnParams params(type, args, argCount);
         RkObject *object = klass->spawn(params);
         if (object != nullptr && !object->isRegistered())
             object->registerObject();
@@ -168,20 +188,25 @@ namespace toolkit
         return resolveObject(handle);
     }
 
+    RkObject *TypeRegistry::newObject(const ObjectSpawnParams &params)
+    {
+        const ObjectHandle handle = newObjectHandle(params);
+        return resolveObject(handle);
+    }
+
     ObjectHandle TypeRegistry::newObjectHandle(const TypeHandle type)
     {
-        RkObject *object = spawnRegisteredObject(type, nullptr, 0);
-        if (object == nullptr)
-            return ObjectHandle();
-
-        TK_ASSERT(!object->m_handle.isValid());
-        object->m_handle = getObjectRegistry().add(object);
-        return object->m_handle;
+        return newObjectHandle(ObjectSpawnParams(type));
     }
 
     ObjectHandle TypeRegistry::newObjectHandle(const TypeHandle type, ArgValue *args, const u32 argCount)
     {
-        RkObject *object = spawnRegisteredObject(type, args, argCount);
+        return newObjectHandle(ObjectSpawnParams(type, args, argCount));
+    }
+
+    ObjectHandle TypeRegistry::newObjectHandle(const ObjectSpawnParams &params)
+    {
+        RkObject *object = spawnRegisteredObject(params);
         if (object == nullptr)
             return ObjectHandle();
 
@@ -258,6 +283,23 @@ namespace toolkit
             return;
         getObjectStorage().remove(oldId);
         getObjectStorage()[object->getId()] = object;
+    }
+
+    void TypeRegistry::destroyObjectsFromModule(RkModule *module)
+    {
+        if (module == nullptr)
+            return;
+
+        TkArray<RkObject *> toDestroy;
+        for (auto iterator = getObjectStorage().Begin(); iterator.isNotEnd(); ++iterator)
+        {
+            RkObject *object = iterator->value;
+            if (object != nullptr && object->getTypeHandle().module == module)
+                toDestroy.add(object);
+        }
+
+        for (RkObject *object : toDestroy)
+            destroyObject(object);
     }
 
     RkObject *TypeRegistry::findObject(const TkUuid &id)

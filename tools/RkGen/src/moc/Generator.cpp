@@ -133,10 +133,77 @@ namespace toolkit {
                type == "long double";
     }
 
+    static bool isKnownToolkitTypeName(const TkString& type)
+    {
+        return type == "TkString" ||
+               type == "TkStringView" ||
+               type == "TkUuid" ||
+               type == "TkDateTime" ||
+               type == "TkTimeSpan" ||
+               type == "TkVersion" ||
+               type == "RkObject" ||
+               type.startsWith(TkStringView{"RkObjectRef<"}) ||
+               type.startsWith(TkStringView{"SoftObjectReference<"}) ||
+               type.startsWith(TkStringView{"AssetRef<"}) ||
+               type.startsWith(TkStringView{"ObjectRef<"}) ||
+               type == "Vec2" || type == "Vec3" || type == "Vec4" ||
+               type == "FVec2" || type == "FVec3" || type == "FVec4" ||
+               type == "IVec2" || type == "IVec3" || type == "IVec4" ||
+               type == "UVec2" || type == "UVec3" || type == "UVec4" ||
+               type == "Quat" || type == "Mat" || type == "Mat3x3" || type == "Mat4x4" ||
+               type == "Color" || type == "Color32" || type == "Rectangle";
+    }
+
+    static TkString escapeStringLiteral(const TkString& text)
+    {
+        TkStringBuilder out;
+        for (i32 i = 0; i < text.length(); i++)
+        {
+            const char c = text[i];
+            if (c == '\\\\' || c == '"')
+                out.append('\\\\');
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    static TkString stripAttributeWrapper(const TkString& raw)
+    {
+        TkString item = trimCopy(raw);
+        if (item.startsWith(TkStringView{"attr("}) && item.endsWith(TkStringView{")"}))
+            item = trimCopy(item.substring(5, item.length() - 6));
+        return item;
+    }
+
+    static RkAttributeModel parseAttributeModel(const TkString& raw)
+    {
+        const TkString item = stripAttributeWrapper(raw);
+        const i32 eq = item.find('=');
+        if (eq >= 0)
+            return RkAttributeModel{ trimCopy(item.substring(0, eq)), trimCopy(item.substring(eq + 1)) };
+        return RkAttributeModel{ item, TkString::Empty };
+    }
+
+    static void addParsedAttributes(const TkArray<TkString>& rawAttributes, TkArray<RkAttributeModel>& out)
+    {
+        for (const TkString& raw : rawAttributes)
+        {
+            const RkAttributeModel attr = parseAttributeModel(raw);
+            if (!attr.name.isEmpty())
+                out.add(attr);
+        }
+    }
+
     static TkString qualifyTypeName(const TkString& type, const TkString& namespacePath)
     {
         const TkString normalized = normalizeType(type);
-        if (normalized.isEmpty() || isBuiltinType(normalized) || normalized.find("::") >= 0 || namespacePath.isEmpty())
+        if (normalized.isEmpty() || isBuiltinType(normalized))
+            return normalized;
+        if (isKnownToolkitTypeName(normalized))
+            return "::toolkit::" + normalized;
+        if (normalized.find("::") >= 0)
+            return normalized;
+        if (namespacePath.isEmpty())
             return normalized;
         return "::" + namespacePath + "::" + normalized;
     }
@@ -169,9 +236,7 @@ namespace toolkit {
     {
         const TkString normalized = qualifyTypeName(type, namespacePath);
         if (normalized.isEmpty() || normalized == "void")
-            return "::toolkit::TypeHandle()";
-        if (!isBuiltinType(normalizeType(type)) && !isKnownReflectedType(normalized, reflectedTypes))
-            return "::toolkit::TypeHandle()";
+            return "::toolkit::typeOf<void>()";
         return TkString::format("::toolkit::typeOf<%s>()", normalized.getText());
     }
 
@@ -184,7 +249,65 @@ namespace toolkit {
             result += " | toolkit::FieldFlags::kReadOnly";
         if (ownerClass)
             result += " | toolkit::FieldFlags::kOwnerClass";
+        if (field.serializationFlags.find("kNoSerialize") >= 0)
+            result += " | toolkit::FieldFlags::kNoSerialize";
+        if (field.serializationFlags.find("kEditorOnly") >= 0)
+            result += " | toolkit::FieldFlags::kEditorOnly";
+        if (field.serializationFlags.find("kObjectReference") >= 0)
+            result += " | toolkit::FieldFlags::kObjectReference";
+        if (field.serializationFlags.find("kSoftObjectReference") >= 0)
+            result += " | toolkit::FieldFlags::kSoftObjectReference";
         return result;
+    }
+
+    static void appendFlagOnce(TkString& result, const TkStringView flag)
+    {
+        if (result.find(flag) < 0)
+            result += TkString(" | ") + TkString(flag);
+    }
+
+    static TkString serializationFlagsFor(const RkFieldModel& field)
+    {
+        TkString result = "toolkit::FieldSerializationFlags::kNone";
+        if (field.isTransient)
+            appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kNoSerialize"});
+        if (field.isReadonly)
+            appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kReadOnly"});
+
+        const TkString normalizedType = normalizeType(field.cppTypeText);
+        if (normalizedType.find("SoftObjectReference") >= 0 || normalizedType.find("RkObjectRef") >= 0)
+            appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kSoftObjectReference"});
+        else if (normalizedType.find("RkObject") >= 0 || field.isPointer)
+            appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kObjectReference"});
+
+        for (const RkAttributeModel& attr : field.attributes)
+        {
+            if (attr.name == "NoSerialize" || attr.name == "noSerialize" || attr.name == "Transient" || attr.name == "transient")
+                appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kNoSerialize"});
+            else if (attr.name == "ReadOnly" || attr.name == "readonly")
+                appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kReadOnly"});
+            else if (attr.name == "EditorOnly" || attr.name == "editorOnly")
+                appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kEditorOnly"});
+            else if (attr.name == "ObjectRef" || attr.name == "objectRef" || attr.name == "ObjectReference")
+                appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kObjectReference"});
+            else if (attr.name == "SoftObjectRef" || attr.name == "softObjectRef" || attr.name == "SoftObjectReference" || attr.name == "SoftReference")
+                appendFlagOnce(result, TkStringView{"toolkit::FieldSerializationFlags::kSoftObjectReference"});
+        }
+        return result;
+    }
+
+    static void applyFieldSerializationAttributes(RkFieldModel& field)
+    {
+        field.serializationFlags = serializationFlagsFor(field);
+        for (const RkAttributeModel& attr : field.attributes)
+        {
+            if (attr.name == "Default" || attr.name == "default" || attr.name == "DefaultValue")
+                field.defaultValue = attr.value;
+            else if (attr.name == "OldName" || attr.name == "oldName" || attr.name == "FormerName")
+                field.oldName = attr.value;
+            else if (attr.name == "ReferencePolicy" || attr.name == "referencePolicy")
+                field.referencePolicy = attr.value;
+        }
     }
 
     static TkString methodFlags(const RkMethodModel& method)
@@ -195,6 +318,13 @@ namespace toolkit {
         if (method.isConst)
             result += " | toolkit::MethodFlags::kConst";
         return result;
+    }
+
+    static TkString attributeSpanExpr(const TkString& symbol, const i32 count)
+    {
+        if (count <= 0)
+            return "::toolkit::AttributeSpan()";
+        return TkString::format("::toolkit::AttributeSpan(%s, %i)", symbol.getText(), count);
     }
 
     static TkString returnKindFor(const TkString& type)
@@ -229,6 +359,11 @@ namespace toolkit {
     void CodeWriter::unindent() { if (m_indent > 0) m_indent--; }
     void CodeWriter::line(const TkString& text)
     {
+        if (text.isEmpty())
+        {
+            m_builder.appendLine("");
+            return;
+        }
         for (i32 i = 0; i < m_indent; i++)
             m_builder.append("    ");
         m_builder.appendLine(text);
@@ -311,6 +446,7 @@ namespace toolkit {
         model.sourceFile = inputFile;
         model.enumUnderlyingType = type->underlyingType;
         model.isEnumClass = type->isEnumClass;
+        addParsedAttributes(type->attributes, model.attributes);
         for (auto& item : type->values)
         {
             RkEnumItemModel enumItem;
@@ -336,6 +472,7 @@ namespace toolkit {
         model.symbolName = sanitizeSymbol(model.qualifiedCppName);
         model.sourceFile = inputFile;
         model.baseTypes.add(type->baseClasses);
+        addParsedAttributes(type->attributes, model.attributes);
         model.noSpawn = type->noSpawn;
         for (const TkString& base : model.baseTypes)
         {
@@ -360,8 +497,8 @@ namespace toolkit {
                 dst.isTransient = field->isTransient;
                 dst.isPointer = field->isPointer;
                 dst.isReference = field->isReference;
-                for (auto& attr : field->attributes)
-                    dst.attributes.add(RkAttributeModel{ attr, TkString::Empty });
+                addParsedAttributes(field->attributes, dst.attributes);
+                applyFieldSerializationAttributes(dst);
                 model.fields.add(dst);
             }
             else if (member->type == ASTNode::kFunction)
@@ -391,6 +528,7 @@ namespace toolkit {
                 dst.returnKind = returnKindFor(fn->returnType);
                 dst.isStatic = fn->isStatic;
                 dst.isConst = fn->isConst;
+                addParsedAttributes(fn->attributes, dst.attributes);
                 for (auto& p : fn->params)
                 {
                     RkParamModel param;
@@ -415,9 +553,11 @@ namespace toolkit {
             ASTTransUnit* root = static_cast<ASTTransUnit*>(item.value->getASTRoot());
             if (root == nullptr)
                 continue;
+            LogDebug("building model for %s", item.key.getText());
             RkFileModel model;
             if (!builder.build(item.key, ctx.m_data.outputDir, ctx.m_data.outputName, root, &model))
                 return false;
+            LogDebug("writing %s", model.outputSource.getText());
             if (!generate(model))
                 return false;
         }
@@ -467,7 +607,7 @@ namespace toolkit {
 
             if (!type.hasSpawnConstructor && !type.noSpawn)
             {
-                LogError("[RkGen] cclass %s derives from RkObject and must declare a reflected constructor, e.g. 'cctor %s() = default;'.",
+                LogError("cclass %s derives from RkObject and must declare a reflected constructor, e.g. 'cctor %s() = default;'.",
                     type.qualifiedCppName.getText(),
                     type.name.getText());
                 return false;
@@ -598,6 +738,7 @@ namespace toolkit {
     {
         if (type.kind == RkTypeModel::kEnum)
         {
+            emitAttributeArrays(type, TkArray<TkString>(), w);
             emitEnumItems(type, w);
             return;
         }
@@ -605,8 +746,35 @@ namespace toolkit {
         emitClassLifecycle(type, w);
         emitFieldAccessors(type, w);
         emitMethodInvokes(type, methodSymbols, w);
+        emitAttributeArrays(type, methodSymbols, w);
         emitFieldArray(type, w);
         emitMethodArray(type, methodSymbols, w);
+    }
+
+    void Generator::emitAttributeArrays(const RkTypeModel& type, const TkArray<TkString>& methodSymbols, CodeWriter& w)
+    {
+        auto emitOne = [&](const TkString& symbol, const TkArray<RkAttributeModel>& attributes)
+        {
+            if (attributes.isEmpty())
+                return;
+            w.line(TkString::format("const ::toolkit::Attribute %s[] = {", symbol.getText()));
+            w.indent();
+            for (const RkAttributeModel& attr : attributes)
+            {
+                const TkString name = escapeStringLiteral(attr.name);
+                const TkString value = escapeStringLiteral(attr.value);
+                w.line(TkString::format("{ \"%s\", \"%s\" },", name.getText(), value.getText()));
+            }
+            w.unindent();
+            w.line("};");
+            w.line("");
+        };
+
+        emitOne(TkString::format("s_attrs_%s", type.symbolName.getText()), type.attributes);
+        for (const RkFieldModel& field : type.fields)
+            emitOne(TkString::format("s_attrs_%s_%s", type.symbolName.getText(), field.name.getText()), field.attributes);
+        for (i32 i = 0; i < type.methods.count(); ++i)
+            emitOne(TkString::format("s_attrs_%s", methodSymbols[i].getText()), type.methods[i].attributes);
     }
 
     void Generator::emitFieldAccessors(const RkTypeModel& type, CodeWriter& w)
@@ -765,7 +933,22 @@ namespace toolkit {
             const TkString accessor = type.kind == RkTypeModel::kClass || !field.getterName.isEmpty() || field.isStatic
                 ? TkString::format("&rk_field_accessor_%s_%s", type.symbolName.getText(), field.name.getText())
                 : "nullptr";
-            w.line(TkString::format("{ \"%s\", %s, %s, %s, {}, %s },", field.name.getText(), field.typeOfText.getText(), offset.getText(), fieldFlags(field, type.kind == RkTypeModel::kClass).getText(), accessor.getText()));
+            const TkString attrSymbol = TkString::format("s_attrs_%s_%s", type.symbolName.getText(), field.name.getText());
+            const TkString attrSpan = attributeSpanExpr(attrSymbol, field.attributes.count());
+            const TkString defaultValue = escapeStringLiteral(field.defaultValue);
+            const TkString oldName = escapeStringLiteral(field.oldName);
+            const TkString referencePolicy = escapeStringLiteral(field.referencePolicy);
+            w.line(TkString::format("{ \"%s\", %s, %s, %s, %s, %s, { %s, \"%s\", \"%s\", \"%s\" } },",
+                field.name.getText(),
+                field.typeOfText.getText(),
+                offset.getText(),
+                fieldFlags(field, type.kind == RkTypeModel::kClass).getText(),
+                attrSpan.getText(),
+                accessor.getText(),
+                field.serializationFlags.getText(),
+                defaultValue.getText(),
+                oldName.getText(),
+                referencePolicy.getText()));
         }
         w.unindent();
         w.line("};");
@@ -795,7 +978,9 @@ namespace toolkit {
         {
             const RkMethodModel& method = type.methods[mi];
             const TkString& sym = methodSymbols[mi];
-            w.line(TkString::format("{ \"%s\", 0, %s, %s, ::toolkit::TkSpan<const ::toolkit::RkParam>(s_params_%s, %i), %i, %s, &rk_invoke_%s, {} },",
+            const TkString attrSymbol = TkString::format("s_attrs_%s", sym.getText());
+            const TkString attrSpan = attributeSpanExpr(attrSymbol, method.attributes.count());
+            w.line(TkString::format("{ \"%s\", 0, %s, %s, ::toolkit::TkSpan<const ::toolkit::RkParam>(s_params_%s, %i), %i, %s, &rk_invoke_%s, %s },",
                 method.name.getText(),
                 method.returnTypeOfText.getText(),
                 method.returnKind.getText(),
@@ -803,7 +988,8 @@ namespace toolkit {
                 method.params.count(),
                 method.params.count(),
                 methodFlags(method).getText(),
-                sym.getText()));
+                sym.getText(),
+                attrSpan.getText()));
         }
         w.unindent();
         w.line("};");
@@ -887,6 +1073,7 @@ namespace toolkit {
             w.line(TkString::format("desc.size = sizeof(%s);", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.align = alignof(%s);", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.baseType = %s;", base.getText()));
+            w.line(TkString::format("desc.attributes = %s;", attributeSpanExpr(TkString::format("s_attrs_%s", type.symbolName.getText()), type.attributes.count()).getText()));
             if (type.derivesFromRkObject && type.hasSpawnConstructor && !type.noSpawn)
             {
                 w.line(TkString::format("desc.spawn = &rk_spawn_%s;", type.symbolName.getText()));
@@ -903,7 +1090,9 @@ namespace toolkit {
             w.line(TkString::format("desc.fullName = \"%s\";", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.size = sizeof(%s);", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.align = alignof(%s);", type.qualifiedCppName.getText()));
+            w.line(TkString::format("desc.attributes = %s;", attributeSpanExpr(TkString::format("s_attrs_%s", type.symbolName.getText()), type.attributes.count()).getText()));
             w.line(TkString::format("desc.fields = ::toolkit::TkSpan<const ::toolkit::RkField>(s_fields_%s, %i);", type.symbolName.getText(), type.fields.count()));
+            w.line(TkString::format("desc.methods = ::toolkit::TkSpan<const ::toolkit::RkMethod>(s_methods_%s, %i);", type.symbolName.getText(), type.methods.count()));
             w.line("module.registerType(desc);");
         }
         else if (type.kind == RkTypeModel::kEnum)
@@ -913,6 +1102,7 @@ namespace toolkit {
             w.line(TkString::format("desc.fullName = \"%s\";", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.size = sizeof(%s);", type.qualifiedCppName.getText()));
             w.line(TkString::format("desc.align = alignof(%s);", type.qualifiedCppName.getText()));
+            w.line(TkString::format("desc.attributes = %s;", attributeSpanExpr(TkString::format("s_attrs_%s", type.symbolName.getText()), type.attributes.count()).getText()));
             w.line(TkString::format("desc.items = ::toolkit::TkSpan<const ::toolkit::EnumItem>(s_enum_items_%s, %i);", type.symbolName.getText(), type.enumItems.count()));
             w.line("module.registerType(desc);");
         }

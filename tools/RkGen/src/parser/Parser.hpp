@@ -58,6 +58,10 @@ namespace toolkit {
 
         Expected<struct ASTField*> parseCField(bool isStatic = false);
         Expected<struct ASTField*> parseImplicitStructField(bool isStatic = false);
+        Expected<void> parsePendingAttributes();
+        void applyPendingAttributes(struct ASTTypeDecl* type);
+        void applyPendingAttributes(struct ASTField* field);
+        void applyPendingAttributes(struct ASTFunction* function);
 
         Expected<void> jumpUnneed();
         void jumpLine();
@@ -73,6 +77,7 @@ namespace toolkit {
         ASTTransUnit* m_root;
         DiagnosticCollector m_diag;
         mutable Token m_current;
+        TkArray<TkString> m_pendingAttributes;
 
         i32 m_tk_idx = 0;
         bool m_skipNextClass = false;  // set when template<> precedes rkclass/rkstruct
