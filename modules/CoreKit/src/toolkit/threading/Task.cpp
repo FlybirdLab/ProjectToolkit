@@ -137,6 +137,15 @@ namespace toolkit {
     {
         if (isCanceled())
             return;
+
+        if (isCancelRequested())
+        {
+            TK_ASSERT(isQueued());
+            setState(TaskState::kCanceled);
+            onEnd();
+            return;
+        }
+
         TK_ASSERT(isQueued());
         setState(TaskState::kRunning);
 
@@ -198,9 +207,16 @@ namespace toolkit {
             wait(timeout);
         }
 
-        // Don't call OnEnd twice
         const auto state = getState();
-        if (state != TaskState::kFinished && state != TaskState::kFailed)
+        if (state == TaskState::kQueued)
+        {
+            // The task is still inside the thread-pool queue. Let the worker dequeue it
+            // and run onEnd(), otherwise the queue would keep a dangling task pointer.
+            return;
+        }
+
+        // Don't call OnEnd twice
+        if (state != TaskState::kFinished && state != TaskState::kFailed && state != TaskState::kCanceled)
         {
             setState(TaskState::kCanceled);
             onEnd();
@@ -211,8 +227,15 @@ namespace toolkit {
     {
         TK_ASSERT(!isRunning());
 
-        // Add to delete
-        TkMemory::deletePtr(TkMemory::getDefault(), this); //TODO
+        if (m_autoDelete)
+            destroy();
+    }
+
+    void ThreadPoolTask::cancelAfterDequeue()
+    {
+        cancel();
+        if (isQueued() && isCancelRequested())
+            execute();
     }
 
     static TkMutex s_mtx;

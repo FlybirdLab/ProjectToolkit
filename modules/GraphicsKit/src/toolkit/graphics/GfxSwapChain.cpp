@@ -85,6 +85,7 @@ namespace toolkit
         }
         task->swapchain = this;
         task->texture = texture;
+        task->setAutoDelete(false);
 
         const auto downloadTask = texture->downloadDataAsync(result);
         if (!downloadTask)

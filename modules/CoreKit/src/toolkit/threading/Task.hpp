@@ -156,6 +156,14 @@ namespace toolkit
         {
             return m_name;
         }
+        void setAutoDelete(bool value)
+        {
+            m_autoDelete = value;
+        }
+        void destroy()
+        {
+            TkMemory::deletePtr(TkMemory::getDefault(), this);
+        }
 
     protected:
         // Executes this task. It should be called by the task consumer (thread pool or other executor of this task type). It calls run() and handles result).
@@ -181,6 +189,7 @@ namespace toolkit
 
         // The task to start after finish.
         TkTask *m_continueWith = nullptr;
+        bool m_autoDelete = true;
 
         void setState(TaskState state)
         {
@@ -198,6 +207,7 @@ namespace toolkit
 
     public:
         void enqueue() override;
+        void cancelAfterDequeue();
     };
 
     // General purpose task executing custom action using Thread Pool.

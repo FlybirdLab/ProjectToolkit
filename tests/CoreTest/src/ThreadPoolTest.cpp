@@ -37,11 +37,17 @@ TEST_F(ThreadPoolTest, SingleTaskExecute)
 {
     std::atomic<int> value{0};
 
-    auto task = TkTask::startNew([&]()
-                                 { value.store(42); });
+    TkFunc<void()> action([&]()
+                          { value.store(42); });
+    auto task = TkMemory::newObject<ThreadPoolActionTask>(
+        TkMemory::getDefault(),
+        action);
+    task->setAutoDelete(false);
+    task->start();
 
     EXPECT_FALSE(task->wait(2000));
     EXPECT_EQ(value.load(), 42);
+    task->destroy();
 }
 
 TEST_F(ThreadPoolTest, MultipleTasksExecute)
@@ -52,36 +58,57 @@ TEST_F(ThreadPoolTest, MultipleTasksExecute)
 
     for (int i = 0; i < kTasks; i++)
     {
-        tasks.add(TkTask::startNew([&]()
-                                   { counter.fetch_add(1); }));
+        TkFunc<void()> action([&]()
+                              { counter.fetch_add(1); });
+        auto *task = TkMemory::newObject<ThreadPoolActionTask>(
+            TkMemory::getDefault(),
+            action);
+        task->setAutoDelete(false);
+        task->start();
+        tasks.add(task);
     }
 
     for (int i = 0; i < tasks.count(); i++)
         EXPECT_FALSE(tasks[i]->wait(2000));
 
     EXPECT_EQ(counter.load(), kTasks);
+
+    for (int i = 0; i < tasks.count(); i++)
+        tasks[i]->destroy();
 }
 
 TEST_F(ThreadPoolTest, TaskWaitTimeout)
 {
-    auto task = TkTask::startNew([]()
-                                 { TkThread::sleep(100); });
+    TkFunc<void()> action([]()
+                          { TkThread::sleep(100); });
+    auto task = TkMemory::newObject<ThreadPoolActionTask>(
+        TkMemory::getDefault(),
+        action);
+    task->setAutoDelete(false);
+    task->start();
 
     bool timeout = task->wait(10);
     EXPECT_TRUE(timeout); // timeout == true
 
     EXPECT_FALSE(task->wait(500));
+    task->destroy();
 }
 
 TEST_F(ThreadPoolTest, BoolTaskFail)
 {
-    auto task = TkTask::startNew([]() -> bool
-                                 {
-                                     return true; // true = failed
-                                 });
+    TkFunc<bool()> action([]() -> bool
+                          {
+                              return true; // true = failed
+                          });
+    auto task = TkMemory::newObject<ThreadPoolActionTask>(
+        TkMemory::getDefault(),
+        action);
+    task->setAutoDelete(false);
+    task->start();
 
     EXPECT_TRUE(task->wait(2000));
     EXPECT_TRUE(task->isFailed());
+    task->destroy();
 }
 
 TEST_F(ThreadPoolTest, ContinueWithChain)
@@ -119,24 +146,36 @@ TEST_F(ThreadPoolTest, CancelBeforeRun)
 {
     std::atomic<bool> ran{false};
 
-    auto task = TkTask::startNew([&]()
-                                 { ran.store(true); });
+    TkFunc<void()> action([&]()
+                          { ran.store(true); });
+    auto task = TkMemory::newObject<ThreadPoolActionTask>(
+        TkMemory::getDefault(),
+        action);
+    task->setAutoDelete(false);
+    task->start();
 
     task->cancel();
 
     EXPECT_TRUE(task->wait(2000));
     EXPECT_FALSE(ran.load());
     EXPECT_TRUE(task->isCanceled());
+    task->destroy();
 }
 
 TEST_F(ThreadPoolTest, CancelWhileRunning)
 {
     std::atomic<bool> entered{false};
 
-    auto task = TkTask::startNew([&]()
-                                 {
-        entered.store(true);
-        TkThread::sleep(50); });
+    TkFunc<void()> action([&]()
+                          {
+                              entered.store(true);
+                              TkThread::sleep(50);
+                          });
+    auto task = TkMemory::newObject<ThreadPoolActionTask>(
+        TkMemory::getDefault(),
+        action);
+    task->setAutoDelete(false);
+    task->start();
 
     while (!entered.load())
         std::this_thread::yield();
@@ -144,6 +183,7 @@ TEST_F(ThreadPoolTest, CancelWhileRunning)
     task->cancel();
 
     EXPECT_TRUE(task->wait(3000));
+    task->destroy();
 }
 
 TEST_F(ThreadPoolTest, MainThreadTaskExecute)

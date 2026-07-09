@@ -80,7 +80,7 @@ namespace toolkit
             {
                 for (std::size_t i = 0; i != count; i++)
                 {
-                    tasks[i]->cancel();
+                    tasks[i]->cancelAfterDequeue();
                 }
             }
         }

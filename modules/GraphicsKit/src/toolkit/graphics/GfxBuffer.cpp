@@ -314,7 +314,9 @@ namespace toolkit
 
         // Wait for work to be done
         task->start();
-        if (task->wait())
+        const bool failed = task->wait();
+        task->destroy();
+        if (failed)
         {
             LogWarn("Resource \'%i\' copy failed.", getType());
             return false;
@@ -395,6 +397,7 @@ namespace toolkit
 
         // Set continuation
         copyTask->continueWith(getDataTask);
+        copyTask->setAutoDelete(false);
 
         return copyTask;
     }

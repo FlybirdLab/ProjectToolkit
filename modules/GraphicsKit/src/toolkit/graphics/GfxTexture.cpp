@@ -739,7 +739,9 @@ namespace toolkit
 
         // Wait for work to be done
         task->start();
-        if (task->wait())
+        const bool failed = task->wait();
+        task->destroy();
+        if (failed)
         {
             LogWarn("Resource \'%s\' copy failed.", name);
             return false;
@@ -769,6 +771,7 @@ namespace toolkit
             // Create task to copy downloaded data to TextureData container
             auto getDataTask = TkMemory::newObject<TextureDownloadDataTask>(TkMemory::getDefault(), this, this, result);
             // TK_ASSERT(getDataTask->HasReference(this));
+            getDataTask->setAutoDelete(false);
             return getDataTask;
         }
 
@@ -790,6 +793,7 @@ namespace toolkit
 
         // Set continuation
         copyTask->continueWith(getDataTask);
+        copyTask->setAutoDelete(false);
 
         return copyTask;
     }

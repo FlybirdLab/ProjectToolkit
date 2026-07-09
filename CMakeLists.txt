@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.31)
 
+# Keep MSVC diagnostic/dependency output stable for Ninja's msvc deps parser.
+# Localized /showIncludes output is not reliably filtered by Ninja in every shell codepage.
+if(WIN32)
+    set(ENV{VSLANG} "1033")
+endif()
+
 # Disable external headers feature on MSVC to prevent -external: flags
 # MUST be set BEFORE project()
 set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "")
@@ -8,6 +14,7 @@ set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(USE_TEST ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmakes")
 
 ##########################################################
@@ -15,6 +22,8 @@ project(ToolkitProject)
 ##########################################################
 
 if (MSVC)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CMAKE_COMMAND};-E;env;VSLANG=1033")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CMAKE_COMMAND};-E;env;VSLANG=1033")
     add_compile_options(/utf-8)
 endif()
 

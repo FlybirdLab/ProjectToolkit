@@ -90,7 +90,7 @@ namespace toolkit
                 }
                 else
                 {
-                        fprintf(stderr, "   at 0x%lx\n", (u64)frame.programCounter);
+                        fprintf(stderr, "   at 0x%llx\n", (unsigned long long)frame.programCounter);
                 }
         }
 

@@ -1,6 +1,7 @@
 # git ignore file
 
 .idea
+.agents
 cmake-build-debug
 cmake-*
 .DS_Store

@@ -1,6 +1,6 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
- * @LastEditors: cubevlmu khfahqp@gmail.com
+ * @LastEditors: khfahqp khfahqp@gmail.com
  * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  * Test target: ArrayTest.cpp
  */
@@ -16,7 +16,7 @@ namespace toolkit
 
 	// Dynamic array with growable capacity and contiguous storage.
 	template <typename T>
-	class TkArray final : protected TLinearContainerBase<T>
+	class TkArray : protected TLinearContainerBase<T>
 	{
 		using Base = TLinearContainerBase<T>;
 		using Base::m_alloc;
