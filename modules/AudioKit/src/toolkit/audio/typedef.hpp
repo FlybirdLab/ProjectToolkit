@@ -1,0 +1,18 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
+
+#pragma once
+
+#include <toolkit/common.hpp>
+
+namespace toolkit
+{
+    class Audio;
+    class AudioClip;
+    class AudioStreamClip;
+    class AudioListener;
+    class AudioSource;
+}

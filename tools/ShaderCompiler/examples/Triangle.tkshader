@@ -1,0 +1,55 @@
+Shader "Examples/Triangle"
+{
+    SubShader
+    {
+        Target
+        {
+            opengl = "glsl_410"
+        }
+
+        Pass "Forward"
+        {
+            Cull Off
+            ZWrite On
+            ZTest LessEqual
+
+            GLSLPROGRAM
+            #version 410 core
+
+            #ifdef TK_SHADER_STAGE_VERTEX
+
+            out vec4 vColor;
+
+            const vec2 kPositions[3] = vec2[3](
+                vec2( 0.00,  0.65),
+                vec2( 0.65, -0.55),
+                vec2(-0.65, -0.55)
+            );
+
+            const vec4 kColors[3] = vec4[3](
+                vec4(1.00, 0.12, 0.10, 1.0),
+                vec4(0.10, 0.80, 0.25, 1.0),
+                vec4(0.15, 0.35, 1.00, 1.0)
+            );
+
+            void main()
+            {
+                gl_Position = vec4(kPositions[gl_VertexID], 0.0, 1.0);
+                vColor      = kColors[gl_VertexID];
+            }
+            #endif
+
+            #ifdef TK_SHADER_STAGE_PIXEL
+
+            in vec4 vColor;
+            out vec4 FragColor;
+
+            void main()
+            {
+                FragColor = vColor;
+            }
+            #endif
+            ENDGLSL
+        }
+    }
+}

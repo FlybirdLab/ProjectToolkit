@@ -1,0 +1,22 @@
+# git ignore file
+
+.idea
+cmake-build-debug
+cmake-*
+.DS_Store
+libs
+.cache
+.github
+.editorconfig
+build
+.VSCodeCounter
+.vscode
+.claude
+references
+install
+shader-output
+.codegraph
+*.cache
+tpkg.lock.toml
+.tpkg
+*.pdb

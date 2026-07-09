@@ -1,0 +1,12 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
+
+#pragma once
+
+#define TK_NET_BACKEND_ENET @TK_NET_BACKEND_ENET@
+#define TK_NET_BACKEND_KCP  @TK_NET_BACKEND_KCP@
+
+#define TK_NET_BACKEND_NAME "@TK_NET_BACKEND@"

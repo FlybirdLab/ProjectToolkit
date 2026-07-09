@@ -1,0 +1,44 @@
+// Sandbox-style triangle manifest used by the parser / sema integration tests.
+
+Shader "Sandbox/TestTriangle"
+{
+    Properties
+    {
+        Color     MainColor = (1, 1, 1, 1)
+        Float     Intensity = 0.5
+        Texture2D MainTex   = "white"
+    }
+
+    Tags
+    {
+        RenderType = "Opaque"
+        Queue      = "Geometry"
+    }
+
+    Variants
+    {
+        USE_VERTEX_COLOR = [0, 1]
+    }
+
+    SubShader
+    {
+        Target
+        {
+            dx11   = "d3d_sm5"
+            dx12   = "dx_sm6"
+            vulkan = "vk_sm5"
+            opengl = "glsl_410"
+        }
+
+        Pass "Forward"
+        {
+            Cull   Back
+            ZWrite On
+            ZTest  LessEqual
+            Blend  Alpha
+
+            Vertex { Source = "test_triangle.hlsl"; Entry = "VSMain"; }
+            Pixel  { Source = "test_triangle.hlsl"; Entry = "PSMain"; }
+        }
+    }
+}

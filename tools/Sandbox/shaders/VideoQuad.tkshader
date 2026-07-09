@@ -1,0 +1,34 @@
+// Sandbox video fullscreen quad shader manifest.
+
+Shader "Sandbox/VideoQuad"
+{
+    SubShader
+    {
+        Target
+        {
+            dx11   = "d3d_sm5"
+            dx12   = "dx_sm6"
+            vulkan = "vk_sm5"
+            opengl = "glsl_410"
+        }
+
+        Pass "Forward"
+        {
+            Cull Off
+            ZWrite Off
+            ZTest Always
+
+            Vertex
+            {
+                Source = "VideoQuad.hlsl"
+                Entry = "VSMain"
+            }
+
+            Pixel
+            {
+                Source = "VideoQuad.hlsl"
+                Entry = "PSMain"
+            }
+        }
+    }
+}

@@ -1,0 +1,209 @@
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Test target : ThreadTest.cpp
+ */
+
+#pragma once
+
+#include <toolkit/types/Atomic.hpp>
+
+#if TK_POSIX
+#	include <pthread.h>
+#	include <semaphore.h>
+#else
+#	include <toolkit/platforms/win32/IncludeWindows.hpp>
+#endif
+
+namespace toolkit {
+
+    // Cross-platform mutex implement
+    class TkMutex
+    {
+        friend class TkCondVar;
+    public:
+        TkMutex();
+        ~TkMutex();
+        TkMutex(const TkMutex&) = delete; // Non-copyable
+        TkMutex& operator=(const TkMutex&) = delete; // Non-copyable
+
+        void lock();
+        bool tryLock();
+        void unlock();
+        TK_FORCE_INLINE void unlock() const {
+            const_cast<TkMutex *>(this)->unlock();
+        }
+    private:
+#if TK_POSIX
+        pthread_mutex_t m_handle;
+#else
+        CRITICAL_SECTION m_handle;
+#endif
+    };
+
+
+    // Cross-platform mutex implement for read&write situation
+    class TkRwMutex
+    {
+    public:
+        TkRwMutex();
+        ~TkRwMutex();
+        TkRwMutex(const TkRwMutex&) = delete; // Non-copyable
+        TkRwMutex& operator=(const TkRwMutex&) = delete; // Non-copyable
+
+        void lockRead();
+        TK_FORCE_INLINE void lockRead() const {
+            const_cast<TkRwMutex *>(this)->lockRead();
+        }
+        void lockWrite();
+        void unlockRead();
+        void unlockWrite();
+
+    private:
+#if TK_POSIX
+        pthread_rwlock_t m_handle;
+#else
+        SRWLOCK m_handle;
+#endif
+    };
+
+
+    // Cross-platform implement for ConditionVariable
+    class TkCondVar
+    {
+    public:
+        TkCondVar();
+        ~TkCondVar();
+        TkCondVar(const TkCondVar&) = delete; // Non-copyable
+        TkCondVar& operator=(const TkCondVar&) = delete; // Non-copyable
+
+        void notifyOne();
+        void notifyAll();
+        void wait(TkMutex&);
+        bool wait(TkMutex&, const i32 timeout);
+
+    private:
+#if TK_POSIX
+        pthread_cond_t m_handle;
+#else
+        CONDITION_VARIABLE m_handle;
+#endif
+    };
+
+
+    // Cross-platform SpinLock implement.
+    // High performance substitute for mutex if only using in short time
+    class TkSpinLock
+    {
+    public:
+        TkSpinLock() = default;
+        ~TkSpinLock() = default;
+        TkSpinLock(const TkSpinLock&) = delete; // Non-copyable
+        TkSpinLock& operator=(const TkSpinLock&) = delete; // Non-copyable
+
+        void lock();
+        void unlock();
+        bool tryLock();
+
+    private:
+        TkAtomic<bool> m_lock;
+    };
+
+
+    // A barrier for thread synchronization.
+    class TkBarrier
+    {
+    public:
+        explicit TkBarrier(u32 size);
+        ~TkBarrier();
+        TkBarrier(const TkBarrier&) = delete; // Non-copyable
+        TkBarrier& operator=(const TkBarrier&) = delete; // Non-copyable
+
+        void wait();
+private:
+#if TK_POSIX && !TK_APPLE
+        pthread_barrier_t m_handle;
+#elif TK_POSIX
+        pthread_mutex_t m_mtx;
+        pthread_cond_t m_cvar;
+        u32 m_threshold;
+        u32 m_count;
+        u32 m_generation;
+#else
+        CONDITION_VARIABLE m_cvar;
+        CRITICAL_SECTION m_mtx;
+        u32 m_threshold;
+        u32 m_count;
+        u32 m_generation;
+#endif
+    };
+
+
+    // Cross-platform Semaphore implement for thread synchronize
+    class TkSemaphore
+    {
+    public:
+        TkSemaphore(i32 size, i32 maxSize);
+        ~TkSemaphore();
+        TkSemaphore(const TkSemaphore&) = delete; // Non-copyable
+        TkSemaphore& operator=(const TkSemaphore&) = delete; // Non-copyable
+
+        void signal(u32 count = 1);
+        void wait();
+        bool wait(u32 timeout);
+    private:
+#if TK_POSIX
+        struct {
+			pthread_mutex_t mutex;
+			pthread_cond_t cond;
+			volatile i32 count;
+		} m_id;
+#else
+        void* m_id;
+#endif
+    };
+
+
+    // Auto release guard for mutex when exit the scope
+    template <typename T>
+    class TkMutexGuard
+    {
+    public:
+        explicit TkMutexGuard(T& mtx) : m_mtx(&mtx) { m_mtx->lock(); }
+        TkMutexGuard(TkMutexGuard&& b) noexcept { m_mtx = b.m_mtx; b.m_mtx = nullptr; }
+        TkMutexGuard(const TkMutexGuard& b) = delete;
+        TkMutexGuard& operator=(TkMutexGuard&& b) = delete;
+        TkMutexGuard& operator=(const TkMutexGuard& b) = delete;
+        ~TkMutexGuard()
+        {
+            if (!m_mtx) return;
+            m_mtx->unlock();
+        }
+
+    private:
+        T* m_mtx;
+    };
+
+
+	class TSync
+	{
+	public:
+		static void memoryBarrier();
+		static void prefetch(void const* ptr);
+
+	public:
+		static i64 interlockedExchange(i64 volatile* dst, i64 exchange);
+		static i32 interlockedCompareExchange(i32 volatile* dst, i32 exchange, i32 comperand);
+		static i64 interlockedCompareExchange(i64 volatile* dst, i64 exchange, i64 comperand);
+		static i64 interlockedIncrement(i64 volatile* dst);
+		static i64 interlockedDecrement(i64 volatile* dst);
+		static i64 interlockedAdd(i64 volatile* dst, i64 value);
+
+	public:
+		static i32 atomicRead(i32 const volatile* dst);
+		static i64 atomicRead(i64 const volatile* dst);
+		static void atomicStore(i32 volatile* dst, i32 value);
+		static void atomicStore(i64 volatile* dst, i64 value);
+	};
+}
